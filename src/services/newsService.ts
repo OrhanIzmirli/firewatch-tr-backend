@@ -1,0 +1,115 @@
+import pool from '../config/database';
+import { News, ApiResponse } from '../types';
+
+class NewsService {
+  // Get all news with filtering
+  async getAllNews(category?: string, limit: number = 20, offset: number = 0): Promise<News[]> {
+    let query = 'SELECT * FROM news WHERE 1=1';
+    const params: any[] = [];
+
+    if (category) {
+      query += ' AND category = $' + (params.length + 1);
+      params.push(category);
+    }
+
+    query += ' ORDER BY published_at DESC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
+    params.push(limit, offset);
+
+    try {
+      const result = await pool.query(query, params);
+      return result.rows;
+    } catch (error) {
+      console.error('Error fetching news:', error);
+      throw error;
+    }
+  }
+
+  // Get single news by ID
+  async getNewsById(id: number): Promise<News | null> {
+    try {
+      const result = await pool.query('SELECT * FROM news WHERE id = $1', [id]);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Error fetching news:', error);
+      throw error;
+    }
+  }
+
+  // Create new news
+  async createNews(data: Omit<News, 'id' | 'created_at'>): Promise<News> {
+    const { title, summary, body, source, source_url, category, is_breaking, published_at, read_minutes, related_region } = data;
+    
+    try {
+      const result = await pool.query(
+        `INSERT INTO news (title, summary, body, source, source_url, category, is_breaking, published_at, read_minutes, related_region)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         RETURNING *`,
+        [title, summary, body, source, source_url, category, is_breaking || false, published_at, read_minutes, related_region]
+      );
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error creating news:', error);
+      throw error;
+    }
+  }
+
+  // Update news
+  async updateNews(id: number, data: Partial<News>): Promise<News | null> {
+    const updates: string[] = [];
+    const params: any[] = [];
+    let paramCount = 1;
+
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && key !== 'id' && key !== 'created_at') {
+        updates.push(`${key} = $${paramCount}`);
+        params.push(value);
+        paramCount++;
+      }
+    });
+
+    if (updates.length === 0) return this.getNewsById(id);
+
+    params.push(id);
+    const query = `UPDATE news SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`;
+
+    try {
+      const result = await pool.query(query, params);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Error updating news:', error);
+      throw error;
+    }
+  }
+
+  // Delete news
+  async deleteNews(id: number): Promise<boolean> {
+    try {
+      const result = await pool.query('DELETE FROM news WHERE id = $1', [id]);
+      return result.rowCount ? result.rowCount > 0 : false;
+    } catch (error) {
+      console.error('Error deleting news:', error);
+      throw error;
+    }
+  }
+
+  // Get news count
+  async getNewsCount(category?: string): Promise<number> {
+    let query = 'SELECT COUNT(*) FROM news WHERE 1=1';
+    const params: any[] = [];
+
+    if (category) {
+      query += ' AND category = $' + (params.length + 1);
+      params.push(category);
+    }
+
+    try {
+      const result = await pool.query(query, params);
+      return parseInt(result.rows[0].count, 10);
+    } catch (error) {
+      console.error('Error counting news:', error);
+      throw error;
+    }
+  }
+}
+
+export default new NewsService();
