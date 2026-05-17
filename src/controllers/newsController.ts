@@ -4,7 +4,6 @@ import cacheService from '../services/cacheService';
 import { ApiResponse, News } from '../types';
 
 class NewsController {
-  // Get all news
   async getAllNews(req: Request, res: Response): Promise<void> {
     try {
       const category = (req.query.category as string) || undefined;
@@ -13,7 +12,6 @@ class NewsController {
       const limitNum = Math.min(limit || 20, 100);
       const offsetNum = offset || 0;
 
-      // Check cache
       const cacheKey = `news:${category || 'all'}:${limitNum}:${offsetNum}`;
       const cached = await cacheService.get<News[]>(cacheKey);
       if (cached) {
@@ -26,11 +24,9 @@ class NewsController {
         return;
       }
 
-      // Get from database
-      const news = await newsService.getAllNews(category || '', limitNum, offsetNum);
-const total = await newsService.getNewsCount(category || '');
+      const news = await newsService.getAllNews(category as string, limitNum, offsetNum);
+      const total = await newsService.getNewsCount(category as string);
 
-      // Cache result
       await cacheService.set(cacheKey, news, 600);
 
       res.json({
@@ -50,13 +46,11 @@ const total = await newsService.getNewsCount(category || '');
     }
   }
 
-  // Get single news
   async getNewsById(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const newsId = parseInt(id as string);
 
-      // Check cache
       const cacheKey = `news:${newsId}`;
       const cached = await cacheService.get<News>(cacheKey);
       if (cached) {
@@ -79,7 +73,6 @@ const total = await newsService.getNewsCount(category || '');
         return;
       }
 
-      // Cache result
       await cacheService.set(cacheKey, news, 600);
 
       res.json({
