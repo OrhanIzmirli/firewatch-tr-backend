@@ -5,8 +5,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
 
-COPY . .
-RUN npm run build
+COPY dist/ ./dist/
+COPY src/ ./src/
 
 EXPOSE 5000
 
