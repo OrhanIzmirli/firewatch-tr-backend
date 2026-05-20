@@ -5,6 +5,8 @@ import compression from 'compression';
 import fireRoutes from './routes/fires';
 import notificationRoutes from './routes/notifications';
 import newsRoutes from './routes/news';
+import newsScraperJob from './jobs/newsScraperJob';
+import riskCalculatorJob from './jobs/riskCalculatorJob';
 
 require('dotenv').config();
 
@@ -45,6 +47,11 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     error: 'Internal Server Error',
   });
 });
+
+// Start background jobs
+newsScraperJob.start();
+riskCalculatorJob.start();
+console.log('Background jobs started');
 
 app.listen(PORT, () => {
   console.log(` FireWatch TR backend running on port ${PORT}`);
