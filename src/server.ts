@@ -3,6 +3,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import compression from 'compression';
 import fireRoutes from './routes/fires';
+import notificationRoutes from './routes/notifications';
 import newsRoutes from './routes/news';
 
 require('dotenv').config();
@@ -19,6 +20,7 @@ app.use(compression());
 // Routes
 app.use('/api/fires', fireRoutes);
 app.use('/api/news', newsRoutes);
+app.use('/api/notify', notificationRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -45,5 +47,5 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 FireWatch TR backend running on port ${PORT}`);
+  console.log(` FireWatch TR backend running on port ${PORT}`);
 });
