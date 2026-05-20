@@ -3,7 +3,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: firewatch_postgres
+    container_name: firewatch-tr-postgres
     environment:
       POSTGRES_USER: firewatch_user
       POSTGRES_PASSWORD: firewatch_password_123
@@ -21,7 +21,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: firewatch_redis
+    container_name: firewatch-tr-redis
     ports:
       - "6379:6379"
     volumes:
@@ -34,7 +34,7 @@ services:
 
   app:
     build: .
-    container_name: firewatch_app
+    container_name: firewatch-tr-app
     environment:
       NODE_ENV: development
       DB_HOST: postgres
