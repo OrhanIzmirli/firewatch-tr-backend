@@ -1,22 +1,23 @@
 import { Pool } from 'pg';
 import { DatabaseConfig } from '../types';
 
-const dbConfig: DatabaseConfig = {
+const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
-  user: process.env.DB_USER || 'firewatch_user',
-  password: process.env.DB_PASSWORD || 'firewatch_password_123',
-  database: process.env.DB_NAME || 'firewatch_db',
-};
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'postgres',
+  ssl: { rejectUnauthorized: false },
+});
 
-const pool = new Pool(dbConfig);
+pool.on('connect', (client) => {
+  client.query('SET search_path TO public');
+});
 
-// Handle connection errors
 pool.on('error', (err) => {
   console.error('❌ Unexpected database error:', err);
 });
 
-// Test connection
 pool.query('SELECT NOW()', (err, result) => {
   if (err) {
     console.error('❌ Database connection failed:', err.message);
