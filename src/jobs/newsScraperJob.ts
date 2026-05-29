@@ -31,38 +31,47 @@ const CITY_REGION_MAP: Record<string, string> = {
 };
 
 const MUST_HAVE_KEYWORDS = [
-  // Yangın
+  // 🔥 Yangın (öncelikli)
   'yangın', 'yanıyor', 'yandı', 'alevler', 'alev aldı', 'tutuştu',
   'yangın çıktı', 'yangın söndür', 'yangın riski', 'yangın tehlikesi',
   'orman yangını', 'orman ekibi', 'söndürme ekibi', 'itfaiye',
-  'afad', 'ogm', 'orman genel müdürlüğü',
-  'orman', 'makilik', 'ormanlık alan', 'tahliye', 'kuraklık', 'kurak',
-  // Hava durumu
-  'meteoroloji', 'hava durumu', 'sıcaklık rekoru',
-  'aşırı sıcak', 'kavurucu sıcak', 'sıcak hava dalgası',
-  'nem oranı', 'nem düştü', 'rüzgar uyarısı',
+  'afad', 'ogm', 'orman genel müdürlüğü', 'makilik', 'ormanlık alan',
+  // 🌡️ Sıcaklık & Kuraklık
+  'kuraklık', 'kurak', 'sıcaklık rekoru', 'aşırı sıcak',
+  'kavurucu sıcak', 'sıcak hava dalgası', 'yüksek sıcaklık',
+  'sıcaklık uyarısı', 'nem oranı', 'nem düştü',
+  // 🌩️ Hava Durumu & Fırtına
+  'meteoroloji', 'hava durumu', 'hava uyarısı',
   'sarı kod', 'turuncu kod', 'kırmızı kod',
-  'hava uyarısı', 'yüksek sıcaklık', 'sıcaklık uyarısı',
+  'fırtına', 'şiddetli yağış', 'sağanak', 'dolu',
+  'rüzgar uyarısı', 'kuvvetli rüzgar',
+  // 🌊 Su & Deniz
+  'sel', 'taşkın', 'su baskını', 'dere taştı',
+  'deniz kirliliği', 'deniz sıcaklığı', 'kıyı kirliliği',
+  // 🌿 Çevre & Kirlilik
+  'hava kirliliği', 'çevre kirliliği', 'kirlilik uyarısı',
+  'ekolojik felaket', 'çevre felaketi', 'doğa tahribatı',
+  'iklim değişikliği', 'küresel ısınma',
+  // ⛰️ Diğer Doğal Afetler
+  'heyelan', 'toprak kayması', 'çığ', 'deprem',
 ];
 
 const BLOCKED_KEYWORDS = [
-  // Şiddet
-  'öldürüldü', 'öldürdü', 'cinayet', 'katil', 'ceset',
-  'öldü', 'hayatını kaybetti',
-  // Doğal afet (yangın dışı)
-  'deprem', 'sel', 'heyelan', 'çığ', 'tsunami',
+  // Şiddet/Suç
+  'öldürüldü', 'öldürdü', 'cinayet', 'katil', 'ceset', 'infaz',
+  'saldırı', 'bomba', 'terör', 'silahlı',
   // Trafik
-  'trafik kazası', 'çarpıştı', 'devrildi', 'otobüs kazası',
+  'trafik kazası', 'çarpıştı', 'devrildi', 'otobüs kazası', 'zincirleme',
   // Spor
-  'futbol', 'basketbol', 'maç', 'gol', 'şampiyon', 'transfer', 'lig',
+  'futbol', 'basketbol', 'maç', 'gol', 'şampiyon', 'transfer', 'lig', 'forma',
   // Eğlence
-  'dizi', 'film', 'müzik', 'şarkı', 'konser', 'magazin',
+  'dizi', 'film', 'müzik', 'şarkı', 'konser', 'magazin', 'oyuncu',
   // Ekonomi
-  'borsa', 'dolar', 'euro', 'faiz', 'enflasyon',
+  'borsa', 'dolar', 'euro', 'faiz', 'enflasyon', 'bütçe', 'vergi',
   // Siyaset
-  'seçim', 'parti', 'milletvekili', 'meclis',
+  'seçim', 'parti', 'milletvekili', 'meclis', 'cumhurbaşkanı', 'muhalefet',
   // Diğer
-  'evlilik', 'boşanma', 'bebek', 'hamile',
+  'evlilik', 'boşanma', 'bebek', 'hamile', 'moda', 'tatil',
 ];
 
 const RSS_SOURCES = [
@@ -85,27 +94,25 @@ function detectRegion(text: string): string {
 function detectCategory(text: string): string {
   const lower = text.toLowerCase();
   if (lower.includes('risk') || lower.includes('uyarı') || lower.includes('tehlike') ||
-      lower.includes('kuraklık') || lower.includes('sıcaklık') || lower.includes('meteoroloji')) {
+      lower.includes('kuraklık') || lower.includes('sıcaklık') || lower.includes('meteoroloji') ||
+      lower.includes('deprem') || lower.includes('tsunami')) {
     return 'Risk';
   }
   if (lower.includes('söndürme') || lower.includes('müdahale') ||
-      lower.includes('operasyon') || lower.includes('itfaiye')) {
+      lower.includes('operasyon') || lower.includes('itfaiye') ||
+      lower.includes('kurtarma') || lower.includes('tahliye')) {
     return 'Operasyon';
   }
-  if (lower.includes('güvenlik') || lower.includes('tahliye') ||
-      lower.includes('önlem') || lower.includes('yasak')) {
+  if (lower.includes('güvenlik') || lower.includes('önlem') ||
+      lower.includes('yasak') || lower.includes('uyarı')) {
     return 'Güvenlik';
   }
   return 'Güncelleme';
 }
 
-function isFireRelated(text: string): boolean {
+function isRelevant(text: string): boolean {
   const lower = text.toLowerCase();
-
-  // Engelli keyword varsa kesinlikle reddet
   if (BLOCKED_KEYWORDS.some(kw => lower.includes(kw))) return false;
-
-  // Yangın/hava/doğa keywordlerinden biri geçmeli
   return MUST_HAVE_KEYWORDS.some(kw => lower.includes(kw));
 }
 
@@ -120,11 +127,9 @@ async function fetchRSS(url: string): Promise<any[]> {
       timeout: 10000,
       headers: { 'User-Agent': 'FireWatch TR News Bot 1.0' },
     });
-
     const parsed = await xml2js.parseStringPromise(response.data, {
       explicitArray: false,
     });
-
     const items = parsed?.rss?.channel?.item || [];
     return Array.isArray(items) ? items : [items];
   } catch (error) {
@@ -158,7 +163,7 @@ class NewsScraperJob {
           const pubDate = item.pubDate ? new Date(item.pubDate) : new Date();
           const fullText = `${title} ${summary}`;
 
-          if (!isFireRelated(fullText)) continue;
+          if (!isRelevant(fullText)) continue;
 
           const region = detectRegion(fullText);
           const category = detectCategory(fullText);
