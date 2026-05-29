@@ -4,34 +4,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const newsService_1 = __importDefault(require("../services/newsService"));
-const cacheService_1 = __importDefault(require("../services/cacheService"));
 class NewsController {
     async getAllNews(req, res) {
         try {
             console.log('📰 getAllNews called');
             const category = req.query.category || undefined;
-            const limit = parseInt(req.query.limit || '20');
-            const offset = parseInt(req.query.offset || '0');
-            const limitNum = Math.min(limit || 20, 100);
-            const offsetNum = offset || 0;
+            const limitNum = Math.min(parseInt(req.query.limit || '20'), 100);
+            const offsetNum = parseInt(req.query.offset || '0');
             console.log('📰 Params:', { category, limitNum, offsetNum });
-            const cacheKey = `news:${category || 'all'}:${limitNum}:${offsetNum}`;
-            const cached = await cacheService_1.default.get(cacheKey);
-            console.log('📰 Cache:', cached ? 'HIT' : 'MISS');
-            if (cached) {
-                res.json({
-                    status: 'success',
-                    message: 'News retrieved from cache',
-                    data: cached,
-                    timestamp: new Date().toISOString(),
-                });
-                return;
-            }
             const news = await newsService_1.default.getAllNews(category, limitNum, offsetNum);
             console.log('📰 DB result count:', news.length);
-            const total = await newsService_1.default.getNewsCount(category);
-            console.log('📰 Total count:', total);
-            await cacheService_1.default.set(cacheKey, news, 600);
             res.json({
                 status: 'success',
                 message: `Retrieved ${news.length} news`,
@@ -54,18 +36,6 @@ class NewsController {
             console.log('📰 getNewsById called');
             const { id } = req.params;
             const newsId = parseInt(id);
-            const cacheKey = `news:${newsId}`;
-            const cached = await cacheService_1.default.get(cacheKey);
-            console.log('📰 Cache:', cached ? 'HIT' : 'MISS');
-            if (cached) {
-                res.json({
-                    status: 'success',
-                    message: 'News retrieved from cache',
-                    data: cached,
-                    timestamp: new Date().toISOString(),
-                });
-                return;
-            }
             const news = await newsService_1.default.getNewsById(newsId);
             console.log('📰 News found:', news ? 'YES' : 'NO');
             if (!news) {
@@ -76,7 +46,6 @@ class NewsController {
                 });
                 return;
             }
-            await cacheService_1.default.set(cacheKey, news, 600);
             res.json({
                 status: 'success',
                 message: 'News retrieved',
