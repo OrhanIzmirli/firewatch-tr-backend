@@ -71,7 +71,10 @@ const BLOCKED_KEYWORDS = [
   // Siyaset
   'seçim', 'parti', 'milletvekili', 'meclis', 'cumhurbaşkanı', 'muhalefet',
   // Diğer
-  'evlilik', 'boşanma', 'bebek', 'hamile', 'moda', 'tatil',
+  'evlilik', 'boşanma', 'bebek', 'hamile', 'moda', 'tatil','operasyon', 'gözaltı', 'fetö', 'pkk', 'mit', 'emniyet operasyon',
+  'iha', 'drone', 'füze', 'nükleer',
+  'saç', 'alerjik', 'otopsi', 'velayet', 'sosyal medya paylaş',
+  'iletişim başkanı', 'altun',
 ];
 
 const RSS_SOURCES = [
