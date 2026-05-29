@@ -74,7 +74,8 @@ const BLOCKED_KEYWORDS = [
   'evlilik', 'boşanma', 'bebek', 'hamile', 'moda', 'tatil','operasyon', 'gözaltı', 'fetö', 'pkk', 'mit', 'emniyet operasyon',
   'iha', 'drone', 'füze', 'nükleer',
   'saç', 'alerjik', 'otopsi', 'velayet', 'sosyal medya paylaş',
-  'iletişim başkanı', 'altun',
+  'iletişim başkanı', 'altun','mayın', 'denizaltı', 'fırkateyn', 'patlayıcı', 'silah sistemi',
+'savunma sanayii', 'mke', 'roket', 'hava savunma',
 ];
 
 const RSS_SOURCES = [
