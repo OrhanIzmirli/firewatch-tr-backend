@@ -10,7 +10,8 @@ const pool = new pg_1.Pool({
     ssl: { rejectUnauthorized: false },
     max: 10,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
+    connectionTimeoutMillis: 5000,
+    statement_timeout: 10000,
 });
 pool.on('error', (err) => {
     console.error('❌ Unexpected database error:', err);
