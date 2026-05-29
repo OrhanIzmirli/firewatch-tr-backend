@@ -1,8 +1,7 @@
 import pool from '../config/database';
-import { News, ApiResponse } from '../types';
+import { News } from '../types';
 
 class NewsService {
-  // Get all news with filtering
   async getAllNews(category?: string, limit: number = 20, offset: number = 0): Promise<News[]> {
     let query = 'SELECT * FROM news WHERE 1=1';
     const params: any[] = [];
@@ -16,44 +15,64 @@ class NewsService {
     params.push(limit, offset);
 
     try {
-      const result = await pool.query(query, params);
+      console.log('📰 Executing query:', query, params);
+      const result = await Promise.race([
+        pool.query(query, params),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Query timeout after 8s')), 8000)
+        ),
+      ]) as any;
+      console.log('📰 Query result rows:', result.rows.length);
       return result.rows;
     } catch (error) {
-      console.error('Error fetching news:', error);
+      console.error('❌ Error fetching news:', error);
       throw error;
     }
   }
 
-  // Get single news by ID
   async getNewsById(id: number): Promise<News | null> {
     try {
-      const result = await pool.query('SELECT * FROM news WHERE id = $1', [id]);
+      console.log('📰 getNewsById:', id);
+      const result = await Promise.race([
+        pool.query('SELECT * FROM news WHERE id = $1', [id]),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Query timeout after 8s')), 8000)
+        ),
+      ]) as any;
       return result.rows[0] || null;
     } catch (error) {
-      console.error('Error fetching news:', error);
+      console.error('❌ Error fetching news by id:', error);
       throw error;
     }
   }
 
-  // Create new news
   async createNews(data: Omit<News, 'id' | 'created_at'>): Promise<News> {
-    const { title, summary, body, source, source_url, category, is_breaking, published_at, read_minutes, related_region } = data;
-    
+    const {
+      title, summary, body, source, source_url, source_id,
+      category, is_breaking, published_at, read_minutes,
+      related_region, highlights, paragraphs,
+    } = data;
+
     try {
       const result = await pool.query(
-        `INSERT INTO news (title, summary, body, source, source_url, category, is_breaking, published_at, read_minutes, related_region)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `INSERT INTO news 
+          (title, summary, body, source, source_url, source_id, category, is_breaking, published_at, read_minutes, related_region, highlights, paragraphs)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          RETURNING *`,
-        [title, summary, body, source, source_url, category, is_breaking || false, published_at, read_minutes, related_region]
+        [
+          title, summary, body, source, source_url, source_id,
+          category, is_breaking || false, published_at,
+          read_minutes, related_region,
+          highlights || [], paragraphs || [],
+        ]
       );
       return result.rows[0];
     } catch (error) {
-      console.error('Error creating news:', error);
+      console.error('❌ Error creating news:', error);
       throw error;
     }
   }
 
-  // Update news
   async updateNews(id: number, data: Partial<News>): Promise<News | null> {
     const updates: string[] = [];
     const params: any[] = [];
@@ -76,23 +95,21 @@ class NewsService {
       const result = await pool.query(query, params);
       return result.rows[0] || null;
     } catch (error) {
-      console.error('Error updating news:', error);
+      console.error('❌ Error updating news:', error);
       throw error;
     }
   }
 
-  // Delete news
   async deleteNews(id: number): Promise<boolean> {
     try {
       const result = await pool.query('DELETE FROM news WHERE id = $1', [id]);
       return result.rowCount ? result.rowCount > 0 : false;
     } catch (error) {
-      console.error('Error deleting news:', error);
+      console.error('❌ Error deleting news:', error);
       throw error;
     }
   }
 
-  // Get news count
   async getNewsCount(category?: string): Promise<number> {
     let query = 'SELECT COUNT(*) FROM news WHERE 1=1';
     const params: any[] = [];
@@ -103,10 +120,15 @@ class NewsService {
     }
 
     try {
-      const result = await pool.query(query, params);
+      const result = await Promise.race([
+        pool.query(query, params),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Count timeout after 8s')), 8000)
+        ),
+      ]) as any;
       return parseInt(result.rows[0].count, 10);
     } catch (error) {
-      console.error('Error counting news:', error);
+      console.error('❌ Error counting news:', error);
       throw error;
     }
   }

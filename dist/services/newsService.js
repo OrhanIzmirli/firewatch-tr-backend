@@ -5,7 +5,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const database_1 = __importDefault(require("../config/database"));
 class NewsService {
-    // Get all news with filtering
     async getAllNews(category, limit = 20, offset = 0) {
         let query = 'SELECT * FROM news WHERE 1=1';
         const params = [];
@@ -16,40 +15,52 @@ class NewsService {
         query += ' ORDER BY published_at DESC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
         params.push(limit, offset);
         try {
-            const result = await database_1.default.query(query, params);
+            console.log('📰 Executing query:', query, params);
+            const result = await Promise.race([
+                database_1.default.query(query, params),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout after 8s')), 8000)),
+            ]);
+            console.log('📰 Query result rows:', result.rows.length);
             return result.rows;
         }
         catch (error) {
-            console.error('Error fetching news:', error);
+            console.error('❌ Error fetching news:', error);
             throw error;
         }
     }
-    // Get single news by ID
     async getNewsById(id) {
         try {
-            const result = await database_1.default.query('SELECT * FROM news WHERE id = $1', [id]);
+            console.log('📰 getNewsById:', id);
+            const result = await Promise.race([
+                database_1.default.query('SELECT * FROM news WHERE id = $1', [id]),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout after 8s')), 8000)),
+            ]);
             return result.rows[0] || null;
         }
         catch (error) {
-            console.error('Error fetching news:', error);
+            console.error('❌ Error fetching news by id:', error);
             throw error;
         }
     }
-    // Create new news
     async createNews(data) {
-        const { title, summary, body, source, source_url, category, is_breaking, published_at, read_minutes, related_region } = data;
+        const { title, summary, body, source, source_url, source_id, category, is_breaking, published_at, read_minutes, related_region, highlights, paragraphs, } = data;
         try {
-            const result = await database_1.default.query(`INSERT INTO news (title, summary, body, source, source_url, category, is_breaking, published_at, read_minutes, related_region)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         RETURNING *`, [title, summary, body, source, source_url, category, is_breaking || false, published_at, read_minutes, related_region]);
+            const result = await database_1.default.query(`INSERT INTO news 
+          (title, summary, body, source, source_url, source_id, category, is_breaking, published_at, read_minutes, related_region, highlights, paragraphs)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         RETURNING *`, [
+                title, summary, body, source, source_url, source_id,
+                category, is_breaking || false, published_at,
+                read_minutes, related_region,
+                highlights || [], paragraphs || [],
+            ]);
             return result.rows[0];
         }
         catch (error) {
-            console.error('Error creating news:', error);
+            console.error('❌ Error creating news:', error);
             throw error;
         }
     }
-    // Update news
     async updateNews(id, data) {
         const updates = [];
         const params = [];
@@ -70,22 +81,20 @@ class NewsService {
             return result.rows[0] || null;
         }
         catch (error) {
-            console.error('Error updating news:', error);
+            console.error('❌ Error updating news:', error);
             throw error;
         }
     }
-    // Delete news
     async deleteNews(id) {
         try {
             const result = await database_1.default.query('DELETE FROM news WHERE id = $1', [id]);
             return result.rowCount ? result.rowCount > 0 : false;
         }
         catch (error) {
-            console.error('Error deleting news:', error);
+            console.error('❌ Error deleting news:', error);
             throw error;
         }
     }
-    // Get news count
     async getNewsCount(category) {
         let query = 'SELECT COUNT(*) FROM news WHERE 1=1';
         const params = [];
@@ -94,11 +103,14 @@ class NewsService {
             params.push(category);
         }
         try {
-            const result = await database_1.default.query(query, params);
+            const result = await Promise.race([
+                database_1.default.query(query, params),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Count timeout after 8s')), 8000)),
+            ]);
             return parseInt(result.rows[0].count, 10);
         }
         catch (error) {
-            console.error('Error counting news:', error);
+            console.error('❌ Error counting news:', error);
             throw error;
         }
     }
