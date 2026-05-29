@@ -1,19 +1,20 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const pg_1 = require("pg");
-const dbConfig = {
+const pool = new pg_1.Pool({
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '5432'),
-    user: process.env.DB_USER || 'firewatch_user',
-    password: process.env.DB_PASSWORD || 'firewatch_password_123',
-    database: process.env.DB_NAME || 'firewatch_db',
-};
-const pool = new pg_1.Pool(dbConfig);
-// Handle connection errors
+    user: process.env.DB_USER || 'postgres',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'postgres',
+    ssl: { rejectUnauthorized: false },
+});
+pool.on('connect', (client) => {
+    client.query('SET search_path TO public');
+});
 pool.on('error', (err) => {
     console.error('❌ Unexpected database error:', err);
 });
-// Test connection
 pool.query('SELECT NOW()', (err, result) => {
     if (err) {
         console.error('❌ Database connection failed:', err.message);
