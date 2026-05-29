@@ -3,34 +3,26 @@ import axios from 'axios';
 import * as xml2js from 'xml2js';
 import newsService from '../services/newsService';
 
-// Bölge tespiti için şehir → bölge mapping
 const CITY_REGION_MAP: Record<string, string> = {
-  // Ege
   'izmir': 'Ege', 'muğla': 'Ege', 'aydın': 'Ege', 'denizli': 'Ege',
   'manisa': 'Ege', 'uşak': 'Ege', 'kütahya': 'Ege', 'afyon': 'Ege',
-  // Akdeniz
   'antalya': 'Akdeniz', 'mersin': 'Akdeniz', 'adana': 'Akdeniz',
   'hatay': 'Akdeniz', 'osmaniye': 'Akdeniz', 'kahramanmaraş': 'Akdeniz',
   'burdur': 'Akdeniz', 'isparta': 'Akdeniz',
-  // Marmara
   'istanbul': 'Marmara', 'bursa': 'Marmara', 'balıkesir': 'Marmara',
   'çanakkale': 'Marmara', 'tekirdağ': 'Marmara', 'edirne': 'Marmara',
   'kırklareli': 'Marmara', 'kocaeli': 'Marmara', 'sakarya': 'Marmara',
   'yalova': 'Marmara', 'bilecik': 'Marmara',
-  // İç Anadolu
   'ankara': 'İç Anadolu', 'konya': 'İç Anadolu', 'eskişehir': 'İç Anadolu',
   'sivas': 'İç Anadolu', 'kayseri': 'İç Anadolu', 'aksaray': 'İç Anadolu',
   'niğde': 'İç Anadolu', 'nevşehir': 'İç Anadolu', 'kırıkkale': 'İç Anadolu',
-  // Karadeniz
   'trabzon': 'Karadeniz', 'samsun': 'Karadeniz', 'ordu': 'Karadeniz',
   'giresun': 'Karadeniz', 'rize': 'Karadeniz', 'artvin': 'Karadeniz',
   'zonguldak': 'Karadeniz', 'kastamonu': 'Karadeniz', 'sinop': 'Karadeniz',
   'bolu': 'Karadeniz', 'düzce': 'Karadeniz', 'bartın': 'Karadeniz',
-  // Doğu Anadolu
   'erzurum': 'Doğu Anadolu', 'malatya': 'Doğu Anadolu', 'elazığ': 'Doğu Anadolu',
   'van': 'Doğu Anadolu', 'ağrı': 'Doğu Anadolu', 'kars': 'Doğu Anadolu',
   'iğdır': 'Doğu Anadolu', 'ardahan': 'Doğu Anadolu',
-  // Güneydoğu Anadolu
   'gaziantep': 'Güneydoğu Anadolu', 'şanlıurfa': 'Güneydoğu Anadolu',
   'diyarbakır': 'Güneydoğu Anadolu', 'mardin': 'Güneydoğu Anadolu',
   'batman': 'Güneydoğu Anadolu', 'siirt': 'Güneydoğu Anadolu',
@@ -38,49 +30,43 @@ const CITY_REGION_MAP: Record<string, string> = {
   'kilis': 'Güneydoğu Anadolu',
 };
 
-// Yangın ile ilgili keywordler
+// Yangın keyword'ü MUTLAKA bunlardan biri olmalı
+const MUST_HAVE_KEYWORDS = [
+  'yangın', 'orman yangın', 'yanıyor', 'yandı',
+  'alevler', 'itfaiye', 'afad yangın', 'ogm yangın',
+  'yangın çıktı', 'yangın söndür', 'yangın riski',
+];
+
+// Ek yangın keywordleri (must_have ile birlikte)
 const FIRE_KEYWORDS = [
-  'yangın', 'orman yangını', 'yangınlar', 'yanıyor', 'yandı',
-  'söndürme', 'itfaiye', 'afad', 'ogm', 'tahliye',
-  'alevler', 'ateş', 'yanmaya başladı', 'yangın çıktı',
-  'yangın riski', 'kuraklık', 'meteoroloji uyarı',
+  'söndürme', 'tahliye', 'kuraklık', 'meteoroloji uyarı',
+  'orman', 'ormanlık', 'yangın ekibi',
 ];
 
-// Engellenecek keywordler
+// Kesinlikle engellenecek keywordler
 const BLOCKED_KEYWORDS = [
-  'cinayet', 'ölüm', 'öldürüldü', 'kaza', 'trafik',
-  'futbol', 'maç', 'gol', 'şampiyon', 'transfer',
-  'magazin', 'dizi', 'film', 'müzik', 'şarkı',
-  'borsa', 'dolar', 'euro', 'faiz', 'enflasyon',
-  'seçim', 'parti', 'milletvekili', 'cumhurbaşkanı',
+  'öldürüldü', 'öldürdü', 'cinayet', 'katil', 'ceset',
+  'öldü', 'hayatını kaybetti', 'can kaybı',
+  'deprem', 'sel', 'heyelan', 'çığ', 'tsunami',
+  'trafik kazası', 'çarpıştı', 'devrildi',
+  'futbol', 'basketbol', 'maç', 'gol', 'şampiyon', 'transfer', 'lig',
+  'dizi', 'film', 'müzik', 'şarkı', 'konser', 'magazin',
+  'borsa', 'dolar', 'euro', 'faiz', 'enflasyon', 'ekonomi',
+  'seçim', 'parti', 'milletvekili', 'meclis', 'hükümet',
+  'evlilik', 'boşanma', 'bebek', 'hamile',
 ];
 
-// RSS kaynakları
 const RSS_SOURCES = [
-  {
-    url: 'https://www.ntv.com.tr/gundem.rss',
-    source: 'NTV',
-  },
-  {
-    url: 'https://www.hurriyet.com.tr/rss/gundem',
-    source: 'Hürriyet',
-  },
-  {
-    url: 'https://www.cnnturk.com/feed/rss/turkiye/news',
-    source: 'CNN Türk',
-  },
-  {
-    url: 'https://www.sabah.com.tr/rss/gundem.xml',
-    source: 'Sabah',
-  },
+  { url: 'https://www.ntv.com.tr/gundem.rss', source: 'NTV' },
+  { url: 'https://www.hurriyet.com.tr/rss/gundem', source: 'Hürriyet' },
+  { url: 'https://www.cnnturk.com/feed/rss/turkiye/news', source: 'CNN Türk' },
+  { url: 'https://www.sabah.com.tr/rss/gundem.xml', source: 'Sabah' },
 ];
 
 function detectRegion(text: string): string {
-  const lowerText = text.toLowerCase();
+  const lower = text.toLowerCase();
   for (const [city, region] of Object.entries(CITY_REGION_MAP)) {
-    if (lowerText.includes(city)) {
-      return region;
-    }
+    if (lower.includes(city)) return region;
   }
   return 'Türkiye Geneli';
 }
@@ -101,13 +87,14 @@ function detectCategory(text: string): string {
 
 function isFireRelated(text: string): boolean {
   const lower = text.toLowerCase();
-  
-  // Engelli keyword varsa reddet
-  const hasBlocked = BLOCKED_KEYWORDS.some(kw => lower.includes(kw));
-  if (hasBlocked) return false;
 
-  // Yangın keyword'ü varsa kabul et
-  return FIRE_KEYWORDS.some(kw => lower.includes(kw));
+  // 1. Engellenmiş keyword varsa KESINLIKLE reddet
+  if (BLOCKED_KEYWORDS.some(kw => lower.includes(kw))) return false;
+
+  // 2. MUTLAKA yangın kelimesi geçmeli
+  if (!MUST_HAVE_KEYWORDS.some(kw => lower.includes(kw))) return false;
+
+  return true;
 }
 
 function estimateReadMinutes(text: string): number {
@@ -119,9 +106,7 @@ async function fetchRSS(url: string): Promise<any[]> {
   try {
     const response = await axios.get(url, {
       timeout: 10000,
-      headers: {
-        'User-Agent': 'FireWatch TR News Bot 1.0',
-      },
+      headers: { 'User-Agent': 'FireWatch TR News Bot 1.0' },
     });
 
     const parsed = await xml2js.parseStringPromise(response.data, {
@@ -139,13 +124,9 @@ async function fetchRSS(url: string): Promise<any[]> {
 class NewsScraperJob {
   start() {
     console.log('🔥 News Scraper Job starting...');
-
-    // Her 6 saatte bir çalış
     cron.schedule('0 */6 * * *', async () => {
       await this.runScraper();
     });
-
-    // Başlangıçta da çalıştır
     this.runScraper();
   }
 
@@ -163,25 +144,24 @@ class NewsScraperJob {
           const summary = item.description || '';
           const link = item.link || '';
           const pubDate = item.pubDate ? new Date(item.pubDate) : new Date();
-
           const fullText = `${title} ${summary}`;
 
-          // Yangınla ilgili mi?
           if (!isFireRelated(fullText)) continue;
 
           const region = detectRegion(fullText);
           const category = detectCategory(fullText);
           const readMinutes = estimateReadMinutes(summary);
           const isBreaking = fullText.toLowerCase().includes('son dakika');
+          const cleanSummary = summary.replace(/<[^>]*>/g, '').trim();
 
           try {
             await newsService.createNews({
               title: title.trim(),
-              summary: summary.replace(/<[^>]*>/g, '').trim(), // HTML temizle
-              body: summary.replace(/<[^>]*>/g, '').trim(),
+              summary: cleanSummary,
+              body: cleanSummary,
               source: source.source,
               source_url: link,
-              source_id: link, // duplicate önlemek için
+              source_id: link,
               category,
               is_breaking: isBreaking,
               published_at: pubDate,
@@ -192,11 +172,10 @@ class NewsScraperJob {
             });
 
             totalAdded++;
-            console.log(`✅ Added: ${title.substring(0, 50)}...`);
+            console.log(`✅ Added: ${title.substring(0, 60)}`);
           } catch (err: any) {
-            // Duplicate hatası → zaten var, geç
             if (err.code === '23505') {
-              console.log(`⏭️ Duplicate, skipping: ${title.substring(0, 40)}`);
+              console.log(`⏭️ Duplicate: ${title.substring(0, 40)}`);
             } else {
               console.error(`❌ DB error:`, err.message);
             }
