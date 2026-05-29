@@ -30,37 +30,48 @@ const CITY_REGION_MAP: Record<string, string> = {
   'kilis': 'Güneydoğu Anadolu',
 };
 
-// Yangın keyword'ü MUTLAKA bunlardan biri olmalı
 const MUST_HAVE_KEYWORDS = [
-  'yangın', 'orman yangın', 'yanıyor', 'yandı',
-  'alevler', 'itfaiye', 'afad yangın', 'ogm yangın',
-  'yangın çıktı', 'yangın söndür', 'yangın riski',
+  // Yangın
+  'yangın', 'yanıyor', 'yandı', 'alevler', 'alev aldı', 'tutuştu',
+  'yangın çıktı', 'yangın söndür', 'yangın riski', 'yangın tehlikesi',
+  'orman yangını', 'orman ekibi', 'söndürme ekibi', 'itfaiye',
+  'afad', 'ogm', 'orman genel müdürlüğü',
+  'orman', 'makilik', 'ormanlık alan', 'tahliye', 'kuraklık', 'kurak',
+  // Hava durumu
+  'meteoroloji', 'hava durumu', 'sıcaklık rekoru',
+  'aşırı sıcak', 'kavurucu sıcak', 'sıcak hava dalgası',
+  'nem oranı', 'nem düştü', 'rüzgar uyarısı',
+  'sarı kod', 'turuncu kod', 'kırmızı kod',
+  'hava uyarısı', 'yüksek sıcaklık', 'sıcaklık uyarısı',
 ];
 
-// Ek yangın keywordleri (must_have ile birlikte)
-const FIRE_KEYWORDS = [
-  'söndürme', 'tahliye', 'kuraklık', 'meteoroloji uyarı',
-  'orman', 'ormanlık', 'yangın ekibi',
-];
-
-// Kesinlikle engellenecek keywordler
 const BLOCKED_KEYWORDS = [
+  // Şiddet
   'öldürüldü', 'öldürdü', 'cinayet', 'katil', 'ceset',
-  'öldü', 'hayatını kaybetti', 'can kaybı',
+  'öldü', 'hayatını kaybetti',
+  // Doğal afet (yangın dışı)
   'deprem', 'sel', 'heyelan', 'çığ', 'tsunami',
-  'trafik kazası', 'çarpıştı', 'devrildi',
+  // Trafik
+  'trafik kazası', 'çarpıştı', 'devrildi', 'otobüs kazası',
+  // Spor
   'futbol', 'basketbol', 'maç', 'gol', 'şampiyon', 'transfer', 'lig',
+  // Eğlence
   'dizi', 'film', 'müzik', 'şarkı', 'konser', 'magazin',
-  'borsa', 'dolar', 'euro', 'faiz', 'enflasyon', 'ekonomi',
-  'seçim', 'parti', 'milletvekili', 'meclis', 'hükümet',
+  // Ekonomi
+  'borsa', 'dolar', 'euro', 'faiz', 'enflasyon',
+  // Siyaset
+  'seçim', 'parti', 'milletvekili', 'meclis',
+  // Diğer
   'evlilik', 'boşanma', 'bebek', 'hamile',
 ];
 
 const RSS_SOURCES = [
   { url: 'https://www.ntv.com.tr/gundem.rss', source: 'NTV' },
+  { url: 'https://www.ntv.com.tr/turkiye.rss', source: 'NTV Türkiye' },
   { url: 'https://www.hurriyet.com.tr/rss/gundem', source: 'Hürriyet' },
   { url: 'https://www.cnnturk.com/feed/rss/turkiye/news', source: 'CNN Türk' },
   { url: 'https://www.sabah.com.tr/rss/gundem.xml', source: 'Sabah' },
+  { url: 'https://www.milliyet.com.tr/rss/rssNew/gundemRss.xml', source: 'Milliyet' },
 ];
 
 function detectRegion(text: string): string {
@@ -73,13 +84,16 @@ function detectRegion(text: string): string {
 
 function detectCategory(text: string): string {
   const lower = text.toLowerCase();
-  if (lower.includes('risk') || lower.includes('uyarı') || lower.includes('tehlike')) {
+  if (lower.includes('risk') || lower.includes('uyarı') || lower.includes('tehlike') ||
+      lower.includes('kuraklık') || lower.includes('sıcaklık') || lower.includes('meteoroloji')) {
     return 'Risk';
   }
-  if (lower.includes('söndürme') || lower.includes('müdahale') || lower.includes('operasyon') || lower.includes('itfaiye')) {
+  if (lower.includes('söndürme') || lower.includes('müdahale') ||
+      lower.includes('operasyon') || lower.includes('itfaiye')) {
     return 'Operasyon';
   }
-  if (lower.includes('güvenlik') || lower.includes('tahliye') || lower.includes('önlem') || lower.includes('yasak')) {
+  if (lower.includes('güvenlik') || lower.includes('tahliye') ||
+      lower.includes('önlem') || lower.includes('yasak')) {
     return 'Güvenlik';
   }
   return 'Güncelleme';
@@ -88,13 +102,11 @@ function detectCategory(text: string): string {
 function isFireRelated(text: string): boolean {
   const lower = text.toLowerCase();
 
-  // 1. Engellenmiş keyword varsa KESINLIKLE reddet
+  // Engelli keyword varsa kesinlikle reddet
   if (BLOCKED_KEYWORDS.some(kw => lower.includes(kw))) return false;
 
-  // 2. MUTLAKA yangın kelimesi geçmeli
-  if (!MUST_HAVE_KEYWORDS.some(kw => lower.includes(kw))) return false;
-
-  return true;
+  // Yangın/hava/doğa keywordlerinden biri geçmeli
+  return MUST_HAVE_KEYWORDS.some(kw => lower.includes(kw));
 }
 
 function estimateReadMinutes(text: string): number {
