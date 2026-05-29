@@ -24,16 +24,21 @@ export interface News {
   body: string;
   source?: string;
   source_url?: string;
-  category?: 'Risk' | 'Safety' | 'Alert' | 'General';
+  source_id?: string;
+  category?: string;
   is_breaking: boolean;
+  image_url?: string;
+  thumbnail_url?: string;
   published_at?: Date;
-  read_minutes?: number;
+  scraped_at?: Date;
+  related_fire_ids?: number[];
   related_region?: string;
-  highlights?: string;
-  paragraphs?: string;
+  read_minutes?: number;
+  highlights?: string[];
+  paragraphs?: string[];
   created_at: Date;
+  updated_at?: Date;
 }
-
 // FCM Token Interface
 export interface FCMToken {
   id: number;
