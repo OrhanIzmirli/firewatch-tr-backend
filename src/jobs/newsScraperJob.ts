@@ -86,7 +86,9 @@ const BLOCKED_KEYWORDS = [
   'kongo', 'ebola', 'japonya', 'venezuela', 'filistin', 'israil',
   // Diğer
   'saç', 'dyson', 'bokashi', 'madalya', 'solotürk', 'fetih',
-  'kadına yönelik', 'çocuk hakları',
+  'kadına yönelik', 'çocuk hakları','gezegen', 'petrol stok', 'zeytin satıcı', 'kurban hisse',
+  'boğuldu', 'yıldırım çarptı',
+  'ta mektep', 'belediyesi çocuk',
 ];
 
 // region null = otomatik tespit, string = sabit bölge
