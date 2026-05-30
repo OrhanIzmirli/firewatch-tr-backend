@@ -31,7 +31,7 @@ const CITY_REGION_MAP: Record<string, string> = {
 };
 
 const MUST_HAVE_KEYWORDS = [
-  // 🔥 Yangın (öncelikli)
+  // 🔥 Yangın
   'yangın', 'yanıyor', 'yandı', 'alevler', 'alev aldı', 'tutuştu',
   'yangın çıktı', 'yangın söndür', 'yangın riski', 'yangın tehlikesi',
   'orman yangını', 'orman ekibi', 'söndürme ekibi', 'itfaiye',
@@ -70,21 +70,31 @@ const BLOCKED_KEYWORDS = [
   'borsa', 'dolar', 'euro', 'faiz', 'enflasyon', 'bütçe', 'vergi',
   // Siyaset
   'seçim', 'parti', 'milletvekili', 'meclis', 'cumhurbaşkanı', 'muhalefet',
+  // Askeri
+  'mayın', 'denizaltı', 'fırkateyn', 'patlayıcı', 'silah sistemi',
+  'savunma sanayii', 'mke', 'roket', 'hava savunma',
+  'operasyon', 'gözaltı', 'fetö', 'pkk', 'iha düşürüldü', 'füze', 'nükleer',
   // Diğer
-  'evlilik', 'boşanma', 'bebek', 'hamile', 'moda', 'tatil','operasyon', 'gözaltı', 'fetö', 'pkk', 'mit', 'emniyet operasyon',
-  'iha', 'drone', 'füze', 'nükleer',
-  'saç', 'alerjik', 'otopsi', 'velayet', 'sosyal medya paylaş',
-  'iletişim başkanı', 'altun','mayın', 'denizaltı', 'fırkateyn', 'patlayıcı', 'silah sistemi',
-'savunma sanayii', 'mke', 'roket', 'hava savunma',
+  'evlilik', 'boşanma', 'bebek', 'hamile', 'moda', 'tatil',
+  'saç boyası', 'alerjik reaksiyon', 'otopsi', 'velayet',
+  'iletişim başkanı',
 ];
 
-const RSS_SOURCES = [
-  { url: 'https://www.ntv.com.tr/gundem.rss', source: 'NTV' },
-  { url: 'https://www.ntv.com.tr/turkiye.rss', source: 'NTV Türkiye' },
-  { url: 'https://www.hurriyet.com.tr/rss/gundem', source: 'Hürriyet' },
-  { url: 'https://www.cnnturk.com/feed/rss/turkiye/news', source: 'CNN Türk' },
-  { url: 'https://www.sabah.com.tr/rss/gundem.xml', source: 'Sabah' },
-  { url: 'https://www.milliyet.com.tr/rss/rssNew/gundemRss.xml', source: 'Milliyet' },
+// region null = otomatik tespit, string = sabit bölge
+const RSS_SOURCES: { url: string; source: string; region: string | null }[] = [
+  // Ulusal
+  { url: 'https://www.ntv.com.tr/gundem.rss', source: 'NTV', region: null },
+  { url: 'https://www.ntv.com.tr/turkiye.rss', source: 'NTV Türkiye', region: null },
+  { url: 'https://www.hurriyet.com.tr/rss/gundem', source: 'Hürriyet', region: null },
+  { url: 'https://www.cnnturk.com/feed/rss/turkiye/news', source: 'CNN Türk', region: null },
+  { url: 'https://www.sabah.com.tr/rss/gundem.xml', source: 'Sabah', region: null },
+  { url: 'https://www.milliyet.com.tr/rss/rssNew/gundemRss.xml', source: 'Milliyet', region: null },
+  { url: 'https://www.haberturk.com/rss/haber/gundem.xml', source: 'Haberturk', region: null },
+  { url: 'https://www.trthaber.com/sondakika.rss', source: 'TRT Haber', region: null },
+  { url: 'https://www.aa.com.tr/tr/rss/default?cat=guncel', source: 'AA', region: null },
+  // Bölgesel
+  { url: 'https://www.izmirhaber.com.tr/rss', source: 'İzmir Haber', region: 'Ege' },
+  { url: 'https://www.bursahaber.com/rss', source: 'Bursa Haber', region: 'Marmara' },
 ];
 
 function detectRegion(text: string): string {
@@ -103,8 +113,7 @@ function detectCategory(text: string): string {
     return 'Risk';
   }
   if (lower.includes('söndürme') || lower.includes('müdahale') ||
-      lower.includes('operasyon') || lower.includes('itfaiye') ||
-      lower.includes('kurtarma') || lower.includes('tahliye')) {
+      lower.includes('itfaiye') || lower.includes('kurtarma') || lower.includes('tahliye')) {
     return 'Operasyon';
   }
   if (lower.includes('güvenlik') || lower.includes('önlem') ||
@@ -169,7 +178,8 @@ class NewsScraperJob {
 
           if (!isRelevant(fullText)) continue;
 
-          const region = detectRegion(fullText);
+          // Bölgesel kaynak ise sabit region, yoksa otomatik tespit
+          const region = source.region ?? detectRegion(fullText);
           const category = detectCategory(fullText);
           const readMinutes = estimateReadMinutes(summary);
           const isBreaking = fullText.toLowerCase().includes('son dakika');
@@ -193,7 +203,7 @@ class NewsScraperJob {
             });
 
             totalAdded++;
-            console.log(`✅ Added: ${title.substring(0, 60)}`);
+            console.log(`✅ Added: [${region}] ${title.substring(0, 50)}`);
           } catch (err: any) {
             if (err.code === '23505') {
               console.log(`⏭️ Duplicate: ${title.substring(0, 40)}`);
