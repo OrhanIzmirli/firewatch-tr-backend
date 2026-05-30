@@ -6,10 +6,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const redis_1 = __importDefault(require("../config/redis"));
 class CacheService {
     constructor() {
-        this.TTL = 3600; // 1 hour default
+        this.TTL = 300; // 5 dakika — NASA API için ideal
     }
-    // Get cached value
     async get(key) {
+        if (!redis_1.default)
+            return null;
         try {
             const value = await redis_1.default.get(key);
             if (!value)
@@ -21,10 +22,11 @@ class CacheService {
             return null;
         }
     }
-    // Set cached value
     async set(key, value, ttl = this.TTL) {
+        if (!redis_1.default)
+            return false;
         try {
-            await redis_1.default.setEx(key, ttl, JSON.stringify(value));
+            await redis_1.default.set(key, JSON.stringify(value), 'EX', ttl);
             return true;
         }
         catch (error) {
@@ -32,8 +34,9 @@ class CacheService {
             return false;
         }
     }
-    // Delete cached value
     async delete(key) {
+        if (!redis_1.default)
+            return false;
         try {
             const result = await redis_1.default.del(key);
             return result > 0;
@@ -43,27 +46,14 @@ class CacheService {
             return false;
         }
     }
-    // Clear all cache matching pattern
-    async clearPattern(pattern) {
-        try {
-            const keys = await redis_1.default.keys(pattern);
-            if (keys.length === 0)
-                return 0;
-            return await redis_1.default.del(keys);
-        }
-        catch (error) {
-            console.error('Cache clear pattern error:', error);
-            return 0;
-        }
-    }
-    // Check if key exists
     async exists(key) {
+        if (!redis_1.default)
+            return false;
         try {
             const result = await redis_1.default.exists(key);
             return result > 0;
         }
         catch (error) {
-            console.error('Cache exists error:', error);
             return false;
         }
     }

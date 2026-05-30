@@ -1,10 +1,10 @@
 import redisClient from '../config/redis';
 
 class CacheService {
-  private TTL = 3600; // 1 hour default
+  private TTL = 300; // 5 dakika — NASA API için ideal
 
-  // Get cached value
   async get<T>(key: string): Promise<T | null> {
+    if (!redisClient) return null;
     try {
       const value = await redisClient.get(key);
       if (!value) return null;
@@ -15,10 +15,10 @@ class CacheService {
     }
   }
 
-  // Set cached value
   async set<T>(key: string, value: T, ttl: number = this.TTL): Promise<boolean> {
+    if (!redisClient) return false;
     try {
-      await redisClient.setEx(key, ttl, JSON.stringify(value));
+      await redisClient.set(key, JSON.stringify(value), 'EX', ttl);
       return true;
     } catch (error) {
       console.error('Cache set error:', error);
@@ -26,8 +26,8 @@ class CacheService {
     }
   }
 
-  // Delete cached value
   async delete(key: string): Promise<boolean> {
+    if (!redisClient) return false;
     try {
       const result = await redisClient.del(key);
       return result > 0;
@@ -37,25 +37,12 @@ class CacheService {
     }
   }
 
-  // Clear all cache matching pattern
-  async clearPattern(pattern: string): Promise<number> {
-    try {
-      const keys = await redisClient.keys(pattern);
-      if (keys.length === 0) return 0;
-      return await redisClient.del(keys);
-    } catch (error) {
-      console.error('Cache clear pattern error:', error);
-      return 0;
-    }
-  }
-
-  // Check if key exists
   async exists(key: string): Promise<boolean> {
+    if (!redisClient) return false;
     try {
       const result = await redisClient.exists(key);
       return result > 0;
     } catch (error) {
-      console.error('Cache exists error:', error);
       return false;
     }
   }
