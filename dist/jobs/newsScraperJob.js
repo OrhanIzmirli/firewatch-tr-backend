@@ -113,6 +113,15 @@ const BLOCKED_KEYWORDS = [
     'evlilik', 'boşanma', 'bebek', 'hamile', 'moda', 'tatil',
     'saç boyası', 'alerjik reaksiyon', 'otopsi', 'velayet',
     'iletişim başkanı',
+    // Turizm/Seyahat
+    'kruvaziyer', 'turist', 'tatil köyü', 'otel', 'schengen', 'vize',
+    // Teknoloji/İş
+    'startup', 'yapay zeka', 'fintek', 'yatırım', 'ihracat', 'ithalat',
+    // Uluslararası (Türkiye dışı)
+    'kongo', 'ebola', 'japonya', 'venezuela', 'filistin', 'israil',
+    // Diğer
+    'saç', 'dyson', 'bokashi', 'madalya', 'solotürk', 'fetih',
+    'kadına yönelik', 'çocuk hakları',
 ];
 // region null = otomatik tespit, string = sabit bölge
 const RSS_SOURCES = [
