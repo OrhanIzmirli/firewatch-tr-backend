@@ -2,15 +2,14 @@ import cron from 'node-cron';
 import axios from 'axios';
 import pool from '../config/database';
 
-// 7 bölge + koordinatları
 const REGIONS = [
-  { name: 'Ege', lat: 38.42, lng: 27.14 },
-  { name: 'Akdeniz', lat: 36.9, lng: 30.7 },
-  { name: 'Marmara', lat: 40.18, lng: 29.07 },
-  { name: 'Karadeniz', lat: 41.28, lng: 36.33 },
-  { name: 'İç Anadolu', lat: 39.93, lng: 32.86 },
-  { name: 'Doğu Anadolu', lat: 39.9, lng: 41.27 },
-  { name: 'Güneydoğu Anadolu', lat: 37.07, lng: 37.38 },
+  { name: 'Ege', display: 'Ege', lat: 38.42, lng: 27.14 },
+  { name: 'Akdeniz', display: 'Akdeniz', lat: 36.9, lng: 30.7 },
+  { name: 'Marmara', display: 'Marmara', lat: 40.18, lng: 29.07 },
+  { name: 'Karadeniz', display: 'Karadeniz', lat: 41.28, lng: 36.33 },
+  { name: 'Ic Anadolu', display: 'İç Anadolu', lat: 39.93, lng: 32.86 },
+  { name: 'Dogu Anadolu', display: 'Doğu Anadolu', lat: 39.9, lng: 41.27 },
+  { name: 'Guneydogu Anadolu', display: 'Güneydoğu Anadolu', lat: 37.07, lng: 37.38 },
 ];
 
 const NASA_API_KEY = '2fe2d1a21d4de517b1e877a27e308c6f';
@@ -31,8 +30,7 @@ interface RiskResult {
 
 class RiskCalculatorJob {
   start() {
-    console.log('🔥 Risk Calculator Job starting...');
-    // 12 saatte bir çalış + başlangıçta
+    console.log('Risk Calculator Job starting...');
     cron.schedule('0 */12 * * *', async () => {
       await this.runCalculator();
     });
@@ -40,26 +38,19 @@ class RiskCalculatorJob {
   }
 
   async runCalculator() {
-    console.log('📊 Running risk calculator at:', new Date().toISOString());
+    console.log('Running risk calculator at:', new Date().toISOString());
 
     for (const region of REGIONS) {
       try {
-        // 1. Gerçek hava verisi — Open-Meteo
         const weather = await this.fetchWeather(region.lat, region.lng);
-
-        // 2. NASA FIRMS — bölgedeki yangın noktası sayısı
         const fireCount = await this.fetchFireCount(region.lat, region.lng);
-
-        // 3. Risk skoru hesapla
         const risk = this.calculateRisk(weather, fireCount);
 
-        // 4. DB'ye kaydet
         await pool.query(
           `INSERT INTO risk_data 
             (region, date, general_risk_score, risk_level, temperature, humidity, 
              wind_speed, wind_direction, dryness_index, vegetation_density)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-           ON CONFLICT DO NOTHING`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [
             region.name,
             new Date(),
@@ -74,13 +65,13 @@ class RiskCalculatorJob {
           ]
         );
 
-        console.log(`✅ ${region.name}: Score=${risk.score}, Temp=${weather.temperature}°C, Nem=%${weather.humidity}, Rüzgar=${weather.windSpeed}km/h, Yangın=${fireCount}`);
+        console.log(`OK ${region.name}: Score=${risk.score}, Temp=${weather.temperature}, Hum=${weather.humidity}, Wind=${weather.windSpeed}, Fire=${fireCount}`);
       } catch (error) {
-        console.error(`❌ Error for ${region.name}:`, (error as Error).message);
+        console.error(`Error for ${region.name}:`, (error as Error).message);
       }
     }
 
-    console.log('✅ Risk calculator completed');
+    console.log('Risk calculator completed');
   }
 
   private async fetchWeather(lat: number, lng: number): Promise<WeatherData> {
@@ -107,7 +98,6 @@ class RiskCalculatorJob {
 
   private async fetchFireCount(lat: number, lng: number): Promise<number> {
     try {
-      // Bölge etrafında 2 derece bbox
       const area = `${lng - 2},${lat - 2},${lng + 2},${lat + 2}`;
       const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${NASA_API_KEY}/VIIRS_SNPP_NRT/${area}/1`;
       const response = await axios.get(url, { timeout: 15000 });
@@ -121,25 +111,21 @@ class RiskCalculatorJob {
   private calculateRisk(weather: WeatherData, fireCount: number): RiskResult {
     let score = 0;
 
-    // Sıcaklık puanı (max 30)
     if (weather.temperature >= 40) score += 30;
     else if (weather.temperature >= 35) score += 22;
     else if (weather.temperature >= 30) score += 14;
     else if (weather.temperature >= 25) score += 7;
 
-    // Nem puanı (max 25) — düşük nem = yüksek risk
     if (weather.humidity <= 20) score += 25;
     else if (weather.humidity <= 30) score += 20;
     else if (weather.humidity <= 40) score += 13;
     else if (weather.humidity <= 50) score += 6;
 
-    // Rüzgar puanı (max 25)
     if (weather.windSpeed >= 50) score += 25;
     else if (weather.windSpeed >= 35) score += 18;
     else if (weather.windSpeed >= 20) score += 11;
     else if (weather.windSpeed >= 10) score += 5;
 
-    // NASA FIRMS yangın noktası (max 20)
     if (fireCount >= 10) score += 20;
     else if (fireCount >= 5) score += 15;
     else if (fireCount >= 2) score += 10;
@@ -147,12 +133,10 @@ class RiskCalculatorJob {
 
     score = Math.min(100, score);
 
-    // Kuruluk indeksi — sıcaklık + nem kombinasyonu
     const drynessIndex = Math.min(100, Math.round(
       (weather.temperature / 45) * 60 + ((100 - weather.humidity) / 100) * 40
     ));
 
-    // Bitki baskısı — rüzgar + sıcaklık
     const vegetationPressure = Math.min(100, Math.round(
       (weather.windSpeed / 80) * 50 + (weather.temperature / 45) * 50
     ));
