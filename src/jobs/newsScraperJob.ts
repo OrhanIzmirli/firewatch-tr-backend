@@ -88,7 +88,8 @@ const BLOCKED_KEYWORDS = [
   'saç', 'dyson', 'bokashi', 'madalya', 'solotürk', 'fetih',
   'kadına yönelik', 'çocuk hakları','gezegen', 'petrol stok', 'zeytin satıcı', 'kurban hisse',
   'boğuldu', 'yıldırım çarptı',
-  'ta mektep', 'belediyesi çocuk','fetih', 'osmanlı', 'tarihi',
+  'ta mektep', 'belediyesi çocuk','fetih', 'osmanlı', 'tarihi', 'hindistan', 'pakistan', 'bangladeş', 'nepal',
+'hakkını aradı', 'kovuldu', 'işten çıkarıldı', 'görevden alındı', 'istifa etti', 'yargılanıyor', 'hapis cezası', 'tutuklandı',
 ];
 
 // region null = otomatik tespit, string = sabit bölge
