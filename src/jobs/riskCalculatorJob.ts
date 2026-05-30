@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import axios from 'axios';
 import pool from '../config/database';
+import cacheService from '../services/cacheService';
 
 const REGIONS = [
   { name: 'Ege', display: 'Ege', lat: 38.42, lng: 27.14 },
@@ -13,6 +14,7 @@ const REGIONS = [
 ];
 
 const NASA_API_KEY = '2fe2d1a21d4de517b1e877a27e308c6f';
+const CACHE_TTL = 300; // 5 dakika
 
 interface WeatherData {
   temperature: number;
@@ -75,6 +77,13 @@ class RiskCalculatorJob {
   }
 
   private async fetchWeather(lat: number, lng: number): Promise<WeatherData> {
+    const cacheKey = `weather:${lat}:${lng}`;
+    const cached = await cacheService.get<WeatherData>(cacheKey);
+    if (cached) {
+      console.log(`Cache HIT: ${cacheKey}`);
+      return cached;
+    }
+
     const response = await axios.get('https://api.open-meteo.com/v1/forecast', {
       params: {
         latitude: lat,
@@ -88,21 +97,34 @@ class RiskCalculatorJob {
     const current = response.data.current;
     const windDeg = current.wind_direction_10m ?? 0;
 
-    return {
+    const data: WeatherData = {
       temperature: Math.round(current.temperature_2m),
       humidity: Math.round(current.relative_humidity_2m),
       windSpeed: Math.round(current.wind_speed_10m),
       windDirection: this.degToDirection(windDeg),
     };
+
+    await cacheService.set(cacheKey, data, CACHE_TTL);
+    return data;
   }
 
   private async fetchFireCount(lat: number, lng: number): Promise<number> {
+    const cacheKey = `nasa:fires:${lat}:${lng}`;
+    const cached = await cacheService.get<number>(cacheKey);
+    if (cached !== null) {
+      console.log(`Cache HIT: ${cacheKey}`);
+      return cached;
+    }
+
     try {
       const area = `${lng - 2},${lat - 2},${lng + 2},${lat + 2}`;
       const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${NASA_API_KEY}/VIIRS_SNPP_NRT/${area}/1`;
       const response = await axios.get(url, { timeout: 15000 });
       const lines = (response.data as string).trim().split('\n');
-      return Math.max(0, lines.length - 1);
+      const count = Math.max(0, lines.length - 1);
+
+      await cacheService.set(cacheKey, count, CACHE_TTL);
+      return count;
     } catch {
       return 0;
     }

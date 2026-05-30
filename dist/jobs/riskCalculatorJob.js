@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const node_cron_1 = __importDefault(require("node-cron"));
 const axios_1 = __importDefault(require("axios"));
 const database_1 = __importDefault(require("../config/database"));
+const cacheService_1 = __importDefault(require("../services/cacheService"));
 const REGIONS = [
     { name: 'Ege', display: 'Ege', lat: 38.42, lng: 27.14 },
     { name: 'Akdeniz', display: 'Akdeniz', lat: 36.9, lng: 30.7 },
@@ -16,6 +17,7 @@ const REGIONS = [
     { name: 'Guneydogu Anadolu', display: 'Güneydoğu Anadolu', lat: 37.07, lng: 37.38 },
 ];
 const NASA_API_KEY = '2fe2d1a21d4de517b1e877a27e308c6f';
+const CACHE_TTL = 300; // 5 dakika
 class RiskCalculatorJob {
     start() {
         console.log('Risk Calculator Job starting...');
@@ -55,6 +57,12 @@ class RiskCalculatorJob {
         console.log('Risk calculator completed');
     }
     async fetchWeather(lat, lng) {
+        const cacheKey = `weather:${lat}:${lng}`;
+        const cached = await cacheService_1.default.get(cacheKey);
+        if (cached) {
+            console.log(`Cache HIT: ${cacheKey}`);
+            return cached;
+        }
         const response = await axios_1.default.get('https://api.open-meteo.com/v1/forecast', {
             params: {
                 latitude: lat,
@@ -66,20 +74,30 @@ class RiskCalculatorJob {
         });
         const current = response.data.current;
         const windDeg = current.wind_direction_10m ?? 0;
-        return {
+        const data = {
             temperature: Math.round(current.temperature_2m),
             humidity: Math.round(current.relative_humidity_2m),
             windSpeed: Math.round(current.wind_speed_10m),
             windDirection: this.degToDirection(windDeg),
         };
+        await cacheService_1.default.set(cacheKey, data, CACHE_TTL);
+        return data;
     }
     async fetchFireCount(lat, lng) {
+        const cacheKey = `nasa:fires:${lat}:${lng}`;
+        const cached = await cacheService_1.default.get(cacheKey);
+        if (cached !== null) {
+            console.log(`Cache HIT: ${cacheKey}`);
+            return cached;
+        }
         try {
             const area = `${lng - 2},${lat - 2},${lng + 2},${lat + 2}`;
             const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${NASA_API_KEY}/VIIRS_SNPP_NRT/${area}/1`;
             const response = await axios_1.default.get(url, { timeout: 15000 });
             const lines = response.data.trim().split('\n');
-            return Math.max(0, lines.length - 1);
+            const count = Math.max(0, lines.length - 1);
+            await cacheService_1.default.set(cacheKey, count, CACHE_TTL);
+            return count;
         }
         catch {
             return 0;

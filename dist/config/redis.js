@@ -1,19 +1,25 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-const redis_1 = require("redis");
-const redisClient = (0, redis_1.createClient)({
-    socket: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379'),
-    },
-});
-redisClient.on('connect', () => {
-    console.log('✅ Redis connected');
-});
-redisClient.on('error', (err) => {
-    console.warn('⚠️  Redis not available - caching disabled');
-});
-redisClient.connect().catch(() => {
-    console.warn('⚠️  Redis connection failed - app will work without cache');
-});
+const ioredis_1 = __importDefault(require("ioredis"));
+const redisUrl = process.env.REDIS_URL || null;
+let redisClient = null;
+if (redisUrl) {
+    redisClient = new ioredis_1.default(redisUrl, {
+        maxRetriesPerRequest: 3,
+        lazyConnect: true,
+        retryStrategy(times) {
+            if (times > 3)
+                return null;
+            return Math.min(times * 200, 1000);
+        },
+    });
+    redisClient.on('connect', () => console.log('✅ Redis connected'));
+    redisClient.on('error', (err) => console.warn('⚠️  Redis error:', err.message));
+}
+else {
+    console.warn('⚠️  REDIS_URL not set — cache disabled');
+}
 exports.default = redisClient;

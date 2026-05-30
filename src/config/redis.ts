@@ -1,22 +1,23 @@
-import { createClient } from 'redis';
+import Redis from 'ioredis';
 
-const redisClient = createClient({
-  socket: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-  },
-});
+const redisUrl = process.env.REDIS_URL || null;
 
-redisClient.on('connect', () => {
-  console.log('✅ Redis connected');
-});
+let redisClient: Redis | null = null;
 
-redisClient.on('error', (err) => {
-  console.warn('⚠️  Redis not available - caching disabled');
-});
+if (redisUrl) {
+  redisClient = new Redis(redisUrl, {
+    maxRetriesPerRequest: 3,
+    lazyConnect: true,
+    retryStrategy(times) {
+      if (times > 3) return null;
+      return Math.min(times * 200, 1000);
+    },
+  });
 
-redisClient.connect().catch(() => {
-  console.warn('⚠️  Redis connection failed - app will work without cache');
-});
+  redisClient.on('connect', () => console.log('✅ Redis connected'));
+  redisClient.on('error', (err) => console.warn('⚠️  Redis error:', err.message));
+} else {
+  console.warn('⚠️  REDIS_URL not set — cache disabled');
+}
 
 export default redisClient;
