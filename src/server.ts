@@ -41,6 +41,34 @@ app.get('/api/admin/scrape', async (req, res) => {
   }
 });
 
+// Manuel risk hesaplama tetikleyici
+app.get('/api/admin/risk', async (req, res) => {
+  try {
+    console.log('🔧 Manual risk calculation triggered');
+    await riskCalculatorJob.runCalculator();
+    res.json({ status: 'success', message: 'Risk calculation completed' });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: (error as Error).message });
+  }
+});
+
+// Risk verisi endpoint
+app.get('/api/risk/summary', async (req, res) => {
+  try {
+    const result = await (await import('./config/database')).default.query(`
+      SELECT DISTINCT ON (region) 
+        region, general_risk_score, risk_level, temperature, 
+        humidity, wind_speed, wind_direction, dryness_index, 
+        vegetation_density, date
+      FROM risk_data
+      ORDER BY region, date DESC
+    `);
+    res.json({ status: 'success', data: result.rows });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: (error as Error).message });
+  }
+});
+
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
