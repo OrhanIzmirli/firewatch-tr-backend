@@ -118,7 +118,7 @@ class FireController {
       const fire = await fireService.createFire(fireData);
 
       // Clear cache
-      await cacheService.clearPattern('fires:*');
+      await cacheService.delete('fires:all');
 
       res.status(201).json({
         status: 'success',
