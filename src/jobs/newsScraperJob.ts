@@ -90,7 +90,8 @@ const BLOCKED_KEYWORDS = [
   'boğuldu', 'yıldırım çarptı',
   'ta mektep', 'belediyesi çocuk','fetih', 'osmanlı', 'tarihi', 'hindistan', 'pakistan', 'bangladeş', 'nepal',
 'hakkını aradı', 'kovuldu', 'işten çıkarıldı', 'görevden alındı', 'istifa etti', 'yargılanıyor', 'hapis cezası', 'tutuklandı',
- 'kızılay','kurban','bayram','köfte','çorba','diyet','kanser','imece','zeytin','panik atak','hatim',
+'kızılay','kurban','bayram','köfte','çorba','diyet','kanser','imece','zeytin','panik atak','hatim', 'iftar', 'sahur', 'ramazan', 'kadir gecesi', 'mevlid', 'aşure', 'hacı aday', 'hac ziyareti', 'hacı', 'umre', 'harem', 'medine', 'mekke', 'kabe', 'hacı aday', 'hac ziyareti',
+  
 ];
 
 // region null = otomatik tespit, string = sabit bölge
@@ -138,46 +139,8 @@ function detectCategory(text: string): string {
 
 function isRelevant(text: string): boolean {
   const lower = text.toLowerCase();
-
-  if (BLOCKED_KEYWORDS.some(kw => lower.includes(kw))) {
-    return false;
-  }
-
-  const riskKeywords = [
-    'yangın',
-    'yanıyor',
-    'yandı',
-    'alev',
-    'duman',
-    'itfaiye',
-    'söndürme',
-    'tahliye',
-    'ormanlık alan',
-    'orman yangını',
-
-    'kuraklık',
-    'aşırı sıcak',
-    'sıcak hava dalgası',
-    'yüksek sıcaklık',
-    'sıcaklık uyarısı',
-    'kuvvetli rüzgar',
-    'rüzgar uyarısı',
-    'fırtına',
-
-    'meteoroloji',   // EKLE
-    'sarı kod',      // EKLE
-
-    'deprem',
-    'sel',
-    'taşkın',
-    'su baskını',
-    'dere taştı',
-    'heyelan',
-    'toprak kayması',
-    'çığ',
-  ];
-
-  return riskKeywords.some(kw => lower.includes(kw));
+  if (BLOCKED_KEYWORDS.some(kw => lower.includes(kw))) return false;
+  return MUST_HAVE_KEYWORDS.some(kw => lower.includes(kw));
 }
 
 function estimateReadMinutes(text: string): number {

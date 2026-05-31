@@ -125,6 +125,7 @@ const BLOCKED_KEYWORDS = [
     'boğuldu', 'yıldırım çarptı',
     'ta mektep', 'belediyesi çocuk', 'fetih', 'osmanlı', 'tarihi', 'hindistan', 'pakistan', 'bangladeş', 'nepal',
     'hakkını aradı', 'kovuldu', 'işten çıkarıldı', 'görevden alındı', 'istifa etti', 'yargılanıyor', 'hapis cezası', 'tutuklandı',
+    'kızılay', 'kurban', 'bayram', 'köfte', 'çorba', 'diyet', 'kanser', 'imece', 'zeytin', 'panik atak', 'hatim', 'iftar', 'sahur', 'ramazan', 'kadir gecesi', 'mevlid', 'aşure', 'hacı aday', 'hac ziyareti', 'hacı', 'umre', 'harem', 'medine', 'mekke', 'kabe', 'hacı aday', 'hac ziyareti',
 ];
 // region null = otomatik tespit, string = sabit bölge
 const RSS_SOURCES = [
