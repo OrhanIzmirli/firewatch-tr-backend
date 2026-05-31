@@ -92,6 +92,7 @@ const BLOCKED_KEYWORDS = [
   'hakkını aradı', 'kovuldu', 'işten çıkarıldı', 'görevden alındı', 'istifa etti', 'yargılanıyor', 'hapis cezası', 'tutuklandı',
   'kızılay','kurban','bayram','köfte','çorba','diyet','kanser','imece','zeytin','panik atak','hatim', 'iftar', 'sahur', 'ramazan', 'kadir gecesi', 'mevlid', 'aşure', 'hacı aday', 'hac ziyareti', 'hacı', 'umre', 'harem', 'medine', 'mekke', 'kabe', 'hacı aday', 'hac ziyareti',
   'şehit','cenaze','asker','jandarma','bakan yardımcısı','tören','tabut','gözyaşı', 'şehitler','gaziler','gazi','askeri tören','askeri cenaze','asker uğurlama', 'asker cenazesi','asker şehit','asker gazi','asker gazisi','asker yaralı','asker yaralısı','asker yaralanma','asker yaralanması','asker yaralandı','asker yaralandı','asker yaralandı','asker yaralandı', 
+  'kaza','kazada','otomobil','araç','direksiyon','yaralı','yaralandı','hayatını kaybetti','yaşamını yitirdi','uçuruma','çarpan','çarptı','hafif ticari','panelvan','lastik tamircisi',  'trafik', 'kaza', 'çarpıştı', 'devrildi', 'otobüs kazası', 'zincirleme', 
 ];
 
 // region null = otomatik tespit, string = sabit bölge
