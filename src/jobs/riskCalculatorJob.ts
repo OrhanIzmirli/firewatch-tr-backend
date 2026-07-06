@@ -73,6 +73,7 @@ class RiskCalculatorJob {
       }
     }
 
+    await cacheService.delete('risk:summary');
     console.log('Risk calculator completed');
   }
 

@@ -7,6 +7,8 @@ import notificationRoutes from './routes/notifications';
 import newsRoutes from './routes/news';
 import newsScraperJob from './jobs/newsScraperJob';
 import riskCalculatorJob from './jobs/riskCalculatorJob';
+import cacheService from './services/cacheService';
+import pool from './config/database';
 
 require('dotenv').config();
 
@@ -55,14 +57,23 @@ app.get('/api/admin/risk', async (req, res) => {
 // Risk verisi endpoint
 app.get('/api/risk/summary', async (req, res) => {
   try {
-    const result = await (await import('./config/database')).default.query(`
-      SELECT DISTINCT ON (region) 
-        region, general_risk_score, risk_level, temperature, 
-        humidity, wind_speed, wind_direction, dryness_index, 
+    const cacheKey = 'risk:summary';
+    const cached = await cacheService.get<any[]>(cacheKey);
+    if (cached) {
+      res.json({ status: 'success', data: cached });
+      return;
+    }
+
+    const result = await pool.query(`
+      SELECT DISTINCT ON (region)
+        region, general_risk_score, risk_level, temperature,
+        humidity, wind_speed, wind_direction, dryness_index,
         vegetation_density, date
       FROM risk_data
       ORDER BY region, date DESC
     `);
+
+    await cacheService.set(cacheKey, result.rows, 300); // calculator runs every 12h, 5 min cache is safe
     res.json({ status: 'success', data: result.rows });
   } catch (error) {
     res.status(500).json({ status: 'error', message: (error as Error).message });

@@ -46,7 +46,8 @@ class NewsService {
     }
   }
 
-  async createNews(data: Omit<News, 'id' | 'created_at'>): Promise<News> {
+  // returns null when the row already exists (source_id/source_url conflict) instead of throwing
+  async createNews(data: Omit<News, 'id' | 'created_at'>): Promise<News | null> {
     const {
       title, summary, body, source, source_url, source_id,
       category, is_breaking, published_at, read_minutes,
@@ -55,9 +56,10 @@ class NewsService {
 
     try {
       const result = await pool.query(
-        `INSERT INTO news 
+        `INSERT INTO news
           (title, summary, body, source, source_url, source_id, category, is_breaking, published_at, read_minutes, related_region, highlights, paragraphs)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         ON CONFLICT DO NOTHING
          RETURNING *`,
         [
           title, summary, body, source, source_url, source_id,
@@ -66,7 +68,7 @@ class NewsService {
           highlights || [], paragraphs || [],
         ]
       );
-      return result.rows[0];
+      return result.rows[0] || null;
     } catch (error) {
       console.error('❌ Error creating news:', error);
       throw error;
