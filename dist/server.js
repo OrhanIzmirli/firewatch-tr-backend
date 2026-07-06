@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+require('dotenv').config();
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const morgan_1 = __importDefault(require("morgan"));
@@ -14,7 +15,6 @@ const newsScraperJob_1 = __importDefault(require("./jobs/newsScraperJob"));
 const riskCalculatorJob_1 = __importDefault(require("./jobs/riskCalculatorJob"));
 const cacheService_1 = __importDefault(require("./services/cacheService"));
 const database_1 = __importDefault(require("./config/database"));
-require('dotenv').config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
 app.use((0, cors_1.default)());
@@ -31,8 +31,21 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString(),
     });
 });
+// Admin endpoint'lerini token ile koru — ADMIN_TOKEN env'de yoksa erişim kapalı
+function requireAdminToken(req, res, next) {
+    const adminToken = process.env.ADMIN_TOKEN;
+    if (!adminToken) {
+        res.status(503).json({ status: 'error', message: 'Admin endpoint disabled: ADMIN_TOKEN not configured' });
+        return;
+    }
+    if (req.query.token !== adminToken) {
+        res.status(401).json({ status: 'error', message: 'Invalid or missing token' });
+        return;
+    }
+    next();
+}
 // Manuel scraper tetikleyici
-app.get('/api/admin/scrape', async (req, res) => {
+app.get('/api/admin/scrape', requireAdminToken, async (req, res) => {
     try {
         console.log('🔧 Manual scrape triggered');
         await newsScraperJob_1.default.runScraper();
@@ -43,7 +56,7 @@ app.get('/api/admin/scrape', async (req, res) => {
     }
 });
 // Manuel risk hesaplama tetikleyici
-app.get('/api/admin/risk', async (req, res) => {
+app.get('/api/admin/risk', requireAdminToken, async (req, res) => {
     try {
         console.log('🔧 Manual risk calculation triggered');
         await riskCalculatorJob_1.default.runCalculator();
