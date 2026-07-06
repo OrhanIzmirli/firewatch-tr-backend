@@ -37,13 +37,8 @@ services:
     container_name: firewatch-tr-app
     environment:
       NODE_ENV: development
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: firewatch_user
-      DB_PASSWORD: firewatch_password_123
-      DB_NAME: firewatch_db
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      DATABASE_URL: postgresql://firewatch_user:firewatch_password_123@postgres:5432/firewatch_db
+      REDIS_URL: redis://redis:6379
     ports:
       - "5000:5000"
     depends_on:
