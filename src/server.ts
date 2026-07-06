@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
@@ -9,8 +11,6 @@ import newsScraperJob from './jobs/newsScraperJob';
 import riskCalculatorJob from './jobs/riskCalculatorJob';
 import cacheService from './services/cacheService';
 import pool from './config/database';
-
-require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,8 +32,22 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Admin endpoint'lerini token ile koru — ADMIN_TOKEN env'de yoksa erişim kapalı
+function requireAdminToken(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const adminToken = process.env.ADMIN_TOKEN;
+  if (!adminToken) {
+    res.status(503).json({ status: 'error', message: 'Admin endpoint disabled: ADMIN_TOKEN not configured' });
+    return;
+  }
+  if (req.query.token !== adminToken) {
+    res.status(401).json({ status: 'error', message: 'Invalid or missing token' });
+    return;
+  }
+  next();
+}
+
 // Manuel scraper tetikleyici
-app.get('/api/admin/scrape', async (req, res) => {
+app.get('/api/admin/scrape', requireAdminToken, async (req, res) => {
   try {
     console.log('🔧 Manual scrape triggered');
     await newsScraperJob.runScraper();
@@ -44,7 +58,7 @@ app.get('/api/admin/scrape', async (req, res) => {
 });
 
 // Manuel risk hesaplama tetikleyici
-app.get('/api/admin/risk', async (req, res) => {
+app.get('/api/admin/risk', requireAdminToken, async (req, res) => {
   try {
     console.log('🔧 Manual risk calculation triggered');
     await riskCalculatorJob.runCalculator();
