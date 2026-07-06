@@ -64,10 +64,11 @@ const BLOCKED_KEYWORDS = [
   'trafik kazası', 'çarpıştı', 'devrildi', 'otobüs kazası', 'zincirleme',
   // Spor
   'futbol', 'basketbol', 'maç', 'gol', 'şampiyon', 'transfer', 'lig', 'forma',
-  // Eğlence
+  // Eğlence/Magazin
   'dizi', 'film', 'müzik', 'şarkı', 'konser', 'magazin', 'oyuncu',
+  'ünlü', 'sosyete', 'defile', 'gündem olan paylaşım',
   // Ekonomi
-  'borsa', 'dolar', 'euro', 'faiz', 'enflasyon', 'bütçe', 'vergi',
+  'borsa', 'dolar', 'euro', 'faiz', 'enflasyon', 'bütçe', 'vergi', 'ekonomi',
   // Siyaset
   'seçim', 'parti', 'milletvekili', 'meclis', 'cumhurbaşkanı', 'muhalefet',
   // Askeri
@@ -82,6 +83,7 @@ const BLOCKED_KEYWORDS = [
   'kruvaziyer', 'turist', 'tatil köyü', 'otel', 'schengen', 'vize',
   // Teknoloji/İş
   'startup', 'yapay zeka', 'fintek', 'yatırım', 'ihracat', 'ithalat',
+  'teknoloji', 'akıllı telefon', 'yazılım şirketi', 'e-ticaret',
   // Uluslararası (Türkiye dışı)
   'kongo', 'ebola', 'japonya', 'venezuela', 'filistin', 'israil',
   // Diğer
@@ -201,7 +203,7 @@ class NewsScraperJob {
           const cleanSummary = summary.replace(/<[^>]*>/g, '').trim();
 
           try {
-            await newsService.createNews({
+            const created = await newsService.createNews({
               title: title.trim(),
               summary: cleanSummary,
               body: cleanSummary,
@@ -217,14 +219,14 @@ class NewsScraperJob {
               paragraphs: [],
             });
 
-            totalAdded++;
-            console.log(`✅ Added: [${region}] ${title.substring(0, 50)}`);
-          } catch (err: any) {
-            if (err.code === '23505') {
-              console.log(`⏭️ Duplicate: ${title.substring(0, 40)}`);
+            if (created) {
+              totalAdded++;
+              console.log(`✅ Added: [${region}] ${title.substring(0, 50)}`);
             } else {
-              console.error(`❌ DB error:`, err.message);
+              console.log(`⏭️ Duplicate: ${title.substring(0, 40)}`);
             }
+          } catch (err: any) {
+            console.error(`❌ DB error:`, err.message);
           }
         }
       } catch (error) {

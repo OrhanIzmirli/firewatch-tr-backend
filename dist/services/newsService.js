@@ -42,19 +42,21 @@ class NewsService {
             throw error;
         }
     }
+    // returns null when the row already exists (source_id/source_url conflict) instead of throwing
     async createNews(data) {
         const { title, summary, body, source, source_url, source_id, category, is_breaking, published_at, read_minutes, related_region, highlights, paragraphs, } = data;
         try {
-            const result = await database_1.default.query(`INSERT INTO news 
+            const result = await database_1.default.query(`INSERT INTO news
           (title, summary, body, source, source_url, source_id, category, is_breaking, published_at, read_minutes, related_region, highlights, paragraphs)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         ON CONFLICT DO NOTHING
          RETURNING *`, [
                 title, summary, body, source, source_url, source_id,
                 category, is_breaking || false, published_at,
                 read_minutes, related_region,
                 highlights || [], paragraphs || [],
             ]);
-            return result.rows[0];
+            return result.rows[0] || null;
         }
         catch (error) {
             console.error('❌ Error creating news:', error);

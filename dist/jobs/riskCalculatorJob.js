@@ -54,6 +54,7 @@ class RiskCalculatorJob {
                 console.error(`Error for ${region.name}:`, error.message);
             }
         }
+        await cacheService_1.default.delete('risk:summary');
         console.log('Risk calculator completed');
     }
     async fetchWeather(lat, lng) {
