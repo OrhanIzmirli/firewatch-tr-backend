@@ -68,10 +68,10 @@ const CITY_REGION_MAP = {
 };
 const MUST_HAVE_KEYWORDS = [
     // 🔥 Yangın
-    'yangın', 'yanıyor', 'yandı', 'alevler', 'alev aldı', 'tutuştu',
+    'yangın', 'yangin', 'yanıyor', 'yandı', 'alevler', 'alev aldı', 'tutuştu',
     'yangın çıktı', 'yangın söndür', 'yangın riski', 'yangın tehlikesi',
     'orman yangını', 'orman ekibi', 'söndürme ekibi', 'itfaiye',
-    'afad', 'ogm', 'orman genel müdürlüğü', 'makilik', 'ormanlık alan',
+    'afad', 'ogm', 'orman genel müdürlüğü', 'makilik', 'ormanlık alan', 'duman',
     // 🌡️ Sıcaklık & Kuraklık
     'kuraklık', 'kurak', 'sıcaklık rekoru', 'aşırı sıcak',
     'kavurucu sıcak', 'sıcak hava dalgası', 'yüksek sıcaklık',
@@ -79,46 +79,73 @@ const MUST_HAVE_KEYWORDS = [
     // 🌩️ Hava Durumu & Fırtına
     'meteoroloji', 'hava durumu', 'hava uyarısı',
     'sarı kod', 'turuncu kod', 'kırmızı kod',
-    'fırtına', 'şiddetli yağış', 'sağanak', 'dolu',
+    'fırtına', 'şiddetli yağış', 'sağanak', 'dolu', 'hortum',
     'rüzgar uyarısı', 'kuvvetli rüzgar',
     // 🌊 Su & Deniz
-    'sel', 'taşkın', 'su baskını', 'dere taştı',
+    'sel', 'taşkın', 'su baskını', 'dere taştı', 'tsunami',
     'deniz kirliliği', 'deniz sıcaklığı', 'kıyı kirliliği',
     // 🌿 Çevre & Kirlilik
     'hava kirliliği', 'çevre kirliliği', 'kirlilik uyarısı',
-    'ekolojik felaket', 'çevre felaketi', 'doğa tahribatı',
+    'ekolojik felaket', 'çevre felaketi', 'doğa tahribatı', 'felaket', 'doğal afet',
     'iklim değişikliği', 'küresel ısınma',
     // ⛰️ Diğer Doğal Afetler
     'heyelan', 'toprak kayması', 'çığ', 'deprem',
+    // 🚨 Genel afet/uyarı terimleri
+    // NOTE: bare 'orman', 'alev', 'afet', and 'tahliye' were tested against
+    // live RSS data and dropped/replaced — they matched inside unrelated
+    // content ('orman' via the routine "Tarım ve Orman Müdürlüğü" ministry
+    // name, 'alev' via "Alevi" — a religious/ethnic group name, 'afet' via
+    // the common name "Şerafettin", 'tahliye' via "release from custody" in
+    // crime reporting, a real homonym of "evacuation"). Using safer,
+    // specific compounds instead.
+    'tahliye edildi', 'tahliye emri', 'bina tahliye', 'yangın uyarısı',
+    // English (defensive — current RSS sources are Turkish-only, but future
+    // English-language sources would need these to match)
+    'wildfire', 'fire', 'forest fire', 'flood', 'drought', 'earthquake',
+    'disaster', 'emergency', 'evacuation',
 ];
 const BLOCKED_KEYWORDS = [
     // Şiddet/Suç
     'öldürüldü', 'öldürdü', 'cinayet', 'katil', 'ceset', 'infaz',
-    'saldırı', 'bomba', 'terör', 'silahlı',
+    'saldırı', 'bomba', 'terör', 'silahlı', 'silah', 'suç', 'hırsız',
+    'mahkeme', 'dava', 'beraat',
     // Trafik
     'trafik kazası', 'çarpıştı', 'devrildi', 'otobüs kazası', 'zincirleme',
     // Spor
-    'futbol', 'basketbol', 'maç', 'gol', 'şampiyon', 'transfer', 'lig', 'forma',
+    'futbol', 'basketbol', 'maç', 'gol', 'şampiyon', 'transfer', 'lig', 'forma', 'spor',
     // Eğlence/Magazin
     'dizi', 'film', 'müzik', 'şarkı', 'konser', 'magazin', 'oyuncu',
-    'ünlü', 'sosyete', 'defile', 'gündem olan paylaşım',
+    'ünlü', 'sosyete', 'defile', 'gündem olan paylaşım', 'sanatçı', 'güzellik',
     // Ekonomi
     'borsa', 'dolar', 'euro', 'faiz', 'enflasyon', 'bütçe', 'vergi', 'ekonomi',
     // Siyaset
-    'seçim', 'parti', 'milletvekili', 'meclis', 'cumhurbaşkanı', 'muhalefet',
+    // NOTE: bare 'bakan' was tested and dropped — it's also the present
+    // participle of "bakmak" (to look after/attend to), e.g. "yangına bakan
+    // itfaiyeci" (the firefighter attending to the fire), so it would have
+    // blocked genuine fire coverage. 'bakanlık'/'bakanı' are specific to
+    // "minister"/"ministry" and don't have that collision.
+    'seçim', 'parti', 'milletvekili', 'meclis', 'cumhurbaşkanı', 'cumhurbaşkan',
+    'muhalefet', 'siyasi', 'hükümet', 'bakanlık', 'bakanı',
     // Askeri
+    // NOTE: bare 'ordu' was tested and dropped — it's also the name of a
+    // real Turkish province (Ordu, on the Black Sea coast), so it would
+    // have blocked legitimate fire/flood news about that region.
     'mayın', 'denizaltı', 'fırkateyn', 'patlayıcı', 'silah sistemi',
-    'savunma sanayii', 'mke', 'roket', 'hava savunma',
+    'savunma sanayii', 'mke', 'roket', 'hava savunma', 'nato', 'askeri', 'savaş',
     'operasyon', 'gözaltı', 'fetö', 'pkk', 'iha düşürüldü', 'füze', 'nükleer',
+    // Diplomatik / Uluslararası ilişkiler
+    'ambassador', 'diplomat', 'summit', 'treaty', 'alliance', 'military',
     // Diğer
     'evlilik', 'boşanma', 'bebek', 'hamile', 'moda', 'tatil',
     'saç boyası', 'alerjik reaksiyon', 'otopsi', 'velayet',
     'iletişim başkanı',
     // Turizm/Seyahat
     'kruvaziyer', 'turist', 'tatil köyü', 'otel', 'schengen', 'vize',
+    'turizm', 'uçuş', 'pasaport',
     // Teknoloji/İş
     'startup', 'yapay zeka', 'fintek', 'yatırım', 'ihracat', 'ithalat',
     'teknoloji', 'akıllı telefon', 'yazılım şirketi', 'e-ticaret',
+    'telefon', 'bilgisayar', 'uzay',
     // Uluslararası (Türkiye dışı)
     'kongo', 'ebola', 'japonya', 'venezuela', 'filistin', 'israil',
     // Diğer
