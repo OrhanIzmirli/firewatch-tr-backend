@@ -72,6 +72,27 @@ router.post('/report', async (req: Request, res: Response) => {
       return;
     }
 
+    // Aynı konumdan (500m) son 2 saat içinde rapor var mı? — spam/duplicate koruması
+    const duplicateResult = await pool.query(
+      `SELECT COUNT(*) as count FROM fire_reports
+       WHERE ST_DWithin(
+         ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+         ST_SetSRID(ST_MakePoint(longitude::float, latitude::float), 4326)::geography,
+         500
+       )
+       AND created_at > NOW() - INTERVAL '2 hours'`,
+      [longitude, latitude]
+    );
+    const duplicateCount = parseInt(duplicateResult.rows[0]?.count ?? '0');
+    if (duplicateCount > 0) {
+      res.status(429).json({
+        status: 'error',
+        code: 'duplicate_location',
+        message: 'A report has already been sent from this location. Please wait for authorities to respond.',
+      });
+      return;
+    }
+
     // En yakın şehri bul
     const cityResult = await pool.query(
       `SELECT name, region FROM turkey_cities
