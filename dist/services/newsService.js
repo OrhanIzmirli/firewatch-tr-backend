@@ -4,6 +4,25 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const database_1 = __importDefault(require("../config/database"));
+// Jaccard similarity over word tokens — catches near-duplicate titles that
+// differ only by a repeated/dropped word or minor punctuation (the same
+// story re-published with a slightly edited headline, or an RSS glitch
+// that duplicates a word), which a simple source_id/source_url uniqueness
+// check doesn't catch since those come from different underlying URLs.
+function titleSimilarity(a, b) {
+    const tokenize = (s) => s.toLowerCase().trim().replace(/[^\p{L}\p{N}\s]/gu, '').split(/\s+/).filter(Boolean);
+    const tokensA = new Set(tokenize(a));
+    const tokensB = new Set(tokenize(b));
+    if (tokensA.size === 0 || tokensB.size === 0)
+        return 0;
+    let intersection = 0;
+    for (const t of tokensA)
+        if (tokensB.has(t))
+            intersection++;
+    const union = tokensA.size + tokensB.size - intersection;
+    return union === 0 ? 0 : intersection / union;
+}
+const DUPLICATE_TITLE_THRESHOLD = 0.8;
 class NewsService {
     async getAllNews(category, limit = 20, offset = 0) {
         let query = 'SELECT * FROM news WHERE 1=1';
@@ -42,10 +61,16 @@ class NewsService {
             throw error;
         }
     }
-    // returns null when the row already exists (source_id/source_url conflict) instead of throwing
+    // returns null when the row already exists (source_id/source_url conflict,
+    // or a near-duplicate title within the last 3 days) instead of throwing
     async createNews(data) {
         const { title, summary, body, source, source_url, source_id, category, is_breaking, published_at, read_minutes, related_region, highlights, paragraphs, } = data;
         try {
+            const recent = await database_1.default.query(`SELECT title FROM news WHERE created_at > NOW() - INTERVAL '3 days' ORDER BY created_at DESC LIMIT 200`);
+            const isDuplicateTitle = recent.rows.some((row) => titleSimilarity(title, row.title) >= DUPLICATE_TITLE_THRESHOLD);
+            if (isDuplicateTitle) {
+                return null;
+            }
             const result = await database_1.default.query(`INSERT INTO news
           (title, summary, body, source, source_url, source_id, category, is_breaking, published_at, read_minutes, related_region, highlights, paragraphs)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
