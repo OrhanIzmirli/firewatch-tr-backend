@@ -21,7 +21,7 @@ const CACHE_TTL = 300; // 5 dakika
 class RiskCalculatorJob {
     start() {
         console.log('Risk Calculator Job starting...');
-        node_cron_1.default.schedule('0 */12 * * *', async () => {
+        node_cron_1.default.schedule('0 */3 * * *', async () => {
             await this.runCalculator();
         });
         this.runCalculator();
@@ -138,8 +138,23 @@ class RiskCalculatorJob {
             score += 10;
         else if (fireCount >= 1)
             score += 5;
+        // Heat index bonus: high temperature and low humidity together are a
+        // well-established synergistic fire-danger multiplier (the interaction
+        // this additive bucket scoring otherwise misses — e.g. Fosberg Fire
+        // Weather Index combines temp/humidity/wind non-linearly rather than
+        // just summing independent thresholds). Tiers are mutually exclusive;
+        // only the higher one applies.
+        if (weather.temperature > 40 && weather.humidity < 20) {
+            score += 20;
+        }
+        else if (weather.temperature > 35 && weather.humidity < 30) {
+            score += 10;
+        }
         score = Math.min(100, score);
-        const drynessIndex = Math.min(100, Math.round((weather.temperature / 45) * 60 + ((100 - weather.humidity) / 100) * 40));
+        // Dryness index: temp and humidity remain the primary drivers, but wind
+        // now also contributes — it accelerates fuel drying and moisture loss,
+        // not just fire spread once ignited.
+        const drynessIndex = Math.min(100, Math.round((weather.temperature / 45) * 50 + ((100 - weather.humidity) / 100) * 35 + (weather.windSpeed / 80) * 15));
         const vegetationPressure = Math.min(100, Math.round((weather.windSpeed / 80) * 50 + (weather.temperature / 45) * 50));
         return {
             score,
