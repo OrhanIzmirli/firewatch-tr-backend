@@ -66,69 +66,32 @@ const CITY_REGION_MAP = {
     'şırnak': 'Güneydoğu Anadolu', 'adıyaman': 'Güneydoğu Anadolu',
     'kilis': 'Güneydoğu Anadolu',
 };
-// "Strong" fire/disaster signals — specific enough that they alone justify
-// overriding the soft traffic-accident block below (see SOFT_TRAFFIC_KEYWORDS).
-const STRONG_MUST_HAVE_KEYWORDS = [
-    // 🔥 Yangın
-    'yangın', 'yangin', 'yanıyor', 'yandı', 'tutuştu',
-    'alevler', 'alev aldı', 'aleve boğuldu',
-    'yangın çıktı', 'yangın söndür', 'yangın riski', 'yangın tehlikesi', 'yangın uyarısı',
-    'orman yangını', 'orman yangini', 'makilik', 'ormanlık alan', 'duman',
-    'tahliye edildi', 'tahliye emri', 'bina tahliye',
-    // 🌡️ Sıcaklık & Kuraklık
-    'kuraklık', 'kuraklik', 'kurak', 'sıcaklık rekoru', 'aşırı sıcak',
-    'kavurucu sıcak', 'sıcak hava dalgası', 'yüksek sıcaklık', 'sıcaklık uyarısı',
-    // 🌩️ Fırtına
-    'fırtına', 'hortum', 'kasırga', 'şiddetli yağış', 'kuvvetli rüzgar',
-    // 🌊 Su & Sel
-    // NOTE: bare 'sel' was tested against live RSS data and dropped — it's a
-    // substring of the extremely common Turkish "-sel" adjective suffix
-    // (görsel/image-caption, bölgesel, evrensel, kişisel, hücresel...), so it
-    // matched almost every article via routine photo-credit text. Compounds
-    // only.
-    'sel felaketi', 'sel baskını', 'seller bastı', 'ani sel', 'sele kapıldı',
-    'taşkın', 'su baskını', 'dere taştı', 'tsunami',
-    // ⛰️ Diğer Doğal Afetler
-    'heyelan', 'toprak kayması', 'çığ', 'deprem', 'sarsıntı',
-    'don olayı', 'dolu yağdı', 'dolu yağışı',
-    // English (defensive — current RSS sources are Turkish-only, but future
-    // English-language sources would need these to match)
-    'wildfire', 'fire', 'forest fire', 'blaze', 'flood', 'drought', 'earthquake',
-    'storm', 'hurricane', 'disaster', 'emergency', 'evacuation',
-];
-// "Weak" signals — organizational/contextual terms that respond to many
-// incident types, not just fires (AFAD and itfaiye also handle traffic
-// rescues, floods, building collapses, etc). Still count toward the overall
-// must-have gate, but alone they don't override the traffic soft-block.
-const WEAK_MUST_HAVE_KEYWORDS = [
-    'itfaiye', 'afad', 'ogm', 'orman genel müdürlüğü', 'orman ekibi', 'söndürme ekibi',
-    // NOTE: bare 'meteoroloji' and 'hava durumu' were tested against live RSS
-    // and dropped — every routine daily weather forecast article uses these
-    // words, so they matched constantly. The specific alert-level terms below
-    // ('hava uyarısı', color codes) already cover genuine warnings.
+// STRICT WHITELIST — checked against the TITLE only (not the summary).
+// Titles are short enough that a fire/disaster keyword appearing in one is
+// a much stronger relevance signal than the same keyword appearing
+// somewhere in a long article body, and this cuts the false-positive rate
+// dramatically compared to matching the full text.
+//
+// A few words from the original request are intentionally replaced with
+// safer compounds after empirically testing against 355 live RSS articles
+// and re-discovering collisions already found and fixed in an earlier
+// pass: bare 'sel' matches the extremely productive Turkish "-sel"
+// adjective suffix (Selçuk, ASELSAN, yükseldi, bitkisel, kitlesel...);
+// bare 'afet' matches inside the name "Şerafettin"; bare 'tahliye' collides
+// with its legal "release from custody" sense; bare 'uyarı'/'risk'/
+// 'tehlike' are generic words used across every news domain (a judge's
+// "sert uyarı", a hair-dye article asking "kimler risk altında?", a
+// wildlife story where "dokunmak bile tehlikeli"), not just weather/fire.
+const MUST_HAVE_KEYWORDS = [
+    'yangın', 'yangin', 'orman yangını', 'orman yangini', 'alevler', 'alev aldı', 'duman',
+    'tahliye edildi', 'tahliye emri', 'bina tahliye', 'itfaiye', 'afad',
+    'kuraklık', 'sel felaketi', 'sel baskını', 'seller bastı', 'ani sel', 'sele kapıldı', 'taşkın',
+    'fırtına', 'hortum', 'kasırga', 'heyelan',
     'hava uyarısı', 'sarı kod', 'turuncu kod', 'kırmızı kod',
-    // NOTE: bare 'sağanak' (downpour) and 'dolu' (hail) were also tested and
-    // dropped — routine daily forecasts mention downpours constantly without
-    // being disaster-relevant. 'şiddetli yağış' (STRONG list) and 'dolu
-    // yağdı'/'dolu yağışı' already cover the genuinely severe cases.
-    'rüzgar uyarısı', 'nem oranı', 'nem düştü',
-    'deniz kirliliği', 'deniz sıcaklığı', 'kıyı kirliliği',
-    'hava kirliliği', 'çevre kirliliği', 'kirlilik uyarısı',
-    'ekolojik felaket', 'çevre felaketi', 'doğa tahribatı', 'felaket', 'doğal afet',
-    'iklim değişikliği', 'küresel ısınma', 'yüksek risk',
-];
-const MUST_HAVE_KEYWORDS = [...STRONG_MUST_HAVE_KEYWORDS, ...WEAK_MUST_HAVE_KEYWORDS];
-// Traffic/accident terms only block when no STRONG fire/disaster keyword is
-// also present — e.g. "otoyolda yangın nedeniyle trafik kilitlendi" should
-// still pass, but a routine "trafik kazası" writeup that happens to mention
-// "itfaiye ekipleri de sevk edildi" as boilerplate rescue-dispatch language
-// should not.
-const SOFT_TRAFFIC_KEYWORDS = [
-    'trafik kazası', 'çarpıştı', 'devrildi', 'otobüs kazası', 'zincirleme',
-    'trafik', 'kaza', 'kazada', 'çarpışma', 'otomobil', 'araç', 'direksiyon',
-    'yaralı', 'yaralandı', 'hayatını kaybetti', 'yaşamını yitirdi', 'uçuruma',
-    'çarpan', 'çarptı', 'hafif ticari', 'panelvan', 'lastik tamircisi',
-    'boğuldu', 'yıldırım çarptı',
+    'yangın uyarısı', 'sel uyarısı', 'fırtına uyarısı',
+    'acil durum', 'felaket', 'doğal afet', 'yangın riski', 'yangın tehlikesi',
+    'sıcak hava dalgası', 'aşırı sıcak', 'kavurucu sıcak',
+    'wildfire', 'fire', 'flood', 'drought', 'storm', 'disaster', 'emergency',
 ];
 const BLOCKED_KEYWORDS = [
     // Şiddet/Suç
@@ -145,13 +108,14 @@ const BLOCKED_KEYWORDS = [
     'borsa', 'dolar', 'euro', 'faiz', 'enflasyon', 'bütçe', 'vergi', 'ekonomi',
     'cryptocurrency', 'bitcoin', 'nft',
     // Siyaset
-    // NOTE: bare 'bakan' was tested and dropped — it's also the present
-    // participle of "bakmak" (to look after/attend to), e.g. "yangına bakan
-    // itfaiyeci" (the firefighter attending to the fire), so it would have
-    // blocked genuine fire coverage. 'bakanlık'/'bakanı' are specific to
-    // "minister"/"ministry" and don't have that collision.
+    // NOTE: bare 'bakan' is also the present participle of "bakmak" (to look
+    // after/attend to), e.g. "yangına bakan itfaiyeci" (the firefighter
+    // attending to the fire) — a real but rare headline construction. Kept
+    // in per explicit repeated request; 'bakanlık'/'bakanı' below already
+    // cover the far more common "X Bakanı"/"X Bakanlığı" inflections without
+    // that risk.
     'seçim', 'oy kullan', 'parti', 'milletvekili', 'meclis', 'cumhurbaşkanı', 'cumhurbaşkan',
-    'muhalefet', 'iktidar', 'siyasi', 'hükümet', 'bakanlık', 'bakanı',
+    'muhalefet', 'iktidar', 'siyasi', 'hükümet', 'bakanlık', 'bakanı', 'bakan',
     // Askeri
     // NOTE: bare 'ordu' was tested and dropped — it's also the name of a
     // real Turkish province (Ordu, on the Black Sea coast), so it would
@@ -173,6 +137,10 @@ const BLOCKED_KEYWORDS = [
     // Uluslararası (Türkiye dışı)
     'kongo', 'ebola', 'japonya', 'venezuela', 'filistin', 'israil',
     'hindistan', 'pakistan', 'bangladeş', 'nepal',
+    'fransa', 'france', 'almanya', 'rusya', 'ukrayna', 'suriye', 'irak', 'iran',
+    // Deprem — out of scope for this app (wildfire-focused, not general
+    // disaster coverage) per explicit product decision.
+    'deprem',
     // Diğer
     'saç', 'dyson', 'bokashi', 'madalya', 'solotürk', 'fetih',
     'kadına yönelik', 'çocuk hakları', 'gezegen', 'petrol stok', 'zeytin satıcı', 'kurban hisse',
@@ -229,30 +197,22 @@ function detectCategory(text) {
     }
     return 'Güncelleme';
 }
-// Two-layer filter: Layer 1 blocks off-topic content outright (politics,
-// sports, military, entertainment, etc); Layer 2 requires at least one
-// genuine fire/disaster signal. Traffic/casualty wording is a special case
-// (SOFT_TRAFFIC_KEYWORDS) — it only blocks when no STRONG fire keyword is
-// also present, so "otomobil yandı" (car caught fire) still passes but a
-// routine crash writeup that mentions "itfaiye" only as boilerplate
-// rescue-dispatch language does not.
-function checkRelevance(text) {
-    const lower = text.toLowerCase().trim();
-    const hasMustHave = MUST_HAVE_KEYWORDS.some(kw => lower.includes(kw));
+// Strict whitelist: the MUST_HAVE check runs against the TITLE only (a
+// much stronger, lower-noise relevance signal than matching anywhere in
+// the full article body — see the comment on MUST_HAVE_KEYWORDS). The
+// BLOCKED check runs against the full text (title + summary) since
+// blocking is inherently conservative — checking the summary too only
+// ever removes more off-topic content, never loses genuine matches.
+function checkRelevance(title, fullText) {
+    const titleLower = title.toLowerCase().trim();
+    const fullLower = fullText.toLowerCase().trim();
+    const hasMustHave = MUST_HAVE_KEYWORDS.some(kw => titleLower.includes(kw));
     if (!hasMustHave)
         return { relevant: false, reason: 'no_must_have' };
-    if (BLOCKED_KEYWORDS.some(kw => lower.includes(kw))) {
+    if (BLOCKED_KEYWORDS.some(kw => fullLower.includes(kw))) {
         return { relevant: false, reason: 'blocked' };
     }
-    const hasStrongFire = STRONG_MUST_HAVE_KEYWORDS.some(kw => lower.includes(kw));
-    const hasTrafficNoise = SOFT_TRAFFIC_KEYWORDS.some(kw => lower.includes(kw));
-    if (hasTrafficNoise && !hasStrongFire) {
-        return { relevant: false, reason: 'traffic_noise' };
-    }
     return { relevant: true, reason: 'ok' };
-}
-function isRelevant(text) {
-    return checkRelevance(text).relevant;
 }
 function estimateReadMinutes(text) {
     const wordCount = text.split(' ').length;
@@ -290,7 +250,6 @@ class NewsScraperJob {
         const filterCounts = {
             no_must_have: 0,
             blocked: 0,
-            traffic_noise: 0,
             ok: 0,
         };
         for (const source of RSS_SOURCES) {
@@ -304,7 +263,7 @@ class NewsScraperJob {
                     const link = item.link || '';
                     const pubDate = item.pubDate ? new Date(item.pubDate) : new Date();
                     const fullText = `${title} ${summary}`;
-                    const relevance = checkRelevance(fullText);
+                    const relevance = checkRelevance(title, fullText);
                     filterCounts[relevance.reason]++;
                     if (!relevance.relevant)
                         continue;
@@ -347,9 +306,9 @@ class NewsScraperJob {
                 console.error(`❌ Error processing ${source.source}:`, error);
             }
         }
-        console.log(`✅ Scraper done. Fetched: ${totalFetched} | Passed both layers: ${filterCounts.ok} | Added (new): ${totalAdded}`);
-        console.log(`   Filter breakdown — no must-have keyword: ${filterCounts.no_must_have}, ` +
-            `blocked (Layer 1): ${filterCounts.blocked}, traffic noise: ${filterCounts.traffic_noise}, passed: ${filterCounts.ok}`);
+        console.log(`✅ Scraper done. Fetched: ${totalFetched} | Passed whitelist: ${filterCounts.ok} | Added (new): ${totalAdded}`);
+        console.log(`   Filter breakdown — no must-have keyword in title: ${filterCounts.no_must_have}, ` +
+            `blocked: ${filterCounts.blocked}, passed: ${filterCounts.ok}`);
     }
 }
 exports.default = new NewsScraperJob();

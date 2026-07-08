@@ -75,20 +75,25 @@ app.get('/api/risk/summary', async (req, res) => {
             res.json({ status: 'success', data: cached });
             return;
         }
+        // NOTE: ordered by created_at, not date. risk_data.date is a DATE
+        // column (day precision only), but the calculator runs twice a day —
+        // two same-day rows tie on date with no reliable tiebreaker, so
+        // "ORDER BY date DESC" could serve either run. created_at is a full
+        // TIMESTAMP (DEFAULT CURRENT_TIMESTAMP) and always distinguishes them.
         const result = await database_1.default.query(`
       SELECT DISTINCT ON (r1.region)
         r1.region, r1.general_risk_score, r1.risk_level, r1.temperature,
         r1.humidity, r1.wind_speed, r1.wind_direction, r1.dryness_index,
-        r1.vegetation_density, r1.date,
+        r1.vegetation_density, r1.date, r1.created_at,
         (
           SELECT r2.general_risk_score FROM risk_data r2
-          WHERE r2.region = r1.region AND r2.date < r1.date
-          ORDER BY r2.date DESC LIMIT 1
+          WHERE r2.region = r1.region AND r2.created_at < r1.created_at
+          ORDER BY r2.created_at DESC LIMIT 1
         ) AS previous_risk_score
       FROM risk_data r1
-      ORDER BY r1.region, r1.date DESC
+      ORDER BY r1.region, r1.created_at DESC
     `);
-        await cacheService_1.default.set(cacheKey, result.rows, 300); // calculator runs every 12h, 5 min cache is safe
+        await cacheService_1.default.set(cacheKey, result.rows, 300); // calculator runs every 3h, 5 min cache is safe
         res.json({ status: 'success', data: result.rows });
     }
     catch (error) {
