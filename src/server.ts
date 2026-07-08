@@ -79,12 +79,17 @@ app.get('/api/risk/summary', async (req, res) => {
     }
 
     const result = await pool.query(`
-      SELECT DISTINCT ON (region)
-        region, general_risk_score, risk_level, temperature,
-        humidity, wind_speed, wind_direction, dryness_index,
-        vegetation_density, date
-      FROM risk_data
-      ORDER BY region, date DESC
+      SELECT DISTINCT ON (r1.region)
+        r1.region, r1.general_risk_score, r1.risk_level, r1.temperature,
+        r1.humidity, r1.wind_speed, r1.wind_direction, r1.dryness_index,
+        r1.vegetation_density, r1.date,
+        (
+          SELECT r2.general_risk_score FROM risk_data r2
+          WHERE r2.region = r1.region AND r2.date < r1.date
+          ORDER BY r2.date DESC LIMIT 1
+        ) AS previous_risk_score
+      FROM risk_data r1
+      ORDER BY r1.region, r1.date DESC
     `);
 
     await cacheService.set(cacheKey, result.rows, 300); // calculator runs every 12h, 5 min cache is safe
