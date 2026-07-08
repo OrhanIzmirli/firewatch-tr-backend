@@ -30,16 +30,14 @@ const CITY_REGION_MAP: Record<string, string> = {
   'kilis': 'Güneydoğu Anadolu',
 };
 
-// STRICT WHITELIST — checked against the TITLE only (not the summary).
-// Titles are short enough that a fire/disaster keyword appearing in one is
-// a much stronger relevance signal than the same keyword appearing
-// somewhere in a long article body, and this cuts the false-positive rate
-// dramatically compared to matching the full text.
+// STRICT WHITELIST — specific fire/disaster terms are checked against the
+// TITLE + summary (broad recall); the two generic organizational names
+// below are checked against the TITLE only.
 //
 // A few words from the original request are intentionally replaced with
 // safer compounds after empirically testing against 355 live RSS articles
-// and re-discovering collisions already found and fixed in an earlier
-// pass: bare 'sel' matches the extremely productive Turkish "-sel"
+// and re-discovering collisions already found and fixed in earlier
+// passes: bare 'sel' matches the extremely productive Turkish "-sel"
 // adjective suffix (Selçuk, ASELSAN, yükseldi, bitkisel, kitlesel...);
 // bare 'afet' matches inside the name "Şerafettin"; bare 'tahliye' collides
 // with its legal "release from custody" sense; bare 'uyarı'/'risk'/
@@ -48,15 +46,28 @@ const CITY_REGION_MAP: Record<string, string> = {
 // wildlife story where "dokunmak bile tehlikeli"), not just weather/fire.
 const MUST_HAVE_KEYWORDS = [
   'yangın', 'yangin', 'orman yangını', 'orman yangini', 'alevler', 'alev aldı', 'duman',
-  'tahliye edildi', 'tahliye emri', 'bina tahliye', 'itfaiye', 'afad',
+  'tahliye edildi', 'tahliye emri', 'bina tahliye',
   'kuraklık', 'sel felaketi', 'sel baskını', 'seller bastı', 'ani sel', 'sele kapıldı', 'taşkın',
-  'fırtına', 'hortum', 'kasırga', 'heyelan',
+  'fırtına', 'hortum', 'kasırga', 'heyelan', 'çığ düştü', 'çığ tehlikesi',
   'hava uyarısı', 'sarı kod', 'turuncu kod', 'kırmızı kod',
   'yangın uyarısı', 'sel uyarısı', 'fırtına uyarısı',
   'acil durum', 'felaket', 'doğal afet', 'yangın riski', 'yangın tehlikesi',
   'sıcak hava dalgası', 'aşırı sıcak', 'kavurucu sıcak',
-  'wildfire', 'fire', 'flood', 'drought', 'storm', 'disaster', 'emergency',
+  'maki alan', 'zeytinlik yangın', 'ormanlık alan',
+  'wildfire', 'forest fire', 'fire', 'blaze', 'smoke', 'evacuation',
+  'flood', 'drought', 'storm', 'hurricane', 'disaster', 'emergency',
+  'heat wave', 'extreme heat', 'wildland fire',
 ];
+
+// 'itfaiye'/'afad' also respond to traffic rescues, floods, and building
+// collapses — routine "itfaiye ekipleri de sevk edildi" boilerplate shows
+// up in almost any accident article's body. Restricted to the title, where
+// their presence is a far stronger signal the story is actually about a
+// fire/disaster response rather than incidental dispatch-list filler.
+// (Empirically confirmed: broadening these two to full-text matching
+// pulled in a fatal traffic-barrier collision and a bus-crash story via
+// this exact boilerplate.)
+const TITLE_ONLY_KEYWORDS = ['itfaiye', 'afad'];
 
 const BLOCKED_KEYWORDS = [
   // Şiddet/Suç
@@ -100,9 +111,15 @@ const BLOCKED_KEYWORDS = [
   'evlilik', 'boşanma', 'bebek', 'hamile', 'moda',
   'saç boyası', 'alerjik reaksiyon', 'otopsi', 'velayet', 'iletişim başkanı',
   // Uluslararası (Türkiye dışı)
-  'kongo', 'ebola', 'japonya', 'venezuela', 'filistin', 'israil',
-  'hindistan', 'pakistan', 'bangladeş', 'nepal',
-  'fransa', 'france', 'almanya', 'rusya', 'ukrayna', 'suriye', 'irak', 'iran',
+  'kongo', 'ebola', 'japonya', 'venezuela', 'filistin', 'israil', 'israel', 'gazze',
+  'hindistan', 'pakistan', 'bangladeş', 'nepal', 'mısır',
+  'fransa', 'france', 'almanya', 'germany', 'rusya', 'russia', 'ukrayna', 'ukraine',
+  'suriye', 'syria', 'irak', 'iran', 'yunanistan', 'çin', 'china', 'ingiltere',
+  'avrupa birliği',
+  // NOTE: bare 'abd' (Turkish abbreviation for "USA") intentionally
+  // dropped — it's also the start of extremely common Turkish given names
+  // (Abdullah, Abdurrahman, Abdulkadir...), which would get blocked since
+  // matching is case-insensitive substring, not whole-word.
   // Deprem — out of scope for this app (wildfire-focused, not general
   // disaster coverage) per explicit product decision.
   'deprem',
@@ -167,25 +184,30 @@ function detectCategory(text: string): string {
 
 type RelevanceResult = {
   relevant: boolean;
-  reason: 'no_must_have' | 'blocked' | 'ok';
+  reason: 'no_must_have' | 'blocked' | 'too_short' | 'ok';
 };
 
-// Strict whitelist: the MUST_HAVE check runs against the TITLE only (a
-// much stronger, lower-noise relevance signal than matching anywhere in
-// the full article body — see the comment on MUST_HAVE_KEYWORDS). The
-// BLOCKED check runs against the full text (title + summary) since
-// blocking is inherently conservative — checking the summary too only
-// ever removes more off-topic content, never loses genuine matches.
+// Strict whitelist: MUST_HAVE_KEYWORDS (specific fire/disaster terms) match
+// anywhere in title+summary; TITLE_ONLY_KEYWORDS (generic org names that
+// show up as incident-response boilerplate in unrelated articles) only
+// count when they're in the title itself. BLOCKED always runs against the
+// full text — blocking is inherently conservative, so checking the
+// summary too only ever removes more off-topic content, never loses a
+// genuine match.
 function checkRelevance(title: string, fullText: string): RelevanceResult {
   const titleLower = title.toLowerCase().trim();
   const fullLower = fullText.toLowerCase().trim();
 
-  const hasMustHave = MUST_HAVE_KEYWORDS.some(kw => titleLower.includes(kw));
+  const hasMustHave =
+    MUST_HAVE_KEYWORDS.some(kw => fullLower.includes(kw)) ||
+    TITLE_ONLY_KEYWORDS.some(kw => titleLower.includes(kw));
   if (!hasMustHave) return { relevant: false, reason: 'no_must_have' };
 
   if (BLOCKED_KEYWORDS.some(kw => fullLower.includes(kw))) {
     return { relevant: false, reason: 'blocked' };
   }
+
+  if (titleLower.length <= 10) return { relevant: false, reason: 'too_short' };
 
   return { relevant: true, reason: 'ok' };
 }
@@ -228,6 +250,7 @@ class NewsScraperJob {
     const filterCounts: Record<RelevanceResult['reason'], number> = {
       no_must_have: 0,
       blocked: 0,
+      too_short: 0,
       ok: 0,
     };
 
