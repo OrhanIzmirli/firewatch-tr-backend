@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -11,7 +44,7 @@ const compression_1 = __importDefault(require("compression"));
 const fires_1 = __importDefault(require("./routes/fires"));
 const notifications_1 = __importDefault(require("./routes/notifications"));
 const news_1 = __importDefault(require("./routes/news"));
-const newsScraperJob_1 = __importDefault(require("./jobs/newsScraperJob"));
+const newsScraperJob_1 = __importStar(require("./jobs/newsScraperJob"));
 const riskCalculatorJob_1 = __importDefault(require("./jobs/riskCalculatorJob"));
 const cacheService_1 = __importDefault(require("./services/cacheService"));
 const database_1 = __importDefault(require("./config/database"));
@@ -61,6 +94,51 @@ app.get('/api/admin/risk', requireAdminToken, async (req, res) => {
         console.log('🔧 Manual risk calculation triggered');
         await riskCalculatorJob_1.default.runCalculator();
         res.json({ status: 'success', message: 'Risk calculation completed' });
+    }
+    catch (error) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+// Removes existing news rows that fail the current relevance filter — for
+// cleaning up articles that were saved by an older/looser filter version.
+// Reuses the exact same checkRelevance() the live scraper runs, so this
+// never drifts out of sync with whatever the filter currently considers
+// relevant. Defaults to a dry run (counts only); pass ?confirm=true to
+// actually delete, since this is irreversible.
+app.get('/api/admin/clean-news', requireAdminToken, async (req, res) => {
+    try {
+        const confirm = req.query.confirm === 'true';
+        const rows = await database_1.default.query('SELECT id, title, summary FROM news');
+        const toDelete = [];
+        for (const row of rows.rows) {
+            const fullText = `${row.title} ${row.summary || ''}`;
+            if (!(0, newsScraperJob_1.checkRelevance)(row.title, fullText).relevant) {
+                toDelete.push(row.id);
+            }
+        }
+        if (!confirm) {
+            res.json({
+                status: 'success',
+                dryRun: true,
+                message: `${toDelete.length} of ${rows.rows.length} rows would be deleted. Pass ?confirm=true to actually delete.`,
+                wouldDeleteCount: toDelete.length,
+                totalCount: rows.rows.length,
+            });
+            return;
+        }
+        if (toDelete.length > 0) {
+            await database_1.default.query('DELETE FROM news WHERE id = ANY($1)', [toDelete]);
+        }
+        // Note: /api/news responses are cached per (category, limit, offset)
+        // with a short TTL — no single key to invalidate here, but it expires
+        // on its own within a few minutes.
+        res.json({
+            status: 'success',
+            dryRun: false,
+            message: `Deleted ${toDelete.length} of ${rows.rows.length} rows.`,
+            deletedCount: toDelete.length,
+            totalCount: rows.rows.length,
+        });
     }
     catch (error) {
         res.status(500).json({ status: 'error', message: error.message });

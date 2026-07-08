@@ -194,7 +194,7 @@ type RelevanceResult = {
 // full text — blocking is inherently conservative, so checking the
 // summary too only ever removes more off-topic content, never loses a
 // genuine match.
-function checkRelevance(title: string, fullText: string): RelevanceResult {
+export function checkRelevance(title: string, fullText: string): RelevanceResult {
   const titleLower = title.toLowerCase().trim();
   const fullLower = fullText.toLowerCase().trim();
 

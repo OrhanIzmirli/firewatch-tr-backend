@@ -7,7 +7,7 @@ import compression from 'compression';
 import fireRoutes from './routes/fires';
 import notificationRoutes from './routes/notifications';
 import newsRoutes from './routes/news';
-import newsScraperJob from './jobs/newsScraperJob';
+import newsScraperJob, { checkRelevance } from './jobs/newsScraperJob';
 import riskCalculatorJob from './jobs/riskCalculatorJob';
 import cacheService from './services/cacheService';
 import pool from './config/database';
@@ -63,6 +63,53 @@ app.get('/api/admin/risk', requireAdminToken, async (req, res) => {
     console.log('🔧 Manual risk calculation triggered');
     await riskCalculatorJob.runCalculator();
     res.json({ status: 'success', message: 'Risk calculation completed' });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: (error as Error).message });
+  }
+});
+
+// Removes existing news rows that fail the current relevance filter — for
+// cleaning up articles that were saved by an older/looser filter version.
+// Reuses the exact same checkRelevance() the live scraper runs, so this
+// never drifts out of sync with whatever the filter currently considers
+// relevant. Defaults to a dry run (counts only); pass ?confirm=true to
+// actually delete, since this is irreversible.
+app.get('/api/admin/clean-news', requireAdminToken, async (req, res) => {
+  try {
+    const confirm = req.query.confirm === 'true';
+    const rows = await pool.query('SELECT id, title, summary FROM news');
+    const toDelete: number[] = [];
+    for (const row of rows.rows) {
+      const fullText = `${row.title} ${row.summary || ''}`;
+      if (!checkRelevance(row.title, fullText).relevant) {
+        toDelete.push(row.id);
+      }
+    }
+
+    if (!confirm) {
+      res.json({
+        status: 'success',
+        dryRun: true,
+        message: `${toDelete.length} of ${rows.rows.length} rows would be deleted. Pass ?confirm=true to actually delete.`,
+        wouldDeleteCount: toDelete.length,
+        totalCount: rows.rows.length,
+      });
+      return;
+    }
+
+    if (toDelete.length > 0) {
+      await pool.query('DELETE FROM news WHERE id = ANY($1)', [toDelete]);
+    }
+    // Note: /api/news responses are cached per (category, limit, offset)
+    // with a short TTL — no single key to invalidate here, but it expires
+    // on its own within a few minutes.
+    res.json({
+      status: 'success',
+      dryRun: false,
+      message: `Deleted ${toDelete.length} of ${rows.rows.length} rows.`,
+      deletedCount: toDelete.length,
+      totalCount: rows.rows.length,
+    });
   } catch (error) {
     res.status(500).json({ status: 'error', message: (error as Error).message });
   }
