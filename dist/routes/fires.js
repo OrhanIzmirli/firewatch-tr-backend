@@ -9,6 +9,16 @@ const database_1 = __importDefault(require("../config/database"));
 const router = (0, express_1.Router)();
 // GET /api/fires - Get all fires
 router.get('/', (req, res) => fireController_1.default.getAllFires(req, res));
+// Turkey's bounding box. turkey_cities only contains Turkish cities, so
+// PostGIS' "nearest" query happily returns e.g. Şırnak for a point in
+// Greece or Cyprus — nearest doesn't mean close. Reject coordinates
+// outside this box before ever querying the table, rather than returning
+// a confidently wrong city.
+const TURKEY_BBOX = { minLat: 35.8, maxLat: 42.2, minLng: 25.6, maxLng: 44.8 };
+function isWithinTurkey(lat, lng) {
+    return lat >= TURKEY_BBOX.minLat && lat <= TURKEY_BBOX.maxLat &&
+        lng >= TURKEY_BBOX.minLng && lng <= TURKEY_BBOX.maxLng;
+}
 // GET /api/fires/nearest-city?lat=X&lng=Y
 router.get('/nearest-city', async (req, res) => {
     try {
@@ -16,6 +26,10 @@ router.get('/nearest-city', async (req, res) => {
         const lng = parseFloat(req.query.lng);
         if (isNaN(lat) || isNaN(lng)) {
             res.status(400).json({ status: 'error', message: 'lat and lng required' });
+            return;
+        }
+        if (!isWithinTurkey(lat, lng)) {
+            res.json({ status: 'success', data: { outsideTurkey: true, city: null, region: null, distance_km: null } });
             return;
         }
         const result = await database_1.default.query(`SELECT name, region,
@@ -27,13 +41,13 @@ router.get('/nearest-city', async (req, res) => {
        ORDER BY location <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)
        LIMIT 1`, [lng, lat]);
         if (result.rows.length === 0) {
-            res.json({ status: 'success', data: { city: 'Türkiye', region: 'Türkiye' } });
+            res.json({ status: 'success', data: { outsideTurkey: false, city: 'Türkiye', region: 'Türkiye' } });
             return;
         }
         const { name, region, distance_km } = result.rows[0];
         res.json({
             status: 'success',
-            data: { city: name, region, distance_km: Math.round(distance_km) },
+            data: { outsideTurkey: false, city: name, region, distance_km: Math.round(distance_km) },
         });
     }
     catch (error) {
