@@ -4,13 +4,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const database_1 = __importDefault(require("../config/database"));
+const turkishText_1 = require("../utils/turkishText");
 // Jaccard similarity over word tokens — catches near-duplicate titles that
 // differ only by a repeated/dropped word or minor punctuation (the same
 // story re-published with a slightly edited headline, or an RSS glitch
 // that duplicates a word), which a simple source_id/source_url uniqueness
 // check doesn't catch since those come from different underlying URLs.
 function titleSimilarity(a, b) {
-    const tokenize = (s) => s.toLowerCase().trim().replace(/[^\p{L}\p{N}\s]/gu, '').split(/\s+/).filter(Boolean);
+    const tokenize = (s) => (0, turkishText_1.turkishToLower)(s).trim().replace(/[^\p{L}\p{N}\s]/gu, '').split(/\s+/).filter(Boolean);
     const tokensA = new Set(tokenize(a));
     const tokensB = new Set(tokenize(b));
     if (tokensA.size === 0 || tokensB.size === 0)

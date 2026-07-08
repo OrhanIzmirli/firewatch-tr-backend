@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import axios from 'axios';
 import * as xml2js from 'xml2js';
 import newsService from '../services/newsService';
+import { turkishToLower } from '../utils/turkishText';
 
 const CITY_REGION_MAP: Record<string, string> = {
   'izmir': 'Ege', 'muğla': 'Ege', 'aydın': 'Ege', 'denizli': 'Ege',
@@ -157,7 +158,7 @@ const RSS_SOURCES: { url: string; source: string; region: string | null }[] = [
 ];
 
 function detectRegion(text: string): string {
-  const lower = text.toLowerCase();
+  const lower = turkishToLower(text);
   for (const [city, region] of Object.entries(CITY_REGION_MAP)) {
     if (lower.includes(city)) return region;
   }
@@ -165,7 +166,7 @@ function detectRegion(text: string): string {
 }
 
 function detectCategory(text: string): string {
-  const lower = text.toLowerCase();
+  const lower = turkishToLower(text);
   if (lower.includes('risk') || lower.includes('uyarı') || lower.includes('tehlike') ||
       lower.includes('kuraklık') || lower.includes('sıcaklık') || lower.includes('meteoroloji') ||
       lower.includes('deprem') || lower.includes('tsunami')) {
@@ -195,8 +196,8 @@ type RelevanceResult = {
 // summary too only ever removes more off-topic content, never loses a
 // genuine match.
 export function checkRelevance(title: string, fullText: string): RelevanceResult {
-  const titleLower = title.toLowerCase().trim();
-  const fullLower = fullText.toLowerCase().trim();
+  const titleLower = turkishToLower(title).trim();
+  const fullLower = turkishToLower(fullText).trim();
 
   const hasMustHave =
     MUST_HAVE_KEYWORDS.some(kw => fullLower.includes(kw)) ||
@@ -275,7 +276,7 @@ class NewsScraperJob {
           const region = source.region ?? detectRegion(fullText);
           const category = detectCategory(fullText);
           const readMinutes = estimateReadMinutes(summary);
-          const isBreaking = fullText.toLowerCase().includes('son dakika');
+          const isBreaking = turkishToLower(fullText).includes('son dakika');
           const cleanSummary = summary.replace(/<[^>]*>/g, '').trim();
 
           try {

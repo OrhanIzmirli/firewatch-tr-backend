@@ -41,6 +41,7 @@ const node_cron_1 = __importDefault(require("node-cron"));
 const axios_1 = __importDefault(require("axios"));
 const xml2js = __importStar(require("xml2js"));
 const newsService_1 = __importDefault(require("../services/newsService"));
+const turkishText_1 = require("../utils/turkishText");
 const CITY_REGION_MAP = {
     'izmir': 'Ege', 'muğla': 'Ege', 'aydın': 'Ege', 'denizli': 'Ege',
     'manisa': 'Ege', 'uşak': 'Ege', 'kütahya': 'Ege', 'afyon': 'Ege',
@@ -190,7 +191,7 @@ const RSS_SOURCES = [
     { url: 'https://www.bursahaber.com/rss', source: 'Bursa Haber', region: 'Marmara' },
 ];
 function detectRegion(text) {
-    const lower = text.toLowerCase();
+    const lower = (0, turkishText_1.turkishToLower)(text);
     for (const [city, region] of Object.entries(CITY_REGION_MAP)) {
         if (lower.includes(city))
             return region;
@@ -198,7 +199,7 @@ function detectRegion(text) {
     return 'Türkiye Geneli';
 }
 function detectCategory(text) {
-    const lower = text.toLowerCase();
+    const lower = (0, turkishText_1.turkishToLower)(text);
     if (lower.includes('risk') || lower.includes('uyarı') || lower.includes('tehlike') ||
         lower.includes('kuraklık') || lower.includes('sıcaklık') || lower.includes('meteoroloji') ||
         lower.includes('deprem') || lower.includes('tsunami')) {
@@ -222,8 +223,8 @@ function detectCategory(text) {
 // summary too only ever removes more off-topic content, never loses a
 // genuine match.
 function checkRelevance(title, fullText) {
-    const titleLower = title.toLowerCase().trim();
-    const fullLower = fullText.toLowerCase().trim();
+    const titleLower = (0, turkishText_1.turkishToLower)(title).trim();
+    const fullLower = (0, turkishText_1.turkishToLower)(fullText).trim();
     const hasMustHave = MUST_HAVE_KEYWORDS.some(kw => fullLower.includes(kw)) ||
         TITLE_ONLY_KEYWORDS.some(kw => titleLower.includes(kw));
     if (!hasMustHave)
@@ -293,7 +294,7 @@ class NewsScraperJob {
                     const region = source.region ?? detectRegion(fullText);
                     const category = detectCategory(fullText);
                     const readMinutes = estimateReadMinutes(summary);
-                    const isBreaking = fullText.toLowerCase().includes('son dakika');
+                    const isBreaking = (0, turkishText_1.turkishToLower)(fullText).includes('son dakika');
                     const cleanSummary = summary.replace(/<[^>]*>/g, '').trim();
                     try {
                         const created = await newsService_1.default.createNews({

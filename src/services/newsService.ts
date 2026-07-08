@@ -1,5 +1,6 @@
 import pool from '../config/database';
 import { News } from '../types';
+import { turkishToLower } from '../utils/turkishText';
 
 // Jaccard similarity over word tokens — catches near-duplicate titles that
 // differ only by a repeated/dropped word or minor punctuation (the same
@@ -8,7 +9,7 @@ import { News } from '../types';
 // check doesn't catch since those come from different underlying URLs.
 function titleSimilarity(a: string, b: string): number {
   const tokenize = (s: string) =>
-    s.toLowerCase().trim().replace(/[^\p{L}\p{N}\s]/gu, '').split(/\s+/).filter(Boolean);
+    turkishToLower(s).trim().replace(/[^\p{L}\p{N}\s]/gu, '').split(/\s+/).filter(Boolean);
   const tokensA = new Set(tokenize(a));
   const tokensB = new Set(tokenize(b));
   if (tokensA.size === 0 || tokensB.size === 0) return 0;
