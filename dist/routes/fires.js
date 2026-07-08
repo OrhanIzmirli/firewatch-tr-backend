@@ -107,7 +107,7 @@ router.post('/report', async (req, res) => {
         (title, description, latitude, longitude, reporter_name,
          reporter_phone, status, verified, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-       RETURNING id`, [
+       RETURNING id, created_at`, [
             title ?? `${city} yangın bildirimi`,
             description ?? '',
             latitude,
@@ -124,6 +124,7 @@ router.post('/report', async (req, res) => {
                 city,
                 region,
                 verified,
+                created_at: result.rows[0].created_at,
                 nasa_nearby: nasaCount,
                 message: verified
                     ? '✅ NASA verisiyle doğrulandı — bölgede termal aktivite mevcut'
