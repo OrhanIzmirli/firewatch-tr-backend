@@ -51,7 +51,8 @@ const database_1 = __importDefault(require("./config/database"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
 app.use((0, cors_1.default)());
-app.use(express_1.default.json());
+// Default 100kb is too small for base64-encoded fire report photos.
+app.use(express_1.default.json({ limit: '15mb' }));
 app.use((0, morgan_1.default)('dev'));
 app.use((0, compression_1.default)());
 app.use('/api/fires', fires_1.default);
@@ -185,9 +186,22 @@ app.use((err, req, res, next) => {
     console.error('Server Error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
 });
+// Lightweight self-healing migration — this project has no formal migration
+// runner, so schema additions to tables that already exist in production
+// (like fire_reports) are applied here on startup rather than relying on
+// schema.sql, which Postgres only executes on first container init.
+async function runStartupMigrations() {
+    try {
+        await database_1.default.query(`ALTER TABLE fire_reports ADD COLUMN IF NOT EXISTS photo_urls TEXT[] DEFAULT '{}'`);
+    }
+    catch (error) {
+        console.error('Startup migration failed:', error.message);
+    }
+}
 newsScraperJob_1.default.start();
 riskCalculatorJob_1.default.start();
 console.log('Background jobs started');
+runStartupMigrations();
 app.listen(PORT, () => {
     console.log(`FireWatch TR backend running on port ${PORT}`);
 });
