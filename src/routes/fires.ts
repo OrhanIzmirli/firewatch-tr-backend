@@ -67,7 +67,7 @@ router.get('/reports', async (req: Request, res: Response) => {
   try {
     const result = await pool.query(
       `SELECT id, title, description, latitude, longitude,
-              reporter_name, status, verified, created_at
+              reporter_name, status, verified, photo_urls, created_at
        FROM fire_reports
        ORDER BY created_at DESC
        LIMIT 50`
@@ -78,13 +78,52 @@ router.get('/reports', async (req: Request, res: Response) => {
   }
 });
 
+// A report photo arrives from the client either as a raw base64 string or
+// already wrapped in a data URI (data:image/jpeg;base64,...). Normalizes to
+// the latter so every stored value is directly renderable, and rejects
+// anything that isn't plausibly an image so a bad payload fails loudly here
+// rather than silently corrupting the column.
+const MAX_PHOTOS_PER_REPORT = 5;
+const DATA_URI_PATTERN = /^data:image\/(jpeg|jpg|png|webp|heic);base64,/i;
+const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
+
+function normalizePhotos(photos: unknown): string[] {
+  if (photos === undefined || photos === null) return [];
+  if (!Array.isArray(photos)) {
+    throw new Error('photos must be an array of base64 strings');
+  }
+  if (photos.length > MAX_PHOTOS_PER_REPORT) {
+    throw new Error(`photos cannot exceed ${MAX_PHOTOS_PER_REPORT} items`);
+  }
+  return photos.map((photo, index) => {
+    if (typeof photo !== 'string' || photo.length === 0) {
+      throw new Error(`photos[${index}] must be a non-empty base64 string`);
+    }
+    if (DATA_URI_PATTERN.test(photo)) {
+      return photo;
+    }
+    if (BASE64_PATTERN.test(photo)) {
+      return `data:image/jpeg;base64,${photo}`;
+    }
+    throw new Error(`photos[${index}] is not valid base64 image data`);
+  });
+}
+
 // POST /api/fires/report — Yangın raporu gönder
 router.post('/report', async (req: Request, res: Response) => {
   try {
-    const { title, description, latitude, longitude, reporter_name, reporter_phone } = req.body;
+    const { title, description, latitude, longitude, reporter_name, reporter_phone, photos } = req.body;
 
     if (!latitude || !longitude) {
       res.status(400).json({ status: 'error', message: 'Koordinat zorunlu' });
+      return;
+    }
+
+    let photoUrls: string[];
+    try {
+      photoUrls = normalizePhotos(photos);
+    } catch (validationError) {
+      res.status(400).json({ status: 'error', message: (validationError as Error).message });
       return;
     }
 
@@ -142,8 +181,8 @@ router.post('/report', async (req: Request, res: Response) => {
     const result = await pool.query(
       `INSERT INTO fire_reports
         (title, description, latitude, longitude, reporter_name,
-         reporter_phone, status, verified, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+         reporter_phone, status, verified, photo_urls, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
        RETURNING id, created_at`,
       [
         title ?? `${city} yangın bildirimi`,
@@ -154,6 +193,7 @@ router.post('/report', async (req: Request, res: Response) => {
         reporter_phone ?? '',
         'pending',
         verified,
+        photoUrls,
       ]
     );
 
@@ -164,6 +204,7 @@ router.post('/report', async (req: Request, res: Response) => {
         city,
         region,
         verified,
+        photo_count: photoUrls.length,
         created_at: result.rows[0].created_at,
         nasa_nearby: nasaCount,
         message: verified

@@ -73,6 +73,22 @@ CREATE TABLE IF NOT EXISTS risk_data (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create fire_reports table (user-submitted fire reports)
+CREATE TABLE IF NOT EXISTS fire_reports (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255),
+  description TEXT,
+  latitude DECIMAL(10, 8) NOT NULL,
+  longitude DECIMAL(11, 8) NOT NULL,
+  reporter_name VARCHAR(255),
+  reporter_phone VARCHAR(50),
+  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  verified BOOLEAN DEFAULT FALSE,
+  photo_urls TEXT[] DEFAULT '{}',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes
 CREATE INDEX idx_fires_city ON fires(city);
 CREATE INDEX idx_fires_status ON fires(status);
