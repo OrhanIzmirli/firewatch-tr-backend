@@ -7,6 +7,7 @@ import compression from 'compression';
 import fireRoutes from './routes/fires';
 import notificationRoutes from './routes/notifications';
 import newsRoutes from './routes/news';
+import feedbackRoutes from './routes/feedback';
 import newsScraperJob, { checkRelevance } from './jobs/newsScraperJob';
 import riskCalculatorJob from './jobs/riskCalculatorJob';
 import cacheService from './services/cacheService';
@@ -24,6 +25,7 @@ app.use(compression());
 app.use('/api/fires', fireRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/notify', notificationRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({
@@ -168,6 +170,15 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 async function runStartupMigrations() {
   try {
     await pool.query(`ALTER TABLE fire_reports ADD COLUMN IF NOT EXISTS photo_urls TEXT[] DEFAULT '{}'`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS feedback (
+      id SERIAL PRIMARY KEY,
+      rating INTEGER,
+      category VARCHAR(50),
+      message TEXT,
+      email VARCHAR(255),
+      app_version VARCHAR(20),
+      created_at TIMESTAMP DEFAULT NOW()
+    )`);
   } catch (error) {
     console.error('Startup migration failed:', (error as Error).message);
   }
