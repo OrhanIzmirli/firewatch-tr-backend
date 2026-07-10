@@ -44,6 +44,7 @@ const compression_1 = __importDefault(require("compression"));
 const fires_1 = __importDefault(require("./routes/fires"));
 const notifications_1 = __importDefault(require("./routes/notifications"));
 const news_1 = __importDefault(require("./routes/news"));
+const feedback_1 = __importDefault(require("./routes/feedback"));
 const newsScraperJob_1 = __importStar(require("./jobs/newsScraperJob"));
 const riskCalculatorJob_1 = __importDefault(require("./jobs/riskCalculatorJob"));
 const cacheService_1 = __importDefault(require("./services/cacheService"));
@@ -58,6 +59,7 @@ app.use((0, compression_1.default)());
 app.use('/api/fires', fires_1.default);
 app.use('/api/news', news_1.default);
 app.use('/api/notify', notifications_1.default);
+app.use('/api/feedback', feedback_1.default);
 app.get('/api/health', (req, res) => {
     res.status(200).json({
         status: 'OK',
@@ -193,6 +195,15 @@ app.use((err, req, res, next) => {
 async function runStartupMigrations() {
     try {
         await database_1.default.query(`ALTER TABLE fire_reports ADD COLUMN IF NOT EXISTS photo_urls TEXT[] DEFAULT '{}'`);
+        await database_1.default.query(`CREATE TABLE IF NOT EXISTS feedback (
+      id SERIAL PRIMARY KEY,
+      rating INTEGER,
+      category VARCHAR(50),
+      message TEXT,
+      email VARCHAR(255),
+      app_version VARCHAR(20),
+      created_at TIMESTAMP DEFAULT NOW()
+    )`);
     }
     catch (error) {
         console.error('Startup migration failed:', error.message);

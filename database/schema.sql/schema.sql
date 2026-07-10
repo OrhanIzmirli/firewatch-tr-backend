@@ -90,6 +90,17 @@ CREATE TABLE IF NOT EXISTS fire_reports (
 );
 
 -- Create indexes
+CREATE TABLE IF NOT EXISTS feedback (
+  id SERIAL PRIMARY KEY,
+  rating INTEGER,
+  category VARCHAR(50),
+  message TEXT,
+  email VARCHAR(255),
+  app_version VARCHAR(20),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Create indexes
 CREATE INDEX idx_fires_city ON fires(city);
 CREATE INDEX idx_fires_status ON fires(status);
 CREATE INDEX idx_news_category ON news(category);
