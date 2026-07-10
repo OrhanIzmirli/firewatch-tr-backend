@@ -9,8 +9,8 @@ router.post('/', async (req: Request, res: Response) => {
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
     res.status(400).json({ error: 'message is required' }); return;
   }
-  if (!Number.isInteger(numericRating) || numericRating < 0 || numericRating > 5) {
-    res.status(400).json({ error: 'rating must be between 0 and 5' }); return;
+  if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
+    res.status(400).json({ error: 'rating must be between 1 and 5' }); return;
   }
   if (!['bug', 'feature', 'general'].includes(category)) {
     res.status(400).json({ error: 'invalid category' }); return;
