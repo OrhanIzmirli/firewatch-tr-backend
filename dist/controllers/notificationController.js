@@ -9,14 +9,20 @@ class NotificationController {
     async subscribeToken(req, res) {
         try {
             const { token, device_info, latitude, longitude } = req.body;
-            if (!token) {
+            if (typeof token !== 'string' || token.length < 20 || token.length > 4096) {
                 res.status(400).json({ status: 'error', message: 'Token is required' });
+                return;
+            }
+            const lat = latitude === undefined || latitude === null ? null : Number(latitude);
+            const lng = longitude === undefined || longitude === null ? null : Number(longitude);
+            if ((lat !== null && (!Number.isFinite(lat) || lat < -90 || lat > 90)) ||
+                (lng !== null && (!Number.isFinite(lng) || lng < -180 || lng > 180))) {
+                res.status(400).json({ status: 'error', message: 'Invalid coordinates' });
                 return;
             }
             await database_1.default.query(`INSERT INTO fcm_tokens (token, device_name, device_type, latitude, longitude, is_active, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())
-         ON CONFLICT (token) DO UPDATE SET updated_at = NOW(), is_active = true`, [token, device_info ?? 'FireWatch TR', 'android', latitude ?? null, longitude ?? null]);
-            console.log('✅ FCM Token saved:', token.substring(0, 20) + '...');
+         ON CONFLICT (token) DO UPDATE SET updated_at = NOW(), is_active = true`, [token, typeof device_info === 'string' ? device_info.slice(0, 100) : 'FireWatch TR', 'android', lat, lng]);
             res.status(201).json({
                 status: 'success',
                 message: 'Device subscribed successfully',
@@ -25,7 +31,7 @@ class NotificationController {
         }
         catch (error) {
             console.error('Error in subscribeToken:', error);
-            res.status(500).json({ status: 'error', message: error.message });
+            res.status(500).json({ status: 'error', message: 'Unable to subscribe device' });
         }
     }
     async sendByLocation(req, res) {
@@ -46,7 +52,7 @@ class NotificationController {
         }
         catch (error) {
             console.error('Error in sendByLocation:', error);
-            res.status(500).json({ status: 'error', message: error.message });
+            res.status(500).json({ status: 'error', message: 'Unable to send notification' });
         }
     }
     async sendToToken(req, res) {
@@ -60,7 +66,7 @@ class NotificationController {
             res.json({ status: success ? 'success' : 'error', message: success ? 'Sent' : 'Failed' });
         }
         catch (error) {
-            res.status(500).json({ status: 'error', message: error.message });
+            res.status(500).json({ status: 'error', message: 'Unable to send notification' });
         }
     }
     async sendToTopic(req, res) {
@@ -74,7 +80,7 @@ class NotificationController {
             res.json({ status: success ? 'success' : 'error', message: success ? 'Sent' : 'Failed' });
         }
         catch (error) {
-            res.status(500).json({ status: 'error', message: error.message });
+            res.status(500).json({ status: 'error', message: 'Unable to send notification' });
         }
     }
 }

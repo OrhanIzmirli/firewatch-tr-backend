@@ -1,9 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const pg_1 = require("pg");
+if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is required');
+}
 const pool = new pg_1.Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : false,
     max: 5,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000,

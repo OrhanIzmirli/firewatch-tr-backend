@@ -177,7 +177,6 @@ const BLOCKED_KEYWORDS = [
 // region null = otomatik tespit, string = sabit bölge
 const RSS_SOURCES = [
     // Ulusal
-    { url: 'https://www.ntv.com.tr/gundem.rss', source: 'NTV', region: null },
     { url: 'https://www.ntv.com.tr/turkiye.rss', source: 'NTV Türkiye', region: null },
     { url: 'https://www.hurriyet.com.tr/rss/gundem', source: 'Hürriyet', region: null },
     { url: 'https://www.cnnturk.com/feed/rss/turkiye/news', source: 'CNN Türk', region: null },
@@ -186,6 +185,7 @@ const RSS_SOURCES = [
     { url: 'https://www.haberturk.com/rss/haber/gundem.xml', source: 'Haberturk', region: null },
     { url: 'https://www.trthaber.com/sondakika.rss', source: 'TRT Haber', region: null },
     { url: 'https://www.aa.com.tr/tr/rss/default?cat=guncel', source: 'AA', region: null },
+    { url: 'https://www.sozcu.com.tr/rss/', source: 'Sözcü', region: null },
     // Bölgesel
     { url: 'https://www.izmirhaber.com.tr/rss', source: 'İzmir Haber', region: 'Ege' },
     { url: 'https://www.bursahaber.com/rss', source: 'Bursa Haber', region: 'Marmara' },
@@ -240,11 +240,20 @@ function estimateReadMinutes(text) {
     const wordCount = text.split(' ').length;
     return Math.max(1, Math.ceil(wordCount / 200));
 }
+// Several Turkish news sites front their RSS feeds with Cloudflare/WAF bot
+// detection that 403s anything identifying itself as a bot (and, in some
+// cases, cloud-hosting IP ranges like Render's regardless of UA). A
+// browser-like User-Agent + Accept header clears the ones that filter on
+// UA; a source that's still blocked simply contributes 0 items for that
+// run rather than failing the whole scrape, since fetchRSS always resolves.
 async function fetchRSS(url) {
     try {
         const response = await axios_1.default.get(url, {
             timeout: 10000,
-            headers: { 'User-Agent': 'FireWatch TR News Bot 1.0' },
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                Accept: 'application/rss+xml, application/xml, text/xml, */*',
+            },
         });
         const parsed = await xml2js.parseStringPromise(response.data, {
             explicitArray: false,
@@ -253,7 +262,7 @@ async function fetchRSS(url) {
         return Array.isArray(items) ? items : [items];
     }
     catch (error) {
-        console.error(`RSS fetch error for ${url}:`, error);
+        console.error(`RSS fetch error for ${url}:`, error.message);
         return [];
     }
 }

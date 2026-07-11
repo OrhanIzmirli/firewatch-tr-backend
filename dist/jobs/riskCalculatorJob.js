@@ -16,7 +16,6 @@ const REGIONS = [
     { name: 'Dogu Anadolu', display: 'Doğu Anadolu', lat: 39.9, lng: 41.27 },
     { name: 'Guneydogu Anadolu', display: 'Güneydoğu Anadolu', lat: 37.07, lng: 37.38 },
 ];
-const NASA_API_KEY = '2fe2d1a21d4de517b1e877a27e308c6f';
 const CACHE_TTL = 300; // 5 dakika
 class RiskCalculatorJob {
     start() {
@@ -91,17 +90,30 @@ class RiskCalculatorJob {
             console.log(`Cache HIT: ${cacheKey}`);
             return cached;
         }
+        const nasaApiKey = process.env.NASA_API_KEY;
+        if (!nasaApiKey)
+            throw new Error('NASA_API_KEY is not configured');
         try {
             const area = `${lng - 2},${lat - 2},${lng + 2},${lat + 2}`;
-            const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${NASA_API_KEY}/VIIRS_SNPP_NRT/${area}/1`;
-            const response = await axios_1.default.get(url, { timeout: 15000 });
-            const lines = response.data.trim().split('\n');
-            const count = Math.max(0, lines.length - 1);
+            const attempts = [
+                { product: 'VIIRS_SNPP_NRT', days: 1 },
+                { product: 'MODIS_NRT', days: 1 },
+                { product: 'VIIRS_SNPP_NRT', days: 2 },
+            ];
+            let count = 0;
+            for (const attempt of attempts) {
+                const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(nasaApiKey)}/${attempt.product}/${area}/${attempt.days}`;
+                const response = await axios_1.default.get(url, { timeout: 15000 });
+                const lines = response.data.trim().split(/\r?\n/);
+                count = Math.max(0, lines.length - 1);
+                if (count > 0)
+                    break;
+            }
             await cacheService_1.default.set(cacheKey, count, CACHE_TTL);
             return count;
         }
-        catch {
-            return 0;
+        catch (error) {
+            throw new Error(`NASA thermal count unavailable: ${error.message}`);
         }
     }
     calculateRisk(weather, fireCount) {

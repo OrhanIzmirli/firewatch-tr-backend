@@ -1,50 +1,18 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.admin = void 0;
-const admin = __importStar(require("firebase-admin"));
-exports.admin = admin;
+const app_1 = require("firebase-admin/app");
+const messaging_1 = require("firebase-admin/messaging");
 // Firebase initialization - Base64 env variable'dan oku
 try {
     const base64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
     if (base64) {
         const serviceAccount = JSON.parse(Buffer.from(base64, 'base64').toString('utf-8'));
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-            databaseURL: process.env.FIREBASE_DATABASE_URL,
-        });
+        if ((0, app_1.getApps)().length === 0) {
+            (0, app_1.initializeApp)({
+                credential: (0, app_1.cert)(serviceAccount),
+                databaseURL: process.env.FIREBASE_DATABASE_URL,
+            });
+        }
         console.log('✅ Firebase initialized');
     }
     else {
@@ -62,7 +30,7 @@ class NotificationService {
                 data: data || {},
                 token,
             };
-            const response = await admin.messaging().send(message);
+            const response = await (0, messaging_1.getMessaging)().send(message);
             console.log('✅ Message sent:', response);
             return true;
         }
@@ -73,7 +41,7 @@ class NotificationService {
     }
     async sendToTokens(tokens, title, body, data) {
         try {
-            const response = await admin.messaging().sendEachForMulticast({
+            const response = await (0, messaging_1.getMessaging)().sendEachForMulticast({
                 tokens,
                 notification: { title, body },
                 data: data || {},
@@ -93,7 +61,7 @@ class NotificationService {
                 data: data || {},
                 topic,
             };
-            const response = await admin.messaging().send(message);
+            const response = await (0, messaging_1.getMessaging)().send(message);
             console.log('✅ Message sent to topic:', response);
             return true;
         }
