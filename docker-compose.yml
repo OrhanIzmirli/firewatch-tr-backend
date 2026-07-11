@@ -6,7 +6,7 @@ services:
     container_name: firewatch-tr-postgres
     environment:
       POSTGRES_USER: firewatch_user
-      POSTGRES_PASSWORD: firewatch_password_123
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       POSTGRES_DB: firewatch_db
     ports:
       - "5432:5432"
@@ -37,7 +37,7 @@ services:
     container_name: firewatch-tr-app
     environment:
       NODE_ENV: development
-      DATABASE_URL: postgresql://firewatch_user:firewatch_password_123@postgres:5432/firewatch_db
+      DATABASE_URL: postgresql://firewatch_user:${POSTGRES_PASSWORD}@postgres:5432/firewatch_db
       REDIS_URL: redis://redis:6379
     ports:
       - "5000:5000"

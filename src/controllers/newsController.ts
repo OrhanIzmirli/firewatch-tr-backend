@@ -9,8 +9,10 @@ class NewsController {
   async getAllNews(req: Request, res: Response): Promise<void> {
     try {
       const category = (req.query.category as string) || undefined;
-      const limitNum = Math.min(parseInt((req.query.limit as string) || '20'), 100);
-      const offsetNum = parseInt((req.query.offset as string) || '0');
+      const parsedLimit = Number.parseInt((req.query.limit as string) || '20', 10);
+      const parsedOffset = Number.parseInt((req.query.offset as string) || '0', 10);
+      const limitNum = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 20;
+      const offsetNum = Number.isFinite(parsedOffset) ? Math.max(parsedOffset, 0) : 0;
 
       const cacheKey = `news:${category || 'all'}:${limitNum}:${offsetNum}`;
       const cached = await cacheService.get<News[]>(cacheKey);
@@ -38,7 +40,6 @@ class NewsController {
       res.status(500).json({
         status: 'error',
         message: 'Failed to retrieve news',
-        error: (error as Error).message,
         timestamp: new Date().toISOString(),
       });
     }
@@ -48,6 +49,10 @@ class NewsController {
     try {
       const { id } = req.params;
       const newsId = parseInt(id as string);
+      if (!Number.isInteger(newsId) || newsId <= 0) {
+        res.status(400).json({ status: 'error', message: 'Invalid id' });
+        return;
+      }
 
       const cacheKey = `news:${newsId}`;
       const cached = await cacheService.get<News>(cacheKey);
@@ -85,7 +90,6 @@ class NewsController {
       res.status(500).json({
         status: 'error',
         message: 'Failed to retrieve news',
-        error: (error as Error).message,
         timestamp: new Date().toISOString(),
       });
     }

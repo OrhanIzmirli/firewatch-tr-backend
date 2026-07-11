@@ -8,6 +8,8 @@ import fireRoutes from './routes/fires';
 import notificationRoutes from './routes/notifications';
 import newsRoutes from './routes/news';
 import feedbackRoutes from './routes/feedback';
+import thermalRoutes from './routes/thermal';
+import { rateLimit, requireAdminToken as secureAdminToken, securityHeaders } from './middleware/security';
 import newsScraperJob, { checkRelevance } from './jobs/newsScraperJob';
 import riskCalculatorJob from './jobs/riskCalculatorJob';
 import cacheService from './services/cacheService';
@@ -16,16 +18,36 @@ import pool from './config/database';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+app.set('trust proxy', 1);
+const configuredOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const developmentOrigins = process.env.NODE_ENV === 'production'
+  ? []
+  : ['http://127.0.0.1:7359', 'http://127.0.0.1:7360', 'http://localhost:7359', 'http://localhost:7360'];
+const allowedOrigins = new Set([...configuredOrigins, ...developmentOrigins]);
+
+app.use(securityHeaders);
+app.use(cors({
+  origin(origin, callback) {
+    callback(null, !origin || allowedOrigins.has(origin));
+  },
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Token'],
+  maxAge: 86400,
+}));
+app.use(rateLimit('global', 300, 60_000));
 // Default 100kb is too small for base64-encoded fire report photos.
-app.use(express.json({ limit: '15mb' }));
-app.use(morgan('dev'));
+app.use(express.json({ limit: '10mb', type: 'application/json' }));
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(compression());
 
 app.use('/api/fires', fireRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/notify', notificationRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/thermal', thermalRoutes);
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({
@@ -35,39 +57,114 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Admin endpoint'lerini token ile koru — ADMIN_TOKEN env'de yoksa erişim kapalı
-function requireAdminToken(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const adminToken = process.env.ADMIN_TOKEN;
-  if (!adminToken) {
-    res.status(503).json({ status: 'error', message: 'Admin endpoint disabled: ADMIN_TOKEN not configured' });
-    return;
-  }
-  if (req.query.token !== adminToken) {
-    res.status(401).json({ status: 'error', message: 'Invalid or missing token' });
-    return;
-  }
-  next();
-}
+app.get('/privacy', (req, res) => {
+  res.type('html').send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FireWatch TR — Privacy Policy</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; max-width: 720px; margin: 0 auto; padding: 32px 20px 80px; line-height: 1.6; color: #1a1a1a; }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  h2 { font-size: 18px; margin-top: 32px; }
+  .updated { color: #666; font-size: 14px; margin-bottom: 32px; }
+  ul { padding-left: 20px; }
+  a { color: #d84315; }
+</style>
+</head>
+<body>
+<h1>FireWatch TR — Privacy Policy</h1>
+<p class="updated">Last updated: 2026</p>
 
+<p>FireWatch TR ("the app") shows wildfire and thermal-anomaly information for Turkey using NASA satellite data. This page explains what data the app collects and how it's used.</p>
+
+<h2>Location data</h2>
+<p>With your permission, the app uses your device's location to show nearby fire detections and, optionally, to run periodic background checks that can alert you to fires near you. Location data is used only to compute distance to known detections — it is not sold, shared with advertisers, or used for tracking. Background location access is entirely optional and requires a separate, explicit opt-in inside the app.</p>
+
+<h2>NASA fire/thermal data</h2>
+<p>Fire and thermal-anomaly data comes from NASA's FIRMS (Fire Information for Resource Management System) service. This data is public satellite information and is not linked to your identity.</p>
+
+<h2>Feedback and reports</h2>
+<p>If you submit feedback or report a fire, we store what you provide (message, optional email/photo, and app version) to review and improve the app. Providing an email is optional and used only if we need to follow up with you.</p>
+
+<h2>Notifications</h2>
+<p>If you enable push notifications, we store a device token (via Firebase Cloud Messaging) solely to deliver fire alerts to your device.</p>
+
+<h2>What we don't do</h2>
+<ul>
+  <li>We do not sell personal data to third parties.</li>
+  <li>We do not use your data for advertising.</li>
+  <li>We do not require an account or collect names, contacts, or identity documents.</li>
+</ul>
+
+<h2>Data retention</h2>
+<p>Location data is not stored — it is used in-memory for a single distance calculation and discarded. Feedback and fire reports are retained to help operate and improve the service.</p>
+
+<h2>Contact</h2>
+<p>Questions about this policy or your data can be sent to <a href="mailto:rhn23lk@gmail.com">rhn23lk@gmail.com</a>.</p>
+</body>
+</html>`);
+});
+
+app.get('/terms', (req, res) => {
+  res.type('html').send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FireWatch TR — Terms of Service</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; max-width: 720px; margin: 0 auto; padding: 32px 20px 80px; line-height: 1.6; color: #1a1a1a; }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  h2 { font-size: 18px; margin-top: 32px; }
+  .updated { color: #666; font-size: 14px; margin-bottom: 32px; }
+</style>
+</head>
+<body>
+<h1>FireWatch TR — Terms of Service</h1>
+<p class="updated">Last updated: 2026</p>
+
+<p>By using FireWatch TR, you agree to the following:</p>
+
+<h2>Informational purposes only</h2>
+<p>FireWatch TR displays satellite-derived thermal anomaly data as informational guidance. It is <strong>not</strong> an official emergency warning system and must not be relied on as your sole source of safety information during a wildfire or other emergency. Always follow official guidance from AFAD, local authorities, and emergency services.</p>
+
+<h2>Data accuracy</h2>
+<p>Fire/thermal detections come from NASA FIRMS and may be delayed, incomplete, or include false positives (e.g. industrial heat sources). We make no guarantee of accuracy, completeness, or timeliness.</p>
+
+<h2>User-submitted content</h2>
+<p>Fire reports and feedback you submit should be accurate and not abusive, illegal, or spam. We may remove content that violates this.</p>
+
+<h2>No warranty</h2>
+<p>The app is provided "as is" without warranty of any kind. We are not liable for decisions made based on information shown in the app.</p>
+
+<h2>Contact</h2>
+<p>Questions about these terms can be sent to <a href="mailto:rhn23lk@gmail.com">rhn23lk@gmail.com</a>.</p>
+</body>
+</html>`);
+});
+
+// Admin endpoint'lerini token ile koru — ADMIN_TOKEN env'de yoksa erişim kapalı
 // Manuel scraper tetikleyici
-app.get('/api/admin/scrape', requireAdminToken, async (req, res) => {
+app.get('/api/admin/scrape', secureAdminToken, async (req, res) => {
   try {
     console.log('🔧 Manual scrape triggered');
     await newsScraperJob.runScraper();
     res.json({ status: 'success', message: 'Scraper completed' });
   } catch (error) {
-    res.status(500).json({ status: 'error', message: (error as Error).message });
+    res.status(500).json({ status: 'error', message: 'Admin operation failed' });
   }
 });
 
 // Manuel risk hesaplama tetikleyici
-app.get('/api/admin/risk', requireAdminToken, async (req, res) => {
+app.get('/api/admin/risk', secureAdminToken, async (req, res) => {
   try {
     console.log('🔧 Manual risk calculation triggered');
     await riskCalculatorJob.runCalculator();
     res.json({ status: 'success', message: 'Risk calculation completed' });
   } catch (error) {
-    res.status(500).json({ status: 'error', message: (error as Error).message });
+    res.status(500).json({ status: 'error', message: 'Admin operation failed' });
   }
 });
 
@@ -77,7 +174,7 @@ app.get('/api/admin/risk', requireAdminToken, async (req, res) => {
 // never drifts out of sync with whatever the filter currently considers
 // relevant. Defaults to a dry run (counts only); pass ?confirm=true to
 // actually delete, since this is irreversible.
-app.get('/api/admin/clean-news', requireAdminToken, async (req, res) => {
+app.get('/api/admin/clean-news', secureAdminToken, async (req, res) => {
   try {
     const confirm = req.query.confirm === 'true';
     const rows = await pool.query('SELECT id, title, summary FROM news');
@@ -114,7 +211,7 @@ app.get('/api/admin/clean-news', requireAdminToken, async (req, res) => {
       totalCount: rows.rows.length,
     });
   } catch (error) {
-    res.status(500).json({ status: 'error', message: (error as Error).message });
+    res.status(500).json({ status: 'error', message: 'Admin operation failed' });
   }
 });
 
@@ -150,7 +247,7 @@ app.get('/api/risk/summary', async (req, res) => {
     await cacheService.set(cacheKey, result.rows, 300); // calculator runs every 3h, 5 min cache is safe
     res.json({ status: 'success', data: result.rows });
   } catch (error) {
-    res.status(500).json({ status: 'error', message: (error as Error).message });
+    res.status(500).json({ status: 'error', message: 'Risk data unavailable' });
   }
 });
 
@@ -184,9 +281,11 @@ async function runStartupMigrations() {
   }
 }
 
-newsScraperJob.start();
-riskCalculatorJob.start();
-console.log('Background jobs started');
+if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
+  newsScraperJob.start();
+  riskCalculatorJob.start();
+  console.log('Background jobs started');
+}
 
 runStartupMigrations();
 

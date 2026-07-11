@@ -1,8 +1,12 @@
 import { Pool } from 'pg';
 
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is required');
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : false,
   max: 5,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,

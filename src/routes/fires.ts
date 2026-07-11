@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import fireController from '../controllers/fireController';
 import pool from '../config/database';
+import { rateLimit, requireAdminToken } from '../middleware/security';
 
 const router = Router();
 
@@ -58,12 +59,12 @@ router.get('/nearest-city', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('nearest-city error:', error);
-    res.status(500).json({ status: 'error', message: (error as Error).message });
+    res.status(500).json({ status: 'error', message: 'Unable to resolve location' });
   }
 });
 
 // GET /api/fires/reports — Raporları listele
-router.get('/reports', async (req: Request, res: Response) => {
+router.get('/reports', requireAdminToken, async (req: Request, res: Response) => {
   try {
     const result = await pool.query(
       `SELECT id, title, description, latitude, longitude,
@@ -74,7 +75,7 @@ router.get('/reports', async (req: Request, res: Response) => {
     );
     res.json({ status: 'success', data: result.rows });
   } catch (error) {
-    res.status(500).json({ status: 'error', message: (error as Error).message });
+    res.status(500).json({ status: 'error', message: 'Unable to load reports' });
   }
 });
 
@@ -83,8 +84,9 @@ router.get('/reports', async (req: Request, res: Response) => {
 // the latter so every stored value is directly renderable, and rejects
 // anything that isn't plausibly an image so a bad payload fails loudly here
 // rather than silently corrupting the column.
-const MAX_PHOTOS_PER_REPORT = 5;
-const DATA_URI_PATTERN = /^data:image\/(jpeg|jpg|png|webp|heic);base64,/i;
+const MAX_PHOTOS_PER_REPORT = 3;
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
+const DATA_URI_PATTERN = /^data:image\/(jpeg|jpg|png|webp);base64,/i;
 const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
 
 function normalizePhotos(photos: unknown): string[] {
@@ -99,23 +101,39 @@ function normalizePhotos(photos: unknown): string[] {
     if (typeof photo !== 'string' || photo.length === 0) {
       throw new Error(`photos[${index}] must be a non-empty base64 string`);
     }
-    if (DATA_URI_PATTERN.test(photo)) {
-      return photo;
+    const match = photo.match(DATA_URI_PATTERN);
+    const mime = match?.[1]?.toLowerCase() ?? 'jpeg';
+    const base64 = match ? photo.slice(match[0].length) : photo;
+    if (!BASE64_PATTERN.test(base64)) throw new Error(`photos[${index}] is not valid base64 image data`);
+    const bytes = Buffer.from(base64, 'base64');
+    if (bytes.length === 0 || bytes.length > MAX_PHOTO_BYTES) {
+      throw new Error(`photos[${index}] must be at most 2 MB`);
     }
-    if (BASE64_PATTERN.test(photo)) {
-      return `data:image/jpeg;base64,${photo}`;
-    }
-    throw new Error(`photos[${index}] is not valid base64 image data`);
+    const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+    const isPng = bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    const isWebp = bytes.subarray(0, 4).toString('ascii') === 'RIFF' && bytes.subarray(8, 12).toString('ascii') === 'WEBP';
+    if (!isJpeg && !isPng && !isWebp) throw new Error(`photos[${index}] is not a supported image`);
+    const normalizedMime = isPng ? 'png' : isWebp ? 'webp' : mime === 'jpg' ? 'jpeg' : mime;
+    return `data:image/${normalizedMime};base64,${base64}`;
   });
 }
 
 // POST /api/fires/report — Yangın raporu gönder
-router.post('/report', async (req: Request, res: Response) => {
+router.post('/report', rateLimit('fire-report', 5, 60 * 60_000), async (req: Request, res: Response) => {
   try {
     const { title, description, latitude, longitude, reporter_name, reporter_phone, photos } = req.body;
 
-    if (!latitude || !longitude) {
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !isWithinTurkey(lat, lng)) {
       res.status(400).json({ status: 'error', message: 'Koordinat zorunlu' });
+      return;
+    }
+    if ((typeof title === 'string' && title.length > 200) ||
+        (typeof description === 'string' && description.length > 2000) ||
+        (typeof reporter_name === 'string' && reporter_name.length > 100) ||
+        (typeof reporter_phone === 'string' && reporter_phone.length > 30)) {
+      res.status(400).json({ status: 'error', message: 'Report fields are too long' });
       return;
     }
 
@@ -136,7 +154,7 @@ router.post('/report', async (req: Request, res: Response) => {
          500
        )
        AND created_at > NOW() - INTERVAL '2 hours'`,
-      [longitude, latitude]
+      [lng, lat]
     );
     const duplicateCount = parseInt(duplicateResult.rows[0]?.count ?? '0');
     if (duplicateCount > 0) {
@@ -152,7 +170,7 @@ router.post('/report', async (req: Request, res: Response) => {
     const cityResult = await pool.query(
       `SELECT name, region FROM turkey_cities
        ORDER BY location <-> ST_SetSRID(ST_MakePoint($1, $2), 4326) LIMIT 1`,
-      [longitude, latitude]
+      [lng, lat]
     );
     const city = cityResult.rows[0]?.name ?? 'Bilinmiyor';
     const region = cityResult.rows[0]?.region ?? 'Türkiye';
@@ -169,7 +187,7 @@ router.post('/report', async (req: Request, res: Response) => {
            ST_SetSRID(ST_MakePoint(longitude::float, latitude::float), 4326)::geography,
            10000
          )`,
-        [longitude, latitude]
+        [lng, lat]
       );
       nasaCount = parseInt(nasaResult.rows[0]?.count ?? '0');
       verified = nasaCount > 0;
@@ -187,8 +205,8 @@ router.post('/report', async (req: Request, res: Response) => {
       [
         title ?? `${city} yangın bildirimi`,
         description ?? '',
-        latitude,
-        longitude,
+        lat,
+        lng,
         reporter_name ?? 'Anonim',
         reporter_phone ?? '',
         'pending',
@@ -214,7 +232,7 @@ router.post('/report', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Report error:', error);
-    res.status(500).json({ status: 'error', message: (error as Error).message });
+    res.status(500).json({ status: 'error', message: 'Unable to submit report' });
   }
 });
 
@@ -222,6 +240,6 @@ router.post('/report', async (req: Request, res: Response) => {
 router.get('/:id', (req, res) => fireController.getFireById(req, res));
 
 // POST /api/fires - Create fire
-router.post('/', (req, res) => fireController.createFire(req, res));
+router.post('/', requireAdminToken, (req, res) => fireController.createFire(req, res));
 
 export default router;
