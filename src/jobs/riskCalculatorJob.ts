@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import axios from 'axios';
 import pool from '../config/database';
 import cacheService from '../services/cacheService';
+import notificationService from '../services/notificationService';
 
 const REGIONS = [
   { name: 'Ege', display: 'Ege', lat: 38.42, lng: 27.14 },
@@ -29,6 +30,18 @@ interface RiskResult {
   vegetationPressure: number;
 }
 
+interface FireStats {
+  total: number;
+  highConfidence: number;
+}
+
+type Region = typeof REGIONS[number];
+
+const RISK_ALERT_THRESHOLD = 70;
+const RISK_ALERT_TTL_SECONDS = 6 * 60 * 60;
+const CRITICAL_FIRE_THRESHOLD = 5;
+const CRITICAL_ALERT_TTL_SECONDS = 3 * 60 * 60;
+
 class RiskCalculatorJob {
   start() {
     console.log('Risk Calculator Job starting...');
@@ -44,12 +57,12 @@ class RiskCalculatorJob {
     for (const region of REGIONS) {
       try {
         const weather = await this.fetchWeather(region.lat, region.lng);
-        const fireCount = await this.fetchFireCount(region.lat, region.lng);
-        const risk = this.calculateRisk(weather, fireCount);
+        const fireStats = await this.fetchFireStats(region.lat, region.lng);
+        const risk = this.calculateRisk(weather, fireStats.total);
 
         await pool.query(
-          `INSERT INTO risk_data 
-            (region, date, general_risk_score, risk_level, temperature, humidity, 
+          `INSERT INTO risk_data
+            (region, date, general_risk_score, risk_level, temperature, humidity,
              wind_speed, wind_direction, dryness_index, vegetation_density)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [
@@ -66,7 +79,16 @@ class RiskCalculatorJob {
           ]
         );
 
-        console.log(`OK ${region.name}: Score=${risk.score}, Temp=${weather.temperature}, Hum=${weather.humidity}, Wind=${weather.windSpeed}, Fire=${fireCount}`);
+        console.log(`OK ${region.name}: Score=${risk.score}, Temp=${weather.temperature}, Hum=${weather.humidity}, Wind=${weather.windSpeed}, Fire=${fireStats.total}, HighConf=${fireStats.highConfidence}`);
+
+        // Best-effort: a notification failure must never take down the
+        // calculator loop or skip the risk_data row already just written.
+        await this.maybeSendRiskAlert(region, risk).catch((err) =>
+          console.error(`Risk alert failed for ${region.name}:`, (err as Error).message)
+        );
+        await this.maybeSendCriticalFireAlert(region, fireStats.highConfidence).catch((err) =>
+          console.error(`Critical alert failed for ${region.name}:`, (err as Error).message)
+        );
       } catch (error) {
         console.error(`Error for ${region.name}:`, (error as Error).message);
       }
@@ -108,9 +130,9 @@ class RiskCalculatorJob {
     return data;
   }
 
-  private async fetchFireCount(lat: number, lng: number): Promise<number> {
+  private async fetchFireStats(lat: number, lng: number): Promise<FireStats> {
     const cacheKey = `nasa:fires:${lat}:${lng}`;
-    const cached = await cacheService.get<number>(cacheKey);
+    const cached = await cacheService.get<FireStats>(cacheKey);
     if (cached !== null) {
       console.log(`Cache HIT: ${cacheKey}`);
       return cached;
@@ -126,20 +148,101 @@ class RiskCalculatorJob {
         { product: 'MODIS_NRT', days: 1 },
         { product: 'VIIRS_SNPP_NRT', days: 2 },
       ];
-      let count = 0;
+      let stats: FireStats = { total: 0, highConfidence: 0 };
       for (const attempt of attempts) {
         const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(nasaApiKey)}/${attempt.product}/${area}/${attempt.days}`;
         const response = await axios.get(url, { timeout: 15000 });
-        const lines = (response.data as string).trim().split(/\r?\n/);
-        count = Math.max(0, lines.length - 1);
-        if (count > 0) break;
+        stats = this.parseFireStats(response.data as string);
+        if (stats.total > 0) break;
       }
 
-      await cacheService.set(cacheKey, count, CACHE_TTL);
-      return count;
+      await cacheService.set(cacheKey, stats, CACHE_TTL);
+      return stats;
     } catch (error) {
       throw new Error(`NASA thermal count unavailable: ${(error as Error).message}`);
     }
+  }
+
+  // High confidence = VIIRS 'h' or a numeric MODIS confidence >= 80 — same
+  // tiering the Flutter client uses (fire_api_service.dart _confidenceRank),
+  // kept consistent so "high confidence" means the same thing everywhere.
+  private parseFireStats(csv: string): FireStats {
+    const lines = csv.trim().split(/\r?\n/);
+    if (lines.length <= 1) return { total: 0, highConfidence: 0 };
+
+    const header = lines[0].split(',');
+    const confidenceIdx = header.indexOf('confidence');
+
+    let highConfidence = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',');
+      const raw = (confidenceIdx >= 0 ? cols[confidenceIdx] : '')?.trim().toLowerCase() ?? '';
+      const numeric = Number(raw);
+      if (raw !== '' && !Number.isNaN(numeric)) {
+        if (numeric >= 80) highConfidence++;
+      } else if (raw === 'h') {
+        highConfidence++;
+      }
+    }
+
+    return { total: lines.length - 1, highConfidence };
+  }
+
+  // Region radius is generous (400km) since REGIONS' lat/lng are single
+  // representative points for areas that actually span a few hundred km —
+  // a tight radius would miss users at the edges of their own region.
+  // Tokens without a stored location never match (we don't know where they
+  // are), so only devices that shared a location get region-scoped alerts.
+  private static readonly REGION_RADIUS_METERS = 400_000;
+
+  private async getActiveTokensNearRegion(region: Region): Promise<string[]> {
+    const result = await pool.query(
+      `SELECT token FROM fcm_tokens
+       WHERE is_active = true
+         AND latitude IS NOT NULL AND longitude IS NOT NULL
+         AND ST_DWithin(
+           ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+           ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+           $3
+         )
+       LIMIT 500`,
+      [region.lng, region.lat, RiskCalculatorJob.REGION_RADIUS_METERS]
+    );
+    return result.rows.map((row: { token: string }) => row.token);
+  }
+
+  private async maybeSendRiskAlert(region: Region, risk: RiskResult): Promise<void> {
+    if (risk.score < RISK_ALERT_THRESHOLD) return;
+
+    const cacheKey = `notif:region:${region.name}`;
+    if (await cacheService.get<boolean>(cacheKey)) return;
+
+    const tokens = await this.getActiveTokensNearRegion(region);
+    if (tokens.length === 0) return;
+
+    await notificationService.sendToTokens(
+      tokens,
+      `🔥 Yüksek Yangın Riski - ${region.display}`,
+      `Risk skoru: ${risk.score}/100. Sıcaklık yüksek, nem düşük. Dikkatli olun.`
+    );
+    await cacheService.set(cacheKey, true, RISK_ALERT_TTL_SECONDS);
+  }
+
+  private async maybeSendCriticalFireAlert(region: Region, highConfidenceCount: number): Promise<void> {
+    if (highConfidenceCount <= CRITICAL_FIRE_THRESHOLD) return;
+
+    const cacheKey = `notif:critical:${region.name}`;
+    if (await cacheService.get<boolean>(cacheKey)) return;
+
+    const tokens = await this.getActiveTokensNearRegion(region);
+    if (tokens.length === 0) return;
+
+    await notificationService.sendToTokens(
+      tokens,
+      '🚨 Kritik: Çoklu Yangın Tespiti',
+      `${highConfidenceCount} yüksek güvenilirlikli termal nokta tespit edildi - ${region.display}`
+    );
+    await cacheService.set(cacheKey, true, CRITICAL_ALERT_TTL_SECONDS);
   }
 
   private calculateRisk(weather: WeatherData, fireCount: number): RiskResult {

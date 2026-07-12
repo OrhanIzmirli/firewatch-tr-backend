@@ -9,6 +9,10 @@ const security_1 = require("../middleware/security");
 const router = (0, express_1.Router)();
 // POST /api/notify/subscribe - Token subscribe et
 router.post('/subscribe', (0, security_1.rateLimit)('notify-subscribe', 10, 60 * 60000), (req, res) => notificationController_1.default.subscribeToken(req, res));
+// POST /api/notify/unsubscribe - Kullanıcı bildirimleri kapattığında token'ı pasifleştir
+router.post('/unsubscribe', (0, security_1.rateLimit)('notify-unsubscribe', 10, 60 * 60000), (req, res) => notificationController_1.default.unsubscribeToken(req, res));
+// PATCH /api/notify/subscribe - Konum güncellemeden is_active aç/kapat
+router.patch('/subscribe', (0, security_1.rateLimit)('notify-subscribe-patch', 20, 60 * 60000), (req, res) => notificationController_1.default.setActiveStatus(req, res));
 // POST /api/notify/send-token - Spesifik token'a gönder
 router.post('/send-token', security_1.requireAdminToken, (req, res) => notificationController_1.default.sendToToken(req, res));
 // POST /api/notify/send-location - Lokasyona göre gönder
