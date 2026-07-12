@@ -151,11 +151,13 @@ class RiskCalculatorJob {
     async getActiveTokensNearRegion(region) {
         const result = await database_1.default.query(`SELECT token FROM fcm_tokens
        WHERE is_active = true
-         AND latitude IS NOT NULL AND longitude IS NOT NULL
-         AND ST_DWithin(
-           ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
-           ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
-           $3
+         AND (
+           latitude IS NULL OR longitude IS NULL
+           OR ST_DWithin(
+             ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+             ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+             $3
+           )
          )
        LIMIT 500`, [region.lng, region.lat, RiskCalculatorJob.REGION_RADIUS_METERS]);
         return result.rows.map((row) => row.token);
@@ -260,7 +262,8 @@ class RiskCalculatorJob {
 // Region radius is generous (400km) since REGIONS' lat/lng are single
 // representative points for areas that actually span a few hundred km —
 // a tight radius would miss users at the edges of their own region.
-// Tokens without a stored location never match (we don't know where they
-// are), so only devices that shared a location get region-scoped alerts.
+// Tokens with no stored location match every region's alert rather than
+// none — we'd rather over-notify a user we can't place than silently
+// never notify them at all.
 RiskCalculatorJob.REGION_RADIUS_METERS = 400000;
 exports.default = new RiskCalculatorJob();

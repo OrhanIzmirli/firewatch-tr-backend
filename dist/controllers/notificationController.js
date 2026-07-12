@@ -20,9 +20,19 @@ class NotificationController {
                 res.status(400).json({ status: 'error', message: 'Invalid coordinates' });
                 return;
             }
+            // COALESCE keeps whatever location is already on file when this call
+            // doesn't supply one (e.g. the app-startup re-subscribe ping), but
+            // still overwrites it with a fresh fix when one is supplied (e.g. the
+            // "Start Auto Monitoring" flow) — previously the ON CONFLICT branch
+            // only touched updated_at/is_active, so a re-subscribe with a new GPS
+            // fix silently never reached latitude/longitude at all.
             await database_1.default.query(`INSERT INTO fcm_tokens (token, device_name, device_type, latitude, longitude, is_active, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())
-         ON CONFLICT (token) DO UPDATE SET updated_at = NOW(), is_active = true`, [token, typeof device_info === 'string' ? device_info.slice(0, 100) : 'FireWatch TR', 'android', lat, lng]);
+         ON CONFLICT (token) DO UPDATE SET
+           updated_at = NOW(),
+           is_active = true,
+           latitude = COALESCE(EXCLUDED.latitude, fcm_tokens.latitude),
+           longitude = COALESCE(EXCLUDED.longitude, fcm_tokens.longitude)`, [token, typeof device_info === 'string' ? device_info.slice(0, 100) : 'FireWatch TR', 'android', lat, lng]);
             res.status(201).json({
                 status: 'success',
                 message: 'Device subscribed successfully',
@@ -57,11 +67,13 @@ class NotificationController {
             res.status(500).json({ status: 'error', message: 'Unable to unsubscribe device' });
         }
     }
-    // Lightweight on/off toggle for an already-registered token — unlike
-    // subscribeToken (a full re-registration), this never touches location.
+    // On/off toggle for an already-registered token. latitude/longitude are
+    // optional — when supplied (e.g. a fresh fix from "Start Auto
+    // Monitoring"), they're written too so region-targeted alerts have
+    // somewhere to match against; when omitted, location is left untouched.
     async setActiveStatus(req, res) {
         try {
-            const { token, is_active } = req.body;
+            const { token, is_active, latitude, longitude } = req.body;
             if (typeof token !== 'string' || token.length < 20 || token.length > 4096) {
                 res.status(400).json({ status: 'error', message: 'Token is required' });
                 return;
@@ -70,7 +82,18 @@ class NotificationController {
                 res.status(400).json({ status: 'error', message: 'is_active must be a boolean' });
                 return;
             }
-            const result = await database_1.default.query(`UPDATE fcm_tokens SET is_active = $2 WHERE token = $1 RETURNING token`, [token, is_active]);
+            const lat = latitude === undefined || latitude === null ? null : Number(latitude);
+            const lng = longitude === undefined || longitude === null ? null : Number(longitude);
+            if ((lat !== null && (!Number.isFinite(lat) || lat < -90 || lat > 90)) ||
+                (lng !== null && (!Number.isFinite(lng) || lng < -180 || lng > 180))) {
+                res.status(400).json({ status: 'error', message: 'Invalid coordinates' });
+                return;
+            }
+            const result = await database_1.default.query(`UPDATE fcm_tokens SET
+           is_active = $2,
+           latitude = COALESCE($3, latitude),
+           longitude = COALESCE($4, longitude)
+         WHERE token = $1 RETURNING token`, [token, is_active, lat, lng]);
             if (result.rowCount === 0) {
                 res.status(404).json({ status: 'error', message: 'Token not registered' });
                 return;
