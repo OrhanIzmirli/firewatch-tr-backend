@@ -34,6 +34,54 @@ class NotificationController {
             res.status(500).json({ status: 'error', message: 'Unable to subscribe device' });
         }
     }
+    // Only touches columns confirmed present in every known schema revision
+    // (token, is_active) — subscribeToken above references device_name/
+    // device_type/updated_at, which aren't in schema.sql, implying the live
+    // table was altered out-of-band; avoiding those keeps this safe regardless.
+    async unsubscribeToken(req, res) {
+        try {
+            const { token } = req.body;
+            if (typeof token !== 'string' || token.length < 20 || token.length > 4096) {
+                res.status(400).json({ status: 'error', message: 'Token is required' });
+                return;
+            }
+            await database_1.default.query(`UPDATE fcm_tokens SET is_active = false WHERE token = $1`, [token]);
+            res.json({
+                status: 'success',
+                message: 'Device unsubscribed successfully',
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            console.error('Error in unsubscribeToken:', error);
+            res.status(500).json({ status: 'error', message: 'Unable to unsubscribe device' });
+        }
+    }
+    // Lightweight on/off toggle for an already-registered token — unlike
+    // subscribeToken (a full re-registration), this never touches location.
+    async setActiveStatus(req, res) {
+        try {
+            const { token, is_active } = req.body;
+            if (typeof token !== 'string' || token.length < 20 || token.length > 4096) {
+                res.status(400).json({ status: 'error', message: 'Token is required' });
+                return;
+            }
+            if (typeof is_active !== 'boolean') {
+                res.status(400).json({ status: 'error', message: 'is_active must be a boolean' });
+                return;
+            }
+            const result = await database_1.default.query(`UPDATE fcm_tokens SET is_active = $2 WHERE token = $1 RETURNING token`, [token, is_active]);
+            if (result.rowCount === 0) {
+                res.status(404).json({ status: 'error', message: 'Token not registered' });
+                return;
+            }
+            res.json({ status: 'success', message: 'Notification status updated' });
+        }
+        catch (error) {
+            console.error('Error in setActiveStatus:', error);
+            res.status(500).json({ status: 'error', message: 'Unable to update notification status' });
+        }
+    }
     async sendByLocation(req, res) {
         try {
             const { title, body } = req.body;

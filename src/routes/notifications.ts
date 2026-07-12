@@ -7,6 +7,12 @@ const router = Router();
 // POST /api/notify/subscribe - Token subscribe et
 router.post('/subscribe', rateLimit('notify-subscribe', 10, 60 * 60_000), (req, res) => notificationController.subscribeToken(req, res));
 
+// POST /api/notify/unsubscribe - Kullanıcı bildirimleri kapattığında token'ı pasifleştir
+router.post('/unsubscribe', rateLimit('notify-unsubscribe', 10, 60 * 60_000), (req, res) => notificationController.unsubscribeToken(req, res));
+
+// PATCH /api/notify/subscribe - Konum güncellemeden is_active aç/kapat
+router.patch('/subscribe', rateLimit('notify-subscribe-patch', 20, 60 * 60_000), (req, res) => notificationController.setActiveStatus(req, res));
+
 // POST /api/notify/send-token - Spesifik token'a gönder
 router.post('/send-token', requireAdminToken, (req, res) => notificationController.sendToToken(req, res));
 

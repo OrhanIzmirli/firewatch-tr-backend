@@ -7,6 +7,7 @@ const node_cron_1 = __importDefault(require("node-cron"));
 const axios_1 = __importDefault(require("axios"));
 const database_1 = __importDefault(require("../config/database"));
 const cacheService_1 = __importDefault(require("../services/cacheService"));
+const notificationService_1 = __importDefault(require("../services/notificationService"));
 const REGIONS = [
     { name: 'Ege', display: 'Ege', lat: 38.42, lng: 27.14 },
     { name: 'Akdeniz', display: 'Akdeniz', lat: 36.9, lng: 30.7 },
@@ -17,6 +18,10 @@ const REGIONS = [
     { name: 'Guneydogu Anadolu', display: 'Güneydoğu Anadolu', lat: 37.07, lng: 37.38 },
 ];
 const CACHE_TTL = 300; // 5 dakika
+const RISK_ALERT_THRESHOLD = 70;
+const RISK_ALERT_TTL_SECONDS = 6 * 60 * 60;
+const CRITICAL_FIRE_THRESHOLD = 5;
+const CRITICAL_ALERT_TTL_SECONDS = 3 * 60 * 60;
 class RiskCalculatorJob {
     start() {
         console.log('Risk Calculator Job starting...');
@@ -30,10 +35,10 @@ class RiskCalculatorJob {
         for (const region of REGIONS) {
             try {
                 const weather = await this.fetchWeather(region.lat, region.lng);
-                const fireCount = await this.fetchFireCount(region.lat, region.lng);
-                const risk = this.calculateRisk(weather, fireCount);
-                await database_1.default.query(`INSERT INTO risk_data 
-            (region, date, general_risk_score, risk_level, temperature, humidity, 
+                const fireStats = await this.fetchFireStats(region.lat, region.lng);
+                const risk = this.calculateRisk(weather, fireStats.total);
+                await database_1.default.query(`INSERT INTO risk_data
+            (region, date, general_risk_score, risk_level, temperature, humidity,
              wind_speed, wind_direction, dryness_index, vegetation_density)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, [
                     region.name,
@@ -47,7 +52,11 @@ class RiskCalculatorJob {
                     risk.drynessIndex,
                     risk.vegetationPressure,
                 ]);
-                console.log(`OK ${region.name}: Score=${risk.score}, Temp=${weather.temperature}, Hum=${weather.humidity}, Wind=${weather.windSpeed}, Fire=${fireCount}`);
+                console.log(`OK ${region.name}: Score=${risk.score}, Temp=${weather.temperature}, Hum=${weather.humidity}, Wind=${weather.windSpeed}, Fire=${fireStats.total}, HighConf=${fireStats.highConfidence}`);
+                // Best-effort: a notification failure must never take down the
+                // calculator loop or skip the risk_data row already just written.
+                await this.maybeSendRiskAlert(region, risk).catch((err) => console.error(`Risk alert failed for ${region.name}:`, err.message));
+                await this.maybeSendCriticalFireAlert(region, fireStats.highConfidence).catch((err) => console.error(`Critical alert failed for ${region.name}:`, err.message));
             }
             catch (error) {
                 console.error(`Error for ${region.name}:`, error.message);
@@ -83,7 +92,7 @@ class RiskCalculatorJob {
         await cacheService_1.default.set(cacheKey, data, CACHE_TTL);
         return data;
     }
-    async fetchFireCount(lat, lng) {
+    async fetchFireStats(lat, lng) {
         const cacheKey = `nasa:fires:${lat}:${lng}`;
         const cached = await cacheService_1.default.get(cacheKey);
         if (cached !== null) {
@@ -100,21 +109,80 @@ class RiskCalculatorJob {
                 { product: 'MODIS_NRT', days: 1 },
                 { product: 'VIIRS_SNPP_NRT', days: 2 },
             ];
-            let count = 0;
+            let stats = { total: 0, highConfidence: 0 };
             for (const attempt of attempts) {
                 const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(nasaApiKey)}/${attempt.product}/${area}/${attempt.days}`;
                 const response = await axios_1.default.get(url, { timeout: 15000 });
-                const lines = response.data.trim().split(/\r?\n/);
-                count = Math.max(0, lines.length - 1);
-                if (count > 0)
+                stats = this.parseFireStats(response.data);
+                if (stats.total > 0)
                     break;
             }
-            await cacheService_1.default.set(cacheKey, count, CACHE_TTL);
-            return count;
+            await cacheService_1.default.set(cacheKey, stats, CACHE_TTL);
+            return stats;
         }
         catch (error) {
             throw new Error(`NASA thermal count unavailable: ${error.message}`);
         }
+    }
+    // High confidence = VIIRS 'h' or a numeric MODIS confidence >= 80 — same
+    // tiering the Flutter client uses (fire_api_service.dart _confidenceRank),
+    // kept consistent so "high confidence" means the same thing everywhere.
+    parseFireStats(csv) {
+        const lines = csv.trim().split(/\r?\n/);
+        if (lines.length <= 1)
+            return { total: 0, highConfidence: 0 };
+        const header = lines[0].split(',');
+        const confidenceIdx = header.indexOf('confidence');
+        let highConfidence = 0;
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',');
+            const raw = (confidenceIdx >= 0 ? cols[confidenceIdx] : '')?.trim().toLowerCase() ?? '';
+            const numeric = Number(raw);
+            if (raw !== '' && !Number.isNaN(numeric)) {
+                if (numeric >= 80)
+                    highConfidence++;
+            }
+            else if (raw === 'h') {
+                highConfidence++;
+            }
+        }
+        return { total: lines.length - 1, highConfidence };
+    }
+    async getActiveTokensNearRegion(region) {
+        const result = await database_1.default.query(`SELECT token FROM fcm_tokens
+       WHERE is_active = true
+         AND latitude IS NOT NULL AND longitude IS NOT NULL
+         AND ST_DWithin(
+           ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+           ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+           $3
+         )
+       LIMIT 500`, [region.lng, region.lat, RiskCalculatorJob.REGION_RADIUS_METERS]);
+        return result.rows.map((row) => row.token);
+    }
+    async maybeSendRiskAlert(region, risk) {
+        if (risk.score < RISK_ALERT_THRESHOLD)
+            return;
+        const cacheKey = `notif:region:${region.name}`;
+        if (await cacheService_1.default.get(cacheKey))
+            return;
+        const tokens = await this.getActiveTokensNearRegion(region);
+        if (tokens.length === 0)
+            return;
+        await notificationService_1.default.sendToTokens(tokens, `🔥 Yüksek Yangın Riski - ${region.display}`, `Risk skoru: ${risk.score}/100. Sıcaklık yüksek, nem düşük. Dikkatli olun.`);
+        await cacheService_1.default.set(cacheKey, true, RISK_ALERT_TTL_SECONDS);
+    }
+    async maybeSendCriticalFireAlert(region, highConfidenceCount) {
+        if (highConfidenceCount <= CRITICAL_FIRE_THRESHOLD)
+            return;
+        const cacheKey = `notif:critical:${region.name}`;
+        if (await cacheService_1.default.get(cacheKey))
+            return;
+        const tokens = await this.getActiveTokensNearRegion(region);
+        if (tokens.length === 0)
+            return;
+        await notificationService_1.default.sendToTokens(tokens, '🚨 Kritik: Çoklu Yangın Tespiti', `${highConfidenceCount} yüksek güvenilirlikli termal nokta tespit edildi - ${region.display}`);
+        await cacheService_1.default.set(cacheKey, true, CRITICAL_ALERT_TTL_SECONDS);
     }
     calculateRisk(weather, fireCount) {
         let score = 0;
@@ -189,4 +257,10 @@ class RiskCalculatorJob {
         return directions[Math.round(deg / 45) % 8];
     }
 }
+// Region radius is generous (400km) since REGIONS' lat/lng are single
+// representative points for areas that actually span a few hundred km —
+// a tight radius would miss users at the edges of their own region.
+// Tokens without a stored location never match (we don't know where they
+// are), so only devices that shared a location get region-scoped alerts.
+RiskCalculatorJob.REGION_RADIUS_METERS = 400000;
 exports.default = new RiskCalculatorJob();
