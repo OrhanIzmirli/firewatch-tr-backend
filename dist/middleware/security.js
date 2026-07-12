@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.consumeRateLimit = consumeRateLimit;
 exports.rateLimit = rateLimit;
 exports.requireAdminToken = requireAdminToken;
 exports.securityHeaders = securityHeaders;
@@ -16,6 +17,21 @@ const cleanupTimer = setInterval(() => {
     }
 }, 10 * 60000);
 cleanupTimer.unref();
+/// Shared in-memory sliding-window counter behind both the rateLimit()
+/// middleware and any ad-hoc, request-body-dependent checks (e.g. feedback's
+/// per-category limit, which isn't known until the body is parsed and so
+/// can't be a fixed router-level middleware). Resets on process restart —
+/// an accepted tradeoff at this app's scale, same as the rest of this file.
+function consumeRateLimit(key, max, windowMs) {
+    const now = Date.now();
+    const bucket = buckets.get(key);
+    if (!bucket || bucket.resetAt <= now) {
+        buckets.set(key, { count: 1, resetAt: now + windowMs });
+        return true;
+    }
+    bucket.count += 1;
+    return bucket.count <= max;
+}
 function rateLimit(name, max, windowMs) {
     return (req, res, next) => {
         const now = Date.now();

@@ -36,6 +36,16 @@ router.post('/', (0, security_1.rateLimit)('feedback-submit', 5, 60 * 60000), as
         res.status(400).json({ error: 'invalid app version' });
         return;
     }
+    // Defense in depth behind the client-side SharedPreferences cooldown: a
+    // client can be reinstalled/cleared, but the same IP shouldn't be able to
+    // flood one category regardless. The per-device cooldown is much
+    // stricter than this — this just catches abuse the client-side check
+    // can't (scripted requests, cleared app data, multiple devices/IP).
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    if (!(0, security_1.consumeRateLimit)(`feedback-category:${category}:${ip}`, 10, 24 * 60 * 60000)) {
+        res.status(429).json({ error: 'Too many submissions for this category today' });
+        return;
+    }
     try {
         const result = await database_1.default.query(`INSERT INTO feedback (rating, category, message, email, app_version)
        VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at`, [numericRating, category, message.trim(), normalizedEmail, appVersion || null]);
