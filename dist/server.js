@@ -46,6 +46,7 @@ const notifications_1 = __importDefault(require("./routes/notifications"));
 const news_1 = __importDefault(require("./routes/news"));
 const feedback_1 = __importDefault(require("./routes/feedback"));
 const thermal_1 = __importDefault(require("./routes/thermal"));
+const legal_1 = __importDefault(require("./routes/legal"));
 const security_1 = require("./middleware/security");
 const newsScraperJob_1 = __importStar(require("./jobs/newsScraperJob"));
 const riskCalculatorJob_1 = __importDefault(require("./jobs/riskCalculatorJob"));
@@ -88,92 +89,7 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString(),
     });
 });
-app.get('/privacy', (req, res) => {
-    res.type('html').send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FireWatch TR — Privacy Policy</title>
-<style>
-  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; max-width: 720px; margin: 0 auto; padding: 32px 20px 80px; line-height: 1.6; color: #1a1a1a; }
-  h1 { font-size: 26px; margin-bottom: 4px; }
-  h2 { font-size: 18px; margin-top: 32px; }
-  .updated { color: #666; font-size: 14px; margin-bottom: 32px; }
-  ul { padding-left: 20px; }
-  a { color: #d84315; }
-</style>
-</head>
-<body>
-<h1>FireWatch TR — Privacy Policy</h1>
-<p class="updated">Last updated: 2026</p>
-
-<p>FireWatch TR ("the app") shows wildfire and thermal-anomaly information for Turkey using NASA satellite data. This page explains what data the app collects and how it's used.</p>
-
-<h2>Location data</h2>
-<p>With your permission, the app uses your device's location to show nearby fire detections and, optionally, to run periodic background checks that can alert you to fires near you. Location data is used only to compute distance to known detections — it is not sold, shared with advertisers, or used for tracking. Background location access is entirely optional and requires a separate, explicit opt-in inside the app.</p>
-
-<h2>NASA fire/thermal data</h2>
-<p>Fire and thermal-anomaly data comes from NASA's FIRMS (Fire Information for Resource Management System) service. This data is public satellite information and is not linked to your identity.</p>
-
-<h2>Feedback and reports</h2>
-<p>If you submit feedback or report a fire, we store what you provide (message, optional email/photo, and app version) to review and improve the app. Providing an email is optional and used only if we need to follow up with you.</p>
-
-<h2>Notifications</h2>
-<p>If you enable push notifications, we store a device token (via Firebase Cloud Messaging) solely to deliver fire alerts to your device.</p>
-
-<h2>What we don't do</h2>
-<ul>
-  <li>We do not sell personal data to third parties.</li>
-  <li>We do not use your data for advertising.</li>
-  <li>We do not require an account or collect names, contacts, or identity documents.</li>
-</ul>
-
-<h2>Data retention</h2>
-<p>Location data is not stored — it is used in-memory for a single distance calculation and discarded. Feedback and fire reports are retained to help operate and improve the service.</p>
-
-<h2>Contact</h2>
-<p>Questions about this policy or your data can be sent to <a href="mailto:rhn23lk@gmail.com">rhn23lk@gmail.com</a>.</p>
-</body>
-</html>`);
-});
-app.get('/terms', (req, res) => {
-    res.type('html').send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FireWatch TR — Terms of Service</title>
-<style>
-  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; max-width: 720px; margin: 0 auto; padding: 32px 20px 80px; line-height: 1.6; color: #1a1a1a; }
-  h1 { font-size: 26px; margin-bottom: 4px; }
-  h2 { font-size: 18px; margin-top: 32px; }
-  .updated { color: #666; font-size: 14px; margin-bottom: 32px; }
-</style>
-</head>
-<body>
-<h1>FireWatch TR — Terms of Service</h1>
-<p class="updated">Last updated: 2026</p>
-
-<p>By using FireWatch TR, you agree to the following:</p>
-
-<h2>Informational purposes only</h2>
-<p>FireWatch TR displays satellite-derived thermal anomaly data as informational guidance. It is <strong>not</strong> an official emergency warning system and must not be relied on as your sole source of safety information during a wildfire or other emergency. Always follow official guidance from AFAD, local authorities, and emergency services.</p>
-
-<h2>Data accuracy</h2>
-<p>Fire/thermal detections come from NASA FIRMS and may be delayed, incomplete, or include false positives (e.g. industrial heat sources). We make no guarantee of accuracy, completeness, or timeliness.</p>
-
-<h2>User-submitted content</h2>
-<p>Fire reports and feedback you submit should be accurate and not abusive, illegal, or spam. We may remove content that violates this.</p>
-
-<h2>No warranty</h2>
-<p>The app is provided "as is" without warranty of any kind. We are not liable for decisions made based on information shown in the app.</p>
-
-<h2>Contact</h2>
-<p>Questions about these terms can be sent to <a href="mailto:rhn23lk@gmail.com">rhn23lk@gmail.com</a>.</p>
-</body>
-</html>`);
-});
+app.use(legal_1.default);
 // Admin endpoint'lerini token ile koru — ADMIN_TOKEN env'de yoksa erişim kapalı
 // Manuel scraper tetikleyici
 app.get('/api/admin/scrape', security_1.requireAdminToken, async (req, res) => {

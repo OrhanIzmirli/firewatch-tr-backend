@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import pool from '../config/database';
-import { rateLimit, requireAdminToken } from '../middleware/security';
+import { consumeRateLimit, rateLimit, requireAdminToken } from '../middleware/security';
 
 const router = Router();
 
@@ -26,6 +26,16 @@ router.post('/', rateLimit('feedback-submit', 5, 60 * 60_000), async (req: Reque
   const appVersion = typeof app_version === 'string' ? app_version.trim() : '';
   if (appVersion.length > 20 || (appVersion && !/^[0-9A-Za-z.+_-]+$/.test(appVersion))) {
     res.status(400).json({ error: 'invalid app version' }); return;
+  }
+  // Defense in depth behind the client-side SharedPreferences cooldown: a
+  // client can be reinstalled/cleared, but the same IP shouldn't be able to
+  // flood one category regardless. The per-device cooldown is much
+  // stricter than this — this just catches abuse the client-side check
+  // can't (scripted requests, cleared app data, multiple devices/IP).
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  if (!consumeRateLimit(`feedback-category:${category}:${ip}`, 10, 24 * 60 * 60_000)) {
+    res.status(429).json({ error: 'Too many submissions for this category today' });
+    return;
   }
   try {
     const result = await pool.query(

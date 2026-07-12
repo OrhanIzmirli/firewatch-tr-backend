@@ -11,6 +11,22 @@ const cleanupTimer = setInterval(() => {
 }, 10 * 60_000);
 cleanupTimer.unref();
 
+/// Shared in-memory sliding-window counter behind both the rateLimit()
+/// middleware and any ad-hoc, request-body-dependent checks (e.g. feedback's
+/// per-category limit, which isn't known until the body is parsed and so
+/// can't be a fixed router-level middleware). Resets on process restart —
+/// an accepted tradeoff at this app's scale, same as the rest of this file.
+export function consumeRateLimit(key: string, max: number, windowMs: number): boolean {
+  const now = Date.now();
+  const bucket = buckets.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  bucket.count += 1;
+  return bucket.count <= max;
+}
+
 export function rateLimit(name: string, max: number, windowMs: number) {
   return (req: Request, res: Response, next: NextFunction) => {
     const now = Date.now();
