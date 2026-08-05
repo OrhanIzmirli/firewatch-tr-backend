@@ -23,12 +23,35 @@ const FIRMS_AREA = '25,35,45,43';
 // Overridable so the ingest path can be exercised against a local fixture
 // server without a NASA key. Production leaves it unset and hits FIRMS.
 const FIRMS_BASE = process.env.FIRMS_BASE_URL ?? 'https://firms.modaps.eosdis.nasa.gov/api/area/csv';
-// Same fallback ladder as routes/thermal.ts, so ingest sees the same data the
-// app sees. MODIS uses different column names — see normaliseRow.
-const PRODUCT_ATTEMPTS = [
+/**
+ * Every NRT product is fetched on every run and the results are UNIONED.
+ *
+ * This used to be a fallback ladder shared with routes/thermal.ts: try SNPP,
+ * and only if it returned nothing try MODIS. Since SNPP almost always returns
+ * something over Turkey, MODIS was effectively never fetched and the whole
+ * system ran on one satellite — roughly two looks a day. That made
+ * "not detected for 6 hours" mostly mean "nobody looked for 6 hours", which
+ * is the weak link under every satellite_state claim.
+ *
+ * Fetching all four turns each additional platform into extra observation
+ * opportunities. The natural key is (product, acquired_at, latitude,
+ * longitude), so the same fire seen by two satellites is stored as two
+ * independent observations rather than deduplicated away — which is the point.
+ *
+ * LANDSAT_NRT is deliberately absent: FIRMS documents it as US/Canada only.
+ *
+ * Rate limit: FIRMS allows 5,000 transactions per 10 minutes per MAP_KEY.
+ * Four products every 30 minutes is ~1.3 requests per 10 minutes, about 0.03%
+ * of the allowance, so no backoff or interval change is needed.
+ *
+ * routes/thermal.ts keeps its own ladder untouched — the shipped app depends
+ * on that endpoint's current behaviour.
+ */
+const INGEST_PRODUCTS = [
     { product: 'VIIRS_SNPP_NRT', days: 1 },
+    { product: 'VIIRS_NOAA20_NRT', days: 1 },
+    { product: 'VIIRS_NOAA21_NRT', days: 1 },
     { product: 'MODIS_NRT', days: 1 },
-    { product: 'VIIRS_SNPP_NRT', days: 2 },
 ];
 /**
  * Turkey's bounding box — identical values to routes/fires.ts, deliberately,
@@ -193,7 +216,8 @@ class FireIngestJob {
     }
     async runIngest() {
         const stats = {
-            product: null,
+            products: [],
+            perProduct: [],
             fetched: 0,
             malformed: 0,
             outsideBbox: 0,
@@ -214,24 +238,60 @@ class FireIngestJob {
                 console.warn('⚠️  NASA_API_KEY not set — fire ingest skipped');
                 return stats;
             }
-            const fetched = await this.fetchFirstProductWithData(apiKey);
-            if (fetched === null) {
-                console.warn('⚠️  No FIRMS product returned data — nothing ingested');
-                return stats;
+            // Each product is fetched and persisted independently so one failing
+            // or empty source cannot take the run down with it.
+            for (const attempt of INGEST_PRODUCTS) {
+                const productStats = {
+                    product: attempt.product,
+                    fetched: 0,
+                    inserted: 0,
+                    duplicates: 0,
+                    rejected: 0,
+                    error: null,
+                };
+                stats.perProduct.push(productStats);
+                try {
+                    const csv = await this.fetchProduct(apiKey, attempt.product, attempt.days);
+                    if (csv === null)
+                        continue;
+                    const before = { ...stats };
+                    const detections = this.parseCsv(csv, attempt.product, stats);
+                    await this.persist(detections, stats);
+                    productStats.fetched = stats.fetched - before.fetched;
+                    productStats.inserted = stats.inserted - before.inserted;
+                    productStats.duplicates = stats.duplicates - before.duplicates;
+                    productStats.rejected =
+                        stats.outsideBbox - before.outsideBbox +
+                            (stats.outsideBorder - before.outsideBorder) +
+                            (stats.outsideCityRadius - before.outsideCityRadius) +
+                            (stats.malformed - before.malformed);
+                    if (productStats.fetched > 0)
+                        stats.products.push(attempt.product);
+                }
+                catch (error) {
+                    productStats.error = error.message;
+                    console.warn(`⚠️  ${attempt.product} ingest failed, continuing with the rest:`, productStats.error);
+                }
             }
-            stats.product = fetched.product;
-            const detections = this.parseCsv(fetched.csv, fetched.product, stats);
-            await this.persist(detections, stats);
+            if (stats.products.length === 0) {
+                console.warn('⚠️  No FIRMS product returned data — nothing ingested');
+            }
             stats.pruned = await this.pruneOldDetections();
             // Clustering runs in the same tick as ingest so a detection never sits
             // unattached for a whole cron interval.
             await fireClusterJob_1.default.runClustering();
-            console.log(`🛰️  Ingest ${stats.product}: fetched ${stats.fetched}, ` +
+            console.log(`🛰️  Ingest [${stats.products.join(', ') || 'none'}]: fetched ${stats.fetched}, ` +
                 `inserted ${stats.inserted}, duplicates ${stats.duplicates}, ` +
                 `outside bbox ${stats.outsideBbox}, outside border ${stats.outsideBorder}, ` +
                 `beyond ${MAX_NEAREST_CITY_KM}km ${stats.outsideCityRadius}, ` +
                 `malformed ${stats.malformed}, ` +
                 `pruned ${stats.pruned}`);
+            for (const p of stats.perProduct) {
+                console.log(`      ${p.product.padEnd(17)} fetched ${String(p.fetched).padStart(5)} ` +
+                    `inserted ${String(p.inserted).padStart(5)} dup ${String(p.duplicates).padStart(5)} ` +
+                    `rejected ${String(p.rejected).padStart(5)}` +
+                    (p.error ? `  ERROR: ${p.error}` : ''));
+            }
             return stats;
         }
         catch (error) {
@@ -239,30 +299,21 @@ class FireIngestJob {
             return stats;
         }
     }
-    async fetchFirstProductWithData(apiKey) {
-        // Lets verification force a specific product so the MODIS column-mapping
-        // path can be exercised without waiting for VIIRS to return nothing.
-        const forced = process.env.FIRMS_FORCE_PRODUCT;
-        const attempts = forced
-            ? [{ product: forced, days: 1 }, ...PRODUCT_ATTEMPTS]
-            : PRODUCT_ATTEMPTS;
-        for (const attempt of attempts) {
-            try {
-                const url = `${FIRMS_BASE}/${encodeURIComponent(apiKey)}/${attempt.product}/${FIRMS_AREA}/${attempt.days}`;
-                const response = await axios_1.default.get(url, {
-                    timeout: 20000,
-                    responseType: 'text',
-                });
-                const csv = response.data;
-                if (csv.trim().split(/\r?\n/).filter(Boolean).length > 1) {
-                    return { product: attempt.product, csv };
-                }
-            }
-            catch (error) {
-                console.warn(`FIRMS ${attempt.product} fetch failed:`, error.message);
-            }
-        }
-        return null;
+    /**
+     * Fetches one product. Returns null when the source is reachable but has no
+     * rows for the area, which is normal for a satellite that has not passed
+     * over Turkey in the window.
+     */
+    async fetchProduct(apiKey, product, days) {
+        const url = `${FIRMS_BASE}/${encodeURIComponent(apiKey)}/${product}/${FIRMS_AREA}/${days}`;
+        const response = await axios_1.default.get(url, {
+            timeout: 20000,
+            responseType: 'text',
+        });
+        const csv = response.data;
+        if (csv.trim().split(/\r?\n/).filter(Boolean).length <= 1)
+            return null;
+        return csv;
     }
     parseCsv(csv, product, stats) {
         const lines = csv.trim().split(/\r?\n/).filter(Boolean);
