@@ -9,11 +9,13 @@ import notificationRoutes from './routes/notifications';
 import newsRoutes from './routes/news';
 import feedbackRoutes from './routes/feedback';
 import thermalRoutes from './routes/thermal';
+import incidentRoutes from './routes/incidents';
 import legalRoutes from './routes/legal';
 import { rateLimit, requireAdminToken as secureAdminToken, securityHeaders } from './middleware/security';
 import newsScraperJob, { checkRelevance } from './jobs/newsScraperJob';
 import riskCalculatorJob from './jobs/riskCalculatorJob';
 import fireIngestJob from './jobs/fireIngestJob';
+import fireClusterJob from './jobs/fireClusterJob';
 import cacheService from './services/cacheService';
 import pool from './config/database';
 
@@ -50,6 +52,7 @@ app.use('/api/news', newsRoutes);
 app.use('/api/notify', notificationRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/thermal', thermalRoutes);
+app.use('/api/incidents', incidentRoutes);
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({
@@ -89,7 +92,8 @@ app.get('/api/admin/ingest-fires', secureAdminToken, async (req, res) => {
   try {
     console.log('🔧 Manual fire ingest triggered');
     const stats = await fireIngestJob.runIngest();
-    res.json({ status: 'success', data: stats });
+    const clustering = await fireClusterJob.runClustering();
+    res.json({ status: 'success', data: { ingest: stats, clustering } });
   } catch (error) {
     res.status(500).json({ status: 'error', message: 'Admin operation failed' });
   }
