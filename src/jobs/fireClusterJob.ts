@@ -57,6 +57,39 @@ const SPREAD_MIN_DETECTIONS = 4;
 const SPREAD_MODERATE_OVERPASSES = 4;
 const SPREAD_MODERATE_DETECTIONS = 10;
 
+
+/**
+ * Distinct SATELLITE PASSES represented by a set of acquisition timestamps.
+ *
+ * FIRMS stamps each granule separately, so one sweep over a large fire arrives
+ * as several timestamps a minute or two apart. Measured on a real Turkish day,
+ * six distinct acq_time values were only three actual passes (00:03/00:05,
+ * 09:43/09:45, 11:25/11:28) — counting raw distinct timestamps doubles the
+ * pass count, and both the spread gate and every "seen in N passes" statement
+ * depend on that number.
+ *
+ * Timestamps closer together than this fold into one pass. Separate platforms
+ * are much further apart (SNPP and NOAA-20 are about 50 minutes apart), so two
+ * satellites observing the same fire still count as two passes, while two
+ * granules of a single sweep count as one.
+ */
+const PASS_GAP_MINUTES = 10;
+
+/**
+ * SQL counting passes in a timestamptz[] by folding near-adjacent times.
+ * Inlined rather than added as a database function so no extra migration is
+ * needed against a schema that is already live.
+ */
+function passCountSql(arrayExpr: string): string {
+  return `(
+    SELECT count(*)::int FROM (
+      SELECT t, lag(t) OVER (ORDER BY t) AS prev
+      FROM unnest(${arrayExpr}) AS t
+    ) g
+    WHERE g.prev IS NULL OR g.t - g.prev > INTERVAL '${PASS_GAP_MINUTES} minutes'
+  )`;
+}
+
 export interface ClusterStats {
   skipped: boolean;
   unclusteredConsidered: number;
@@ -229,7 +262,7 @@ class FireClusterJob {
          city_id, region_key,
          satellite_state, hours_since_last_detection
        ) VALUES (
-         $1, $2, $3, $4::timestamptz[], COALESCE(cardinality($4::timestamptz[]), 0),
+         $1, $2, $3, $4::timestamptz[], COALESCE(${passCountSql('$4::timestamptz[]')}, 0),
          ST_GeomFromText($5, 4326), ST_Multi(ST_GeomFromText($6, 4326)),
          $7, $8, $9, $10,
          CASE WHEN $2::timestamptz > NOW() - INTERVAL '${RECENT_DETECTION_HOURS} hours'
@@ -272,7 +305,7 @@ class FireClusterJob {
          last_detected_at  = GREATEST(last_detected_at, $3::timestamptz),
          detection_count   = detection_count + $4,
          overpass_times    = sub.times,
-         overpass_count    = COALESCE(cardinality(sub.times), 0),
+         overpass_count    = COALESCE(${passCountSql('sub.times')}, 0),
          footprint         = ST_Multi(ST_Union(footprint, ST_GeomFromText($6, 4326))),
          centroid          = ST_Centroid(ST_Union(footprint, ST_GeomFromText($6, 4326))),
          max_frp_mw        = GREATEST(COALESCE(max_frp_mw, 0), COALESCE($7::numeric, 0)),
@@ -334,7 +367,7 @@ class FireClusterJob {
       `WITH halves AS (
          SELECT d.incident_id,
                 count(*)::int AS n,
-                count(DISTINCT d.acquired_at)::int AS overpasses,
+                array_agg(DISTINCT d.acquired_at) AS times,
                 ST_Centroid(ST_Collect(d.geom) FILTER (
                   WHERE d.acquired_at <= mid.mid_time)) AS c1,
                 ST_Centroid(ST_Collect(d.geom) FILTER (
@@ -355,9 +388,9 @@ class FireClusterJob {
          GROUP BY d.incident_id
        ),
        usable AS (
-         SELECT incident_id, n, overpasses, c1, c2, t1, t2
+         SELECT incident_id, n, ${passCountSql('times')} AS overpasses, c1, c2, t1, t2
          FROM halves
-         WHERE overpasses >= $1 AND n >= $2
+         WHERE ${passCountSql('times')} >= $1 AND n >= $2
            AND c1 IS NOT NULL AND c2 IS NOT NULL
            AND t2 > t1
        )
