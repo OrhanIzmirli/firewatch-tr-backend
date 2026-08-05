@@ -50,6 +50,7 @@ const legal_1 = __importDefault(require("./routes/legal"));
 const security_1 = require("./middleware/security");
 const newsScraperJob_1 = __importStar(require("./jobs/newsScraperJob"));
 const riskCalculatorJob_1 = __importDefault(require("./jobs/riskCalculatorJob"));
+const fireIngestJob_1 = __importDefault(require("./jobs/fireIngestJob"));
 const cacheService_1 = __importDefault(require("./services/cacheService"));
 const database_1 = __importDefault(require("./config/database"));
 const app = (0, express_1.default)();
@@ -108,6 +109,17 @@ app.get('/api/admin/risk', security_1.requireAdminToken, async (req, res) => {
         console.log('🔧 Manual risk calculation triggered');
         await riskCalculatorJob_1.default.runCalculator();
         res.json({ status: 'success', message: 'Risk calculation completed' });
+    }
+    catch (error) {
+        res.status(500).json({ status: 'error', message: 'Admin operation failed' });
+    }
+});
+// Manuel FIRMS tespit ingest tetikleyici
+app.get('/api/admin/ingest-fires', security_1.requireAdminToken, async (req, res) => {
+    try {
+        console.log('🔧 Manual fire ingest triggered');
+        const stats = await fireIngestJob_1.default.runIngest();
+        res.json({ status: 'success', data: stats });
     }
     catch (error) {
         res.status(500).json({ status: 'error', message: 'Admin operation failed' });
@@ -223,6 +235,9 @@ async function runStartupMigrations() {
 if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
     newsScraperJob_1.default.start();
     riskCalculatorJob_1.default.start();
+    // Skips itself until migration 002 has been applied, so deploying this
+    // before running the migration is harmless.
+    fireIngestJob_1.default.start();
     console.log('Background jobs started');
 }
 runStartupMigrations();

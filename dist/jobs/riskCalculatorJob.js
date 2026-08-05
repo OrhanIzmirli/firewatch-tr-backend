@@ -8,6 +8,7 @@ const axios_1 = __importDefault(require("axios"));
 const database_1 = __importDefault(require("../config/database"));
 const cacheService_1 = __importDefault(require("../services/cacheService"));
 const notificationService_1 = __importDefault(require("../services/notificationService"));
+const regions_1 = require("../utils/regions");
 const REGIONS = [
     { name: 'Ege', display: 'Ege', lat: 38.42, lng: 27.14 },
     { name: 'Akdeniz', display: 'Akdeniz', lat: 36.9, lng: 30.7 },
@@ -148,18 +149,58 @@ class RiskCalculatorJob {
         }
         return { total: lines.length - 1, highConfidence };
     }
+    async cityIdsInRegion(regionKey) {
+        if (regionKey === null)
+            return [];
+        if (RiskCalculatorJob.cityRegionCache === null) {
+            const result = await database_1.default.query(`SELECT id, region,
+                ST_Y(location::geometry) AS lat,
+                ST_X(location::geometry) AS lng
+         FROM turkey_cities`);
+            const cache = new Map();
+            for (const row of result.rows) {
+                const key = (0, regions_1.regionKeyForRegionName)(row.region) ??
+                    (row.lat !== null && row.lng !== null
+                        ? (0, regions_1.regionKeyForCoordinates)(Number(row.lat), Number(row.lng))
+                        : null);
+                if (key === null)
+                    continue;
+                const list = cache.get(key) ?? [];
+                list.push(Number(row.id));
+                cache.set(key, list);
+            }
+            RiskCalculatorJob.cityRegionCache = cache;
+        }
+        return RiskCalculatorJob.cityRegionCache.get(regionKey) ?? [];
+    }
+    // No LIMIT: notificationService.sendToTokens chunks into 500s internally, so
+    // every matching device is reached. The old `LIMIT 500` silently excluded
+    // every device past the 500th from region risk alerts.
+    //
+    // A city-scoped device matches when ITS OWN province sits in the region being
+    // alerted — not when its province happens to be the one nearest the region's
+    // representative point. That earlier version meant e.g. Ege's representative
+    // point resolves to İzmir, so a Muğla user on 'city' scope would never have
+    // received an Ege risk alert at all.
     async getActiveTokensNearRegion(region) {
-        const result = await database_1.default.query(`SELECT token FROM fcm_tokens
-       WHERE is_active = true
+        const regionKey = (0, regions_1.regionKeyForRegionName)(region.name) ??
+            (0, regions_1.regionKeyForCoordinates)(region.lat, region.lng);
+        const cityIds = await this.cityIdsInRegion(regionKey);
+        const result = await database_1.default.query(`SELECT t.token FROM fcm_tokens t
+       WHERE t.is_active = true
          AND (
-           latitude IS NULL OR longitude IS NULL
+           t.latitude IS NULL OR t.longitude IS NULL
            OR ST_DWithin(
-             ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+             ST_SetSRID(ST_MakePoint(t.longitude, t.latitude), 4326)::geography,
              ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
              $3
            )
          )
-       LIMIT 500`, [region.lng, region.lat, RiskCalculatorJob.REGION_RADIUS_METERS]);
+         AND (
+           t.alert_scope = 'all'
+           OR (t.alert_scope = 'region' AND t.region_key IS NOT NULL AND t.region_key = $4)
+           OR (t.alert_scope = 'city' AND t.city_id IS NOT NULL AND t.city_id = ANY($5::int[]))
+         )`, [region.lng, region.lat, RiskCalculatorJob.REGION_RADIUS_METERS, regionKey, cityIds]);
         return result.rows.map((row) => row.token);
     }
     async maybeSendRiskAlert(region, risk) {
@@ -266,4 +307,22 @@ class RiskCalculatorJob {
 // none — we'd rather over-notify a user we can't place than silently
 // never notify them at all.
 RiskCalculatorJob.REGION_RADIUS_METERS = 400000;
+// No LIMIT: notificationService.sendToTokens chunks into 500s internally, so
+// every matching device is reached. The old `LIMIT 500` silently excluded
+// every device past the 500th from region risk alerts.
+//
+// The alert_scope clause layers the user's explicit choice on top of the
+// proximity match: a device that asked for city-only alerts is not woken by
+// a region-wide risk notice unless that region's representative point
+// resolves to their own city.
+/**
+ * Every province that belongs to a region, memoised — turkey_cities is a
+ * static 81-row table.
+ *
+ * The province's own `region` column is authoritative; the coordinate boxes
+ * are only a fallback for rows where it is missing or spelled in a way we
+ * don't recognise. Getting this wrong silently mutes users, so neither
+ * source is trusted alone.
+ */
+RiskCalculatorJob.cityRegionCache = null;
 exports.default = new RiskCalculatorJob();
