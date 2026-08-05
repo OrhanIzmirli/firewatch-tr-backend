@@ -46,11 +46,13 @@ const notifications_1 = __importDefault(require("./routes/notifications"));
 const news_1 = __importDefault(require("./routes/news"));
 const feedback_1 = __importDefault(require("./routes/feedback"));
 const thermal_1 = __importDefault(require("./routes/thermal"));
+const incidents_1 = __importDefault(require("./routes/incidents"));
 const legal_1 = __importDefault(require("./routes/legal"));
 const security_1 = require("./middleware/security");
 const newsScraperJob_1 = __importStar(require("./jobs/newsScraperJob"));
 const riskCalculatorJob_1 = __importDefault(require("./jobs/riskCalculatorJob"));
 const fireIngestJob_1 = __importDefault(require("./jobs/fireIngestJob"));
+const fireClusterJob_1 = __importDefault(require("./jobs/fireClusterJob"));
 const cacheService_1 = __importDefault(require("./services/cacheService"));
 const database_1 = __importDefault(require("./config/database"));
 const app = (0, express_1.default)();
@@ -83,6 +85,7 @@ app.use('/api/news', news_1.default);
 app.use('/api/notify', notifications_1.default);
 app.use('/api/feedback', feedback_1.default);
 app.use('/api/thermal', thermal_1.default);
+app.use('/api/incidents', incidents_1.default);
 app.get('/api/health', (req, res) => {
     res.status(200).json({
         status: 'OK',
@@ -119,7 +122,8 @@ app.get('/api/admin/ingest-fires', security_1.requireAdminToken, async (req, res
     try {
         console.log('🔧 Manual fire ingest triggered');
         const stats = await fireIngestJob_1.default.runIngest();
-        res.json({ status: 'success', data: stats });
+        const clustering = await fireClusterJob_1.default.runClustering();
+        res.json({ status: 'success', data: { ingest: stats, clustering } });
     }
     catch (error) {
         res.status(500).json({ status: 'error', message: 'Admin operation failed' });
