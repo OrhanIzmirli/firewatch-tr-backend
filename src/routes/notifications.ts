@@ -13,6 +13,9 @@ router.post('/unsubscribe', rateLimit('notify-unsubscribe', 10, 60 * 60_000), (r
 // PATCH /api/notify/subscribe - Konum güncellemeden is_active aç/kapat
 router.patch('/subscribe', rateLimit('notify-subscribe-patch', 20, 60 * 60_000), (req, res) => notificationController.setActiveStatus(req, res));
 
+// GET /api/notify/cities - Kapsam seçici için il listesi (81 il, region_key ile)
+router.get('/cities', rateLimit('notify-cities', 30, 60_000), (req, res) => notificationController.listCities(req, res));
+
 // POST /api/notify/send-token - Spesifik token'a gönder
 router.post('/send-token', requireAdminToken, (req, res) => notificationController.sendToToken(req, res));
 
