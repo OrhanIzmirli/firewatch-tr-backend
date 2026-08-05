@@ -13,6 +13,7 @@ import legalRoutes from './routes/legal';
 import { rateLimit, requireAdminToken as secureAdminToken, securityHeaders } from './middleware/security';
 import newsScraperJob, { checkRelevance } from './jobs/newsScraperJob';
 import riskCalculatorJob from './jobs/riskCalculatorJob';
+import fireIngestJob from './jobs/fireIngestJob';
 import cacheService from './services/cacheService';
 import pool from './config/database';
 
@@ -78,6 +79,17 @@ app.get('/api/admin/risk', secureAdminToken, async (req, res) => {
     console.log('🔧 Manual risk calculation triggered');
     await riskCalculatorJob.runCalculator();
     res.json({ status: 'success', message: 'Risk calculation completed' });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: 'Admin operation failed' });
+  }
+});
+
+// Manuel FIRMS tespit ingest tetikleyici
+app.get('/api/admin/ingest-fires', secureAdminToken, async (req, res) => {
+  try {
+    console.log('🔧 Manual fire ingest triggered');
+    const stats = await fireIngestJob.runIngest();
+    res.json({ status: 'success', data: stats });
   } catch (error) {
     res.status(500).json({ status: 'error', message: 'Admin operation failed' });
   }
@@ -199,6 +211,9 @@ async function runStartupMigrations() {
 if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
   newsScraperJob.start();
   riskCalculatorJob.start();
+  // Skips itself until migration 002 has been applied, so deploying this
+  // before running the migration is harmless.
+  fireIngestJob.start();
   console.log('Background jobs started');
 }
 
