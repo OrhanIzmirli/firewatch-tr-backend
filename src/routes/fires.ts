@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import fireController from '../controllers/fireController';
 import pool from '../config/database';
 import { rateLimit, requireAdminToken } from '../middleware/security';
+import { regionKeyForRegionName } from '../utils/regions';
 
 const router = Router();
 
@@ -36,7 +37,7 @@ router.get('/nearest-city', async (req: Request, res: Response) => {
     }
 
     const result = await pool.query(
-      `SELECT name, region,
+      `SELECT id, name, region,
         ST_Distance(
           location::geography,
           ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
@@ -52,10 +53,19 @@ router.get('/nearest-city', async (req: Request, res: Response) => {
       return;
     }
 
-    const { name, region, distance_km } = result.rows[0];
+    const { id, name, region, distance_km } = result.rows[0];
     res.json({
       status: 'success',
-      data: { outsideTurkey: false, city: name, region, distance_km: Math.round(distance_km) },
+      data: {
+        outsideTurkey: false,
+        city: name,
+        region,
+        distance_km: Math.round(distance_km),
+        // Additive fields. Existing consumers ignore them; the notification
+        // scope picker uses them so the client never derives a region itself.
+        city_id: id,
+        region_key: regionKeyForRegionName(region),
+      },
     });
   } catch (error) {
     console.error('nearest-city error:', error);

@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 import notificationService from '../services/notificationService';
-import { isRegionKey, regionKeyForCoordinates } from '../utils/regions';
+import { isRegionKey, regionKeyForCoordinates, regionKeyForRegionName } from '../utils/regions';
+import { resolveLocation } from '../services/locationService';
 
 type AlertScope = 'all' | 'region' | 'city';
 
@@ -30,8 +31,15 @@ function parseScopePreferences(body: any): ScopePreferences | string {
   }
 
   if (rawScope === 'region') {
-    if (!isRegionKey(body?.region_key)) {
-      return 'region_key is required and must be a known region when alert_scope is "region"';
+    // region_key is OPTIONAL: when the user picked a region explicitly we
+    // honour that pick, and when they only tapped "my region" we derive it
+    // server-side from their coordinates. What we never do is accept a
+    // region the client computed for itself.
+    if (body?.region_key === undefined || body?.region_key === null) {
+      return { alertScope: 'region', regionKey: null, cityId: null };
+    }
+    if (!isRegionKey(body.region_key)) {
+      return 'region_key must be a known region when alert_scope is "region"';
     }
     return { alertScope: 'region', regionKey: body.region_key, cityId: null };
   }
@@ -56,42 +64,27 @@ async function cityExists(cityId: number): Promise<boolean> {
   return (result.rowCount ?? 0) > 0;
 }
 
-interface AlertTarget {
-  regionKey: string | null;
-  cityId: number | null;
-  cityName: string | null;
-}
-
 /**
- * Works out which region and which province an alert at (lat, lng) belongs to,
- * so devices that opted into just that region or province can be matched.
+ * Where a device's own region comes from.
  *
- * The province comes from PostGIS nearest-neighbour against turkey_cities (the
- * same approach as /api/fires/nearest-city); the region comes from the shared
- * bbox port so client and server always agree on the key. Either may be null —
- * a null simply means devices scoped to that dimension won't match, while
- * 'all' devices still receive the alert.
+ * The client no longer derives this: it asks the server (see
+ * /api/fires/nearest-city, which now returns region_key). Anything the client
+ * does send is either that server-derived value or a deliberate pick from the
+ * region dropdown — never a locally-computed guess.
+ *
+ * When the caller supplies coordinates and did NOT explicitly choose a region,
+ * the region is resolved here from turkey_cities so it can never disagree with
+ * the region the risk job alerts on.
  */
-async function resolveAlertTarget(lat: number, lng: number): Promise<AlertTarget> {
-  const regionKey = regionKeyForCoordinates(lat, lng);
-
-  try {
-    const result = await pool.query(
-      `SELECT id, name FROM turkey_cities
-       ORDER BY location <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)
-       LIMIT 1`,
-      [lng, lat]
-    );
-    const row = result.rows[0];
-    return {
-      regionKey,
-      cityId: row ? Number(row.id) : null,
-      cityName: row ? row.name : null,
-    };
-  } catch (error) {
-    console.error('resolveAlertTarget: city lookup failed:', (error as Error).message);
-    return { regionKey, cityId: null, cityName: null };
-  }
+async function resolveDeviceRegion(
+  explicitRegionKey: string | null,
+  lat: number | null,
+  lng: number | null
+): Promise<string | null> {
+  if (explicitRegionKey !== null) return explicitRegionKey;
+  if (lat === null || lng === null) return null;
+  const resolved = await resolveLocation(lat, lng);
+  return resolved.regionKey;
 }
 
 class NotificationController {
@@ -128,6 +121,19 @@ class NotificationController {
         return;
       }
 
+      const resolved = lat !== null && lng !== null ? await resolveLocation(lat, lng) : null;
+      let regionToStore: string | null = null;
+      if (scope.alertScope === 'region') {
+        regionToStore = await resolveDeviceRegion(scope.regionKey, lat, lng);
+        if (regionToStore === null) {
+          res.status(400).json({
+            status: 'error',
+            message: 'region_key is required when alert_scope is "region" and no location is on file',
+          });
+          return;
+        }
+      }
+
       // The scope COALESCEs mirror the location ones: a client that doesn't
       // send scope fields (an older app version, or the startup re-subscribe
       // ping) leaves the stored preference alone instead of resetting it to
@@ -151,7 +157,7 @@ class NotificationController {
           lat,
           lng,
           scope.alertScope,
-          scope.regionKey,
+          regionToStore,
           scope.cityId,
         ]
       );
@@ -160,6 +166,15 @@ class NotificationController {
         status: 'success',
         message: 'Device subscribed successfully',
         timestamp: new Date().toISOString(),
+        data: {
+          alert_scope: scope.alertScope,
+          region_key: regionToStore,
+          city_id: scope.cityId,
+          resolved_city_id: resolved?.cityId ?? null,
+          resolved_city_name: resolved?.cityName ?? null,
+          resolved_region_key: resolved?.regionKey ?? null,
+          resolved_region_name: resolved?.regionName ?? null,
+        },
       });
     } catch (error) {
       console.error('Error in subscribeToken:', error);
@@ -228,6 +243,43 @@ class NotificationController {
         return;
       }
 
+      // Same server-side resolution as subscribe: when the caller asked for
+      // 'region' without naming one, derive it from turkey_cities rather than
+      // trusting anything the client worked out locally.
+      let effectiveLat = lat;
+      let effectiveLng = lng;
+      if (scope.alertScope === 'region' && scope.regionKey === null &&
+          (effectiveLat === null || effectiveLng === null)) {
+        // No fresh fix in this request — fall back to the location already on
+        // file for this token.
+        const stored = await pool.query(
+          'SELECT latitude, longitude FROM fcm_tokens WHERE token = $1',
+          [token]
+        );
+        const row = stored.rows[0];
+        if (row?.latitude !== null && row?.latitude !== undefined) {
+          effectiveLat = Number(row.latitude);
+          effectiveLng = Number(row.longitude);
+        }
+      }
+
+      let regionToStore: string | null = null;
+      if (scope.alertScope === 'region') {
+        regionToStore = await resolveDeviceRegion(scope.regionKey, effectiveLat, effectiveLng);
+        if (regionToStore === null) {
+          res.status(400).json({
+            status: 'error',
+            message: 'region_key is required when alert_scope is "region" and no location is on file',
+          });
+          return;
+        }
+      }
+
+      const resolved =
+        effectiveLat !== null && effectiveLng !== null
+          ? await resolveLocation(effectiveLat, effectiveLng)
+          : null;
+
       const result = await pool.query(
         `UPDATE fcm_tokens SET
            is_active = $2,
@@ -237,7 +289,7 @@ class NotificationController {
            region_key = CASE WHEN $5 IS NULL THEN region_key ELSE $6 END,
            city_id    = CASE WHEN $5 IS NULL THEN city_id    ELSE $7 END
          WHERE token = $1 RETURNING token, alert_scope, region_key, city_id`,
-        [token, is_active, lat, lng, scope.alertScope, scope.regionKey, scope.cityId]
+        [token, is_active, lat, lng, scope.alertScope, regionToStore, scope.cityId]
       );
       if (result.rowCount === 0) {
         res.status(404).json({ status: 'error', message: 'Token not registered' });
@@ -252,6 +304,10 @@ class NotificationController {
           alert_scope: row.alert_scope,
           region_key: row.region_key,
           city_id: row.city_id,
+          resolved_city_id: resolved?.cityId ?? null,
+          resolved_city_name: resolved?.cityName ?? null,
+          resolved_region_key: resolved?.regionKey ?? null,
+          resolved_region_name: resolved?.regionName ?? null,
         },
       });
     } catch (error) {
@@ -290,7 +346,7 @@ class NotificationController {
       let targeting: Record<string, unknown>;
 
       if (hasCoordinates) {
-        const target = await resolveAlertTarget(lat, lng);
+        const target = await resolveLocation(lat, lng);
         // No LIMIT: sendToTokens chunks into 500s internally, so every matching
         // device is reached instead of an arbitrary first 500.
         const result = await pool.query(
@@ -309,6 +365,7 @@ class NotificationController {
           region_key: target.regionKey,
           city_id: target.cityId,
           city_name: target.cityName,
+          region_name: target.regionName,
         };
       } else {
         const result = await pool.query(
@@ -348,18 +405,19 @@ class NotificationController {
          ORDER BY name`
       );
 
-      // region_key is computed from coordinates with the same boxes the client
-      // uses rather than trusting turkey_cities.region — that column holds
-      // Turkish display names, not the canonical keys, and the two must not
-      // drift apart.
+      // region_key comes from the province's own region column, folded to the
+      // canonical key. The coordinate boxes are only a fallback: they place
+      // Konya/Karaman/Nigde/Aksaray in 'akdeniz' and Burdur in 'ege', which
+      // would put a device in a different region than the one alerted on.
       const data = result.rows.map((row: any) => ({
         id: row.id,
         name: row.name,
         region: row.region,
         region_key:
-          row.lat !== null && row.lng !== null
+          regionKeyForRegionName(row.region) ??
+          (row.lat !== null && row.lng !== null
             ? regionKeyForCoordinates(Number(row.lat), Number(row.lng))
-            : null,
+            : null),
       }));
 
       res.set('Cache-Control', 'public, max-age=86400');
