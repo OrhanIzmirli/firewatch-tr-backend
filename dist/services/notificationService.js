@@ -22,6 +22,14 @@ try {
 catch (error) {
     console.error('❌ Firebase initialization error:', error);
 }
+/** FCM's hard per-call limit for sendEachForMulticast. */
+const FCM_MULTICAST_LIMIT = 500;
+function chunk(items, size) {
+    const out = [];
+    for (let i = 0; i < items.length; i += size)
+        out.push(items.slice(i, i + size));
+    return out;
+}
 class NotificationService {
     async sendToToken(token, title, body, data) {
         try {
@@ -39,20 +47,36 @@ class NotificationService {
             return false;
         }
     }
+    // FCM caps sendEachForMulticast at 500 tokens per call. Callers used to work
+    // around that with `LIMIT 500` on the token query, which silently dropped
+    // every device past the 500th. Chunking here fixes it for every caller at
+    // once: pass the full token list, all of it gets delivered.
     async sendToTokens(tokens, title, body, data) {
-        try {
-            const response = await (0, messaging_1.getMessaging)().sendEachForMulticast({
-                tokens,
-                notification: { title, body },
-                data: data || {},
-            });
-            console.log(`✅ Sent to ${response.successCount} devices`);
-            return response.successCount;
+        const chunks = chunk(tokens, FCM_MULTICAST_LIMIT);
+        let successCount = 0;
+        let failureCount = 0;
+        let failedChunks = 0;
+        for (const [index, batch] of chunks.entries()) {
+            try {
+                const response = await (0, messaging_1.getMessaging)().sendEachForMulticast({
+                    tokens: batch,
+                    notification: { title, body },
+                    data: data || {},
+                });
+                successCount += response.successCount;
+                failureCount += response.failureCount;
+            }
+            catch (error) {
+                // One bad chunk must not abort the remaining ones — a partial send
+                // reaches more people than no send at all.
+                failedChunks++;
+                console.error(`❌ Multicast chunk ${index + 1}/${chunks.length} failed:`, error.message);
+            }
         }
-        catch (error) {
-            console.error('❌ Error sending multicast:', error);
-            return 0;
-        }
+        console.log(`✅ Multicast: ${successCount}/${tokens.length} delivered across ` +
+            `${chunks.length} chunk(s) — ${failureCount} rejected by FCM, ` +
+            `${failedChunks} chunk(s) errored`);
+        return successCount;
     }
     async sendToTopic(topic, title, body, data) {
         try {
