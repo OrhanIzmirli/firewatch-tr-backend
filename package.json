@@ -11,7 +11,8 @@
     "dev": "ts-node src/server.ts",
     "start": "node dist/server.js",
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:official-status": "ts-node --project tsconfig.scripts.json scripts/test-official-status.ts"
   },
   "keywords": [],
   "author": "",
