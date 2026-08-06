@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import pool from '../config/database';
 import { rateLimit } from '../middleware/security';
 import { isRegionKey } from '../utils/regions';
+import cacheService from '../services/cacheService';
 
 const router = Router();
 
@@ -37,6 +38,16 @@ const RECENT_DETECTION_HOURS = 6;
  */
 const SIGNIFICANT_MIN_OVERPASSES = 2;
 const SIGNIFICANT_MIN_FRP_MW = 8;
+
+/**
+ * Cache lifetime for incident reads.
+ *
+ * Five minutes is chosen from the data rate, not from taste: FIRMS publishes
+ * three to six hours after acquisition and the cluster job runs on a timer, so
+ * nothing in this table can change more often than that. On free-tier Postgres
+ * that scales to zero, every avoided query is also an avoided cold start.
+ */
+const INCIDENTS_CACHE_TTL_SECONDS = 300;
 
 /**
  * GET /api/incidents/summary — the last 24 hours in three numbers.
@@ -226,8 +237,34 @@ router.get('/', rateLimit('incidents', 60, 60_000), async (req: Request, res: Re
 
     params.push(limit);
 
+    // The key is the full parameter set, in a fixed order. Keying on
+    // anything less would serve a Marmara-filtered page to someone who asked
+    // for Ege — the kind of bug that looks like missing fires.
+    const cacheKey =
+      'incidents:v1:' +
+      JSON.stringify({
+        days,
+        limit,
+        region_key: typeof regionKey === 'string' ? regionKey : null,
+        city_id: typeof cityId === 'string' ? cityId : null,
+        state: typeof state === 'string' ? state : null,
+      });
+
+    const cached = await cacheService.get<{ count: number; data: unknown[] }>(
+      cacheKey
+    );
+    if (cached) {
+      res.set(
+        'Cache-Control',
+        'public, max-age=120, stale-while-revalidate=300'
+      );
+      res.set('X-Cache', 'HIT');
+      res.json({ status: 'success', count: cached.count, data: cached.data });
+      return;
+    }
+
     const result = await pool.query(
-      `SELECT id,
+      `SELECT i.id,
               first_detected_at,
               last_detected_at,
               EXTRACT(EPOCH FROM (last_detected_at - first_detected_at)) / 3600.0
@@ -239,6 +276,11 @@ router.get('/', rateLimit('incidents', 60, 60_000), async (req: Request, res: Re
               max_frp_mw,
               peak_confidence_tier,
               city_id,
+              -- Joined here so the client stops inferring a province by
+              -- proximity to whichever raw detections it happened to have
+              -- fetched. That inference tied every incident's label to the
+              -- thermal feed being loaded.
+              c.name AS city_name,
               region_key,
               satellite_state,
               hours_since_last_detection,
@@ -252,7 +294,8 @@ router.get('/', rateLimit('incidents', 60, 60_000), async (req: Request, res: Re
               spread_bearing_deg,
               spread_speed_mh,
               spread_confidence
-       FROM fire_incidents
+       FROM fire_incidents i
+       LEFT JOIN turkey_cities c ON c.id = i.city_id
        WHERE ${conditions.join(' AND ')}
        ORDER BY last_detected_at DESC
        LIMIT $${params.length}`,
@@ -271,6 +314,7 @@ router.get('/', rateLimit('incidents', 60, 60_000), async (req: Request, res: Re
       max_frp_mw: numeric(row.max_frp_mw),
       peak_confidence_tier: row.peak_confidence_tier,
       city_id: row.city_id,
+      city_name: row.city_name ?? null,
       region_key: row.region_key,
 
       // AXIS 1 — what the satellite saw. Never a claim about extinction.
@@ -305,7 +349,14 @@ router.get('/', rateLimit('incidents', 60, 60_000), async (req: Request, res: Re
       },
     }));
 
+    await cacheService.set(
+      cacheKey,
+      { count: data.length, data },
+      INCIDENTS_CACHE_TTL_SECONDS
+    );
+
     res.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=300');
+    res.set('X-Cache', 'MISS');
     res.json({ status: 'success', count: data.length, data });
   } catch (error) {
     // A missing table means migration 003 has not been applied yet.
