@@ -58,7 +58,11 @@ const NEGATIVE_RULES: Rule[] = [
   {
     name: 'neg:kontrol-alinamadi',
     // alınamadı / alınamıyor / alınmadı / alınamamış / alınamayan
-    pattern: /kontrol\s+alt[ıi]na\s+al[ıi]n(?:a?m[ae])\w*/,
+    // [ae]?m[aeıi] covers alınamadı, alınamıyor, alınmadı, alınamamış.
+    // The old a?m[ae] could not reach the -mıyor present, so "kontrol
+    // altına alınamıyor" — a fire explicitly NOT under control — matched
+    // no negative rule and fell through to the positive ones.
+    pattern: /kontrol\s+alt[ıi]na\s+al[ıi]n(?:[ae]?m[aeıi])\w*/,
     state: 'ongoing',
   },
   {
@@ -69,7 +73,11 @@ const NEGATIVE_RULES: Rule[] = [
   {
     name: 'neg:sondurulemedi',
     // söndürülemedi / söndürülemiyor / söndürülmedi / söndürülememiş
-    pattern: /s[öo]nd[üu]r[üu]l(?:a?m[ae])\w*/,
+    // Same fix plus the -eme- form: söndürülemedi is stem + e + me + di,
+    // which a?m[ae] could not match at all. A missed negation here is the
+    // worst failure this file can have — it turns "could not be
+    // extinguished" into a candidate for "extinguished".
+    pattern: /s[öo]nd[üu]r[üu]l(?:[ae]?m[aeıi])\w*/,
     state: 'ongoing',
   },
   {
@@ -108,7 +116,13 @@ const POSITIVE_RULES: Rule[] = [
   {
     name: 'pos:sondurulu',
     // söndürüldü / söndürülmüştür / söndürülmüş
-    pattern: /s[öo]nd[üu]r[üu]l(?:d[üu]|m[üu][şs]t[üu]r|m[üu][şs])\b/,
+    // No \b here: JavaScript word boundaries are ASCII-only, so \b after
+    // "ü" never matches and a plain "söndürüldü." was silently
+    // unrecognised — while "söndürülmüştür" (ASCII "r") matched fine. The
+    // negative lookahead is the Turkish-aware equivalent, and it is what
+    // lets the extinction rule outrank containment when a sentence
+    // carries both.
+    pattern: /s[öo]nd[üu]r[üu]l(?:d[üu]|m[üu][şs]t[üu]r|m[üu][şs])(?![a-zçğıöşü])/,
     state: 'extinguished',
   },
   {
@@ -177,7 +191,10 @@ const FOREIGN_TERMS =
 export function assessRelevance(text: string): RelevanceResult {
   const low = turkishToLower(text);
 
-  if (!/yang[ıi]n/.test(low)) {
+  // "ateş" as well as "yangın": wire copy routinely writes "çöp alanından
+  // sıçrayan ateş ormanlık alanı yaktı", which is a vegetation fire reported
+  // without ever using the word yangın.
+  if (!/(yang[ıi]n|ate[şs])/.test(low)) {
     return { relevant: false, reason: 'no_fire_word' };
   }
   if (FOREIGN_TERMS.test(low)) {

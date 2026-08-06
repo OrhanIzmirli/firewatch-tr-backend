@@ -1,0 +1,9 @@
+{
+  "//": "Type-checking context for database/dev scripts only. Kept separate from tsconfig.json on purpose: `npm run build` must keep compiling src/ and nothing else, because dist/ is exactly what the Docker image copies and what Render runs.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["scripts/**/*", "src/**/*"]
+}
