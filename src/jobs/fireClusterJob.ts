@@ -50,6 +50,34 @@ const INCIDENT_MATCH_METRES = 2000;
 /** Below this age the satellite axis reads 'detected_recently'. */
 const RECENT_DETECTION_HOURS = 6;
 
+/**
+ * FRP trend gates. Every number here was measured, not chosen.
+ *
+ * TREND_MIN_PASSES — three passes is the fewest that can show a direction
+ * rather than a difference between two samples.
+ *
+ * TREND_MAX_GEOMETRY_RATIO — FRP depends on viewing geometry. Measured on 852
+ * live VIIRS detections, log(FRP) = a + 3.384 * pixel_area_km2 with r = 0.343.
+ * The sign is POSITIVE: a bigger pixel reports MORE power, because FRP is
+ * integrated over the pixel. So a satellite moving TOWARD nadir shrinks the
+ * pixel, deflates FRP, and fabricates a "weakening" for a fire burning
+ * exactly as hard as before — the dangerous direction.
+ *
+ * A correction could be inverted from that fit, but r = 0.343 explains only
+ * ~12% of the variance, so a +40% to +481% adjustment on that basis would add
+ * more error than it removes. The gate is exact instead: no trend at all
+ * unless the pixel area barely moved. Median swing in the sample was 1.71x
+ * and half exceeded 1.5x, so this discards a lot — deliberately.
+ *
+ * TREND_WEAKENING/INTENSIFYING — the "stable" band is not taste. At the 1.5x
+ * gate the fit still permits a 40% FRP bias, so anything inside +/-40% cannot
+ * be told apart from geometry and must not be called a change.
+ */
+const TREND_MIN_PASSES = 3;
+const TREND_MAX_GEOMETRY_RATIO = 1.5;
+const TREND_WEAKENING_BELOW = 0.6;
+const TREND_INTENSIFYING_ABOVE = 1.667;
+
 /** Spread is only computed with at least this much evidence. */
 const SPREAD_MIN_OVERPASSES = 2;
 const SPREAD_MIN_DETECTIONS = 4;
@@ -98,6 +126,7 @@ export interface ClusterStats {
   incidentsExtended: number;
   detectionsLinked: number;
   spreadComputed: number;
+  trendComputed: number;
   statesRefreshed: number;
 }
 
@@ -152,6 +181,7 @@ class FireClusterJob {
       incidentsExtended: 0,
       detectionsLinked: 0,
       spreadComputed: 0,
+      trendComputed: 0,
       statesRefreshed: 0,
     };
 
@@ -185,6 +215,7 @@ class FireClusterJob {
       }
 
       stats.spreadComputed = await this.refreshSpread(client);
+      stats.trendComputed = await this.refreshFrpTrend(client);
       stats.statesRefreshed = await this.refreshSatelliteState(client);
 
       await client.query('COMMIT');
@@ -192,7 +223,8 @@ class FireClusterJob {
         `🔥 Clustering: ${stats.unclusteredConsidered} detections -> ` +
           `${stats.clustersFormed} clusters (${stats.incidentsCreated} new incidents, ` +
           `${stats.incidentsExtended} extended), spread computed for ` +
-          `${stats.spreadComputed}, states refreshed ${stats.statesRefreshed}`
+          `${stats.spreadComputed}, trend for ${stats.trendComputed}, ` +
+          `states refreshed ${stats.statesRefreshed}`
       );
       return stats;
     } catch (error) {
@@ -525,6 +557,171 @@ class FireClusterJob {
    * overpass has happened. It is never evidence of extinction, and the CHECK
    * constraint on this column makes 'extinguished' unrepresentable here.
    */
+  /**
+   * Whether migration 005 has been applied.
+   */
+  private trendColumns: boolean | null = null;
+
+  private async hasTrendColumns(): Promise<boolean> {
+    if (this.trendColumns !== null) return this.trendColumns;
+    try {
+      const result = await pool.query(
+        `SELECT count(*)::int AS n
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'fire_incidents'
+            AND column_name IN ('frp_trend', 'frp_trend_ratio',
+                                'frp_trend_passes', 'frp_geometry_ratio')`
+      );
+      this.trendColumns = Number(result.rows[0]?.n ?? 0) === 4;
+    } catch {
+      this.trendColumns = false;
+    }
+    if (!this.trendColumns) {
+      console.log(
+        'ℹ️  FRP trend not stored — apply ' +
+          'database/migrations/005_add_frp_trend.sql'
+      );
+    }
+    return this.trendColumns;
+  }
+
+  /**
+   * Is the fire radiating more heat than it was, or less?
+   *
+   * Detections are folded into passes (the same PASS_GAP_MINUTES fold used
+   * everywhere else), each pass is summed — total radiated power, so a fire
+   * seen as four pixels and the same fire seen as one are comparable — and
+   * the later half is divided by the earlier half.
+   *
+   * WHAT THIS DOES NOT MEAN. It measures radiated heat and nothing else. A
+   * falling trend is not evidence that anyone is fighting the fire; a
+   * satellite cannot see a crew, a helicopter or a firebreak. The wording
+   * carried to the client says "heat intensity is decreasing", never
+   * "being extinguished", and the CHECK constraint keeps any such value out
+   * of the column.
+   *
+   * Fixed heat sources are excluded rather than published as eternally
+   * "stable": a gas flare would otherwise sit in the list forever with a
+   * confident-looking trend attached.
+   *
+   * Incidents that fail any gate have their trend set back to NULL rather
+   * than keeping a stale one, because a trend that no longer holds is worse
+   * than no trend.
+   */
+  private async refreshFrpTrend(client: any): Promise<number> {
+    if (!(await this.hasTrendColumns())) return 0;
+
+    const result = await client.query(
+      `WITH marked AS (
+         -- Gaps-and-islands: a detection starts a new pass when the gap to
+         -- the previous one exceeds PASS_GAP_MINUTES. Same fold as
+         -- overpass_count, so "3 passes" means the same thing everywhere.
+         SELECT incident_id, acquired_at, frp_mw,
+                scan_km * track_km AS pixel_area,
+                CASE
+                  WHEN lag(acquired_at) OVER w IS NULL
+                    OR acquired_at - lag(acquired_at) OVER w
+                       > INTERVAL '${PASS_GAP_MINUTES} minutes'
+                  THEN 1 ELSE 0
+                END AS starts_pass
+           FROM fire_detections
+          WHERE incident_id IS NOT NULL
+            AND frp_mw IS NOT NULL
+            AND scan_km IS NOT NULL
+            AND track_km IS NOT NULL
+         WINDOW w AS (PARTITION BY incident_id ORDER BY acquired_at)
+       ),
+       grouped AS (
+         SELECT *,
+                sum(starts_pass) OVER (PARTITION BY incident_id
+                                       ORDER BY acquired_at) AS pass_idx
+           FROM marked
+       ),
+       passes AS (
+         -- Total power per pass, not average: a fire seen as four pixels and
+         -- the same fire seen as one must compare equally.
+         SELECT incident_id, pass_idx,
+                sum(frp_mw)     AS frp_sum,
+                avg(pixel_area) AS pixel_area
+           FROM grouped
+          GROUP BY incident_id, pass_idx
+       ),
+       ordered AS (
+         SELECT incident_id, pass_idx, frp_sum, pixel_area,
+                row_number() OVER (PARTITION BY incident_id
+                                   ORDER BY pass_idx)     AS rn,
+                count(*)     OVER (PARTITION BY incident_id) AS n
+           FROM passes
+       ),
+       halves AS (
+         SELECT incident_id,
+                max(n)::int AS pass_count,
+                -- With an odd number of passes the middle one belongs to
+                -- neither side, so the two halves stay independent.
+                avg(frp_sum) FILTER (WHERE rn <= n / 2)      AS early,
+                avg(frp_sum) FILTER (WHERE rn > (n + 1) / 2) AS late,
+                max(pixel_area) / NULLIF(min(pixel_area), 0) AS geometry_ratio
+           FROM ordered
+          GROUP BY incident_id
+       ),
+       scored AS (
+         SELECT incident_id, pass_count, geometry_ratio,
+                late / NULLIF(early, 0) AS ratio
+           FROM halves
+          WHERE pass_count >= $1 AND early > 0 AND late IS NOT NULL
+       ),
+       computed AS (
+         SELECT fi.id,
+                s.ratio,
+                s.pass_count,
+                s.geometry_ratio,
+                CASE
+                  WHEN s.incident_id IS NULL THEN NULL
+                  -- Geometry gate: without it, a satellite moving toward
+                  -- nadir manufactures a "weakening".
+                  WHEN s.geometry_ratio IS NULL
+                    OR s.geometry_ratio > $2 THEN NULL
+                  -- A fixed heat source is not a fire with a trend; left in,
+                  -- it would sit here forever labelled "stable".
+                  WHEN fi.distinct_days_seen >= 2
+                   AND COALESCE(fi.max_frp_mw, 0) < 10
+                   AND fi.overpass_count >= 6 THEN NULL
+                  WHEN s.ratio < $3 THEN 'weakening'
+                  WHEN s.ratio > $4 THEN 'intensifying'
+                  ELSE 'stable'
+                END AS new_trend
+           FROM fire_incidents fi
+           LEFT JOIN scored s ON s.incident_id = fi.id
+       )
+       UPDATE fire_incidents fi SET
+         -- Everything is cleared together. A stale trend beside fresh
+         -- evidence is worse than no trend, and the CHECK constraint would
+         -- reject a trend without its supporting numbers anyway.
+         frp_trend          = c.new_trend,
+         frp_trend_ratio    = CASE WHEN c.new_trend IS NULL THEN NULL
+                                   ELSE round(c.ratio::numeric, 3) END,
+         frp_trend_passes   = CASE WHEN c.new_trend IS NULL THEN NULL
+                                   ELSE c.pass_count END,
+         frp_geometry_ratio = CASE WHEN c.new_trend IS NULL THEN NULL
+                                   ELSE round(c.geometry_ratio::numeric, 3) END,
+         updated_at         = NOW()
+       FROM computed c
+       WHERE fi.id = c.id
+         AND (fi.frp_trend IS DISTINCT FROM c.new_trend
+              OR fi.frp_trend_ratio IS DISTINCT FROM
+                 CASE WHEN c.new_trend IS NULL THEN NULL
+                      ELSE round(c.ratio::numeric, 3) END)`,
+      [
+        TREND_MIN_PASSES,
+        TREND_MAX_GEOMETRY_RATIO,
+        TREND_WEAKENING_BELOW,
+        TREND_INTENSIFYING_ABOVE,
+      ]
+    );
+    return result.rowCount ?? 0;
+  }
+
   private async refreshSatelliteState(client: any): Promise<number> {
     const result = await client.query(
       `UPDATE fire_incidents SET
