@@ -265,6 +265,21 @@ router.get('/', rateLimit('incidents', 60, 60_000), async (req: Request, res: Re
 
     const result = await pool.query(
       `SELECT i.id,
+              -- Which instruments actually contributed, straight from the
+              -- linked detections. Without this the panel could only say
+              -- "satellite data" and the reader had to take the count on
+              -- trust; a claim about evidence should be able to name it.
+              (SELECT json_agg(x ORDER BY x->>'product')
+                 FROM (
+                   SELECT json_build_object(
+                            'product', d.product,
+                            'satellite', d.satellite,
+                            'count', count(*)::int
+                          ) AS x
+                     FROM fire_detections d
+                    WHERE d.incident_id = i.id
+                    GROUP BY d.product, d.satellite
+                 ) s) AS sources,
               first_detected_at,
               last_detected_at,
               EXTRACT(EPOCH FROM (last_detected_at - first_detected_at)) / 3600.0
@@ -315,6 +330,9 @@ router.get('/', rateLimit('incidents', 60, 60_000), async (req: Request, res: Re
       peak_confidence_tier: row.peak_confidence_tier,
       city_id: row.city_id,
       city_name: row.city_name ?? null,
+      // Empty rather than null once detections have been pruned at 90 days:
+      // "no longer know" and "never had any" must not look the same.
+      sources: (row.sources ?? []) as unknown[],
       region_key: row.region_key,
 
       // AXIS 1 — what the satellite saw. Never a claim about extinction.
