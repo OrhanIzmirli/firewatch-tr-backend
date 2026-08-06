@@ -10,6 +10,7 @@ import newsRoutes from './routes/news';
 import feedbackRoutes from './routes/feedback';
 import thermalRoutes from './routes/thermal';
 import incidentRoutes from './routes/incidents';
+import pipelineHealthRoutes from './routes/pipelineHealth';
 import legalRoutes from './routes/legal';
 import { rateLimit, requireAdminToken as secureAdminToken, securityHeaders } from './middleware/security';
 import newsScraperJob, { checkRelevance } from './jobs/newsScraperJob';
@@ -53,6 +54,9 @@ app.use('/api/notify', notificationRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/thermal', thermalRoutes);
 app.use('/api/incidents', incidentRoutes);
+// Registered before the /api/health handler so /api/health/pipeline resolves
+// here rather than falling through.
+app.use('/api/health', pipelineHealthRoutes);
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({

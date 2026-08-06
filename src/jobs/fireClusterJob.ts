@@ -1,4 +1,5 @@
 import pool from '../config/database';
+import { recordJobRun, pruneJobRuns } from '../services/jobRunRecorder';
 
 /**
  * Turns raw FIRMS pixels into fire incidents.
@@ -120,6 +121,9 @@ function passCountSql(arrayExpr: string): string {
 
 export interface ClusterStats {
   skipped: boolean;
+  /** True when the transaction rolled back. Distinct from "found nothing". */
+  failed: boolean;
+  error?: string;
   unclusteredConsidered: number;
   clustersFormed: number;
   incidentsCreated: number;
@@ -173,8 +177,10 @@ class FireClusterJob {
   }
 
   async runClustering(): Promise<ClusterStats> {
+    const startedAt = new Date();
     const stats: ClusterStats = {
       skipped: false,
+      failed: false,
       unclusteredConsidered: 0,
       clustersFormed: 0,
       incidentsCreated: 0,
@@ -191,6 +197,7 @@ class FireClusterJob {
         '⏭️  fire_incidents missing — skipping clustering. ' +
           'Apply database/migrations/003_add_fire_incidents.sql first.'
       );
+      await recordJobRun('cluster', startedAt, 'skipped', { ...stats });
       return stats;
     }
 
@@ -226,10 +233,17 @@ class FireClusterJob {
           `${stats.spreadComputed}, trend for ${stats.trendComputed}, ` +
           `states refreshed ${stats.statesRefreshed}`
       );
+      await recordJobRun('cluster', startedAt, 'ok', { ...stats });
+      await pruneJobRuns();
       return stats;
     } catch (error) {
       await client.query('ROLLBACK');
-      console.error('❌ Clustering failed:', (error as Error).message);
+      stats.failed = true;
+      stats.error = (error as Error).message;
+      console.error('❌ Clustering failed:', stats.error);
+      // Recorded outside the transaction that just rolled back, which is the
+      // only reason this survives to be seen.
+      await recordJobRun('cluster', startedAt, 'failed', { ...stats }, error);
       return stats;
     } finally {
       client.release();
@@ -706,19 +720,23 @@ class FireClusterJob {
          -- evidence is worse than no trend, and the CHECK constraint would
          -- reject a trend without its supporting numbers anyway.
          frp_trend          = c.new_trend,
-         frp_trend_ratio    = CASE WHEN c.new_trend IS NULL THEN NULL
-                                   ELSE round(c.ratio::numeric, 3) END,
-         frp_trend_passes   = CASE WHEN c.new_trend IS NULL THEN NULL
-                                   ELSE c.pass_count END,
-         frp_geometry_ratio = CASE WHEN c.new_trend IS NULL THEN NULL
-                                   ELSE round(c.geometry_ratio::numeric, 3) END,
+         -- The diagnostics are written whether or not a trend was published,
+         -- so "why is there no trend here" is answerable from the API. When
+         -- these were cleared alongside the trend, a suppressed incident and
+         -- one with too few passes looked identical, and the geometry gate
+         -- could not be audited from outside at all. The CHECK constraint
+         -- only requires them to be present when a trend IS published, so
+         -- keeping them is allowed.
+         frp_trend_ratio    = round(c.ratio::numeric, 3),
+         frp_trend_passes   = c.pass_count,
+         frp_geometry_ratio = round(c.geometry_ratio::numeric, 3),
          updated_at         = NOW()
        FROM computed c
        WHERE fi.id = c.id
          AND (fi.frp_trend IS DISTINCT FROM c.new_trend
-              OR fi.frp_trend_ratio IS DISTINCT FROM
-                 CASE WHEN c.new_trend IS NULL THEN NULL
-                      ELSE round(c.ratio::numeric, 3) END)`,
+              OR fi.frp_trend_ratio IS DISTINCT FROM round(c.ratio::numeric, 3)
+              OR fi.frp_geometry_ratio
+                 IS DISTINCT FROM round(c.geometry_ratio::numeric, 3))`,
       [
         TREND_MIN_PASSES,
         TREND_MAX_GEOMETRY_RATIO,

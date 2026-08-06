@@ -8,6 +8,7 @@ exports.confidenceTier = confidenceTier;
 const node_cron_1 = __importDefault(require("node-cron"));
 const axios_1 = __importDefault(require("axios"));
 const database_1 = __importDefault(require("../config/database"));
+const jobRunRecorder_1 = require("../services/jobRunRecorder");
 const regions_1 = require("../utils/regions");
 const fireClusterJob_1 = __importDefault(require("./fireClusterJob"));
 /**
@@ -235,6 +236,7 @@ class FireIngestJob {
         return result.rows[0]?.table_name !== null;
     }
     async runIngest() {
+        const startedAt = new Date();
         const stats = {
             products: [],
             perProduct: [],
@@ -306,6 +308,13 @@ class FireIngestJob {
                 `beyond ${MAX_NEAREST_CITY_KM}km ${stats.outsideCityRadius}, ` +
                 `malformed ${stats.malformed}, ` +
                 `pruned ${stats.pruned}`);
+            await (0, jobRunRecorder_1.recordJobRun)('ingest', startedAt, 'ok', {
+                products: stats.products,
+                fetched: stats.fetched,
+                inserted: stats.inserted,
+                duplicates: stats.duplicates,
+                pruned: stats.pruned,
+            });
             for (const p of stats.perProduct) {
                 console.log(`      ${p.product.padEnd(17)} fetched ${String(p.fetched).padStart(5)} ` +
                     `inserted ${String(p.inserted).padStart(5)} dup ${String(p.duplicates).padStart(5)} ` +
@@ -316,6 +325,7 @@ class FireIngestJob {
         }
         catch (error) {
             console.error('❌ Fire ingest failed:', error.message);
+            await (0, jobRunRecorder_1.recordJobRun)('ingest', startedAt, 'failed', { fetched: stats.fetched }, error);
             return stats;
         }
     }
