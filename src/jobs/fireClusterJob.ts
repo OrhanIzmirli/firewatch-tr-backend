@@ -274,8 +274,15 @@ class FireClusterJob {
               count(frp_mw)::int                          AS frp_sample_count,
               -- The UTC dates this cluster was seen on. Stored as a set so
               -- re-processing the same detection cannot inflate the count.
-              ARRAY(SELECT DISTINCT (acquired_at AT TIME ZONE 'UTC')::date
-                    ORDER BY 1)                           AS seen_days,
+              --
+              -- array_agg(DISTINCT ...), not ARRAY(SELECT DISTINCT ...): the
+              -- latter is an uncorrelated sub-select with no FROM, so inside
+              -- a GROUP BY it does not aggregate over the group and Postgres
+              -- rejects the bare column reference. That broke the whole
+              -- buildClusters query, which is the first statement in the
+              -- clustering transaction, so every round rolled back.
+              array_agg(DISTINCT (acquired_at AT TIME ZONE 'UTC')::date)
+                                                          AS seen_days,
               (array_agg(confidence_tier ORDER BY
                  CASE confidence_tier WHEN 'high' THEN 0 WHEN 'nominal' THEN 1 ELSE 2 END
                ))[1]                                      AS peak_confidence_tier,
@@ -669,7 +676,7 @@ class FireClusterJob {
          SELECT incident_id, pass_count, geometry_ratio,
                 late / NULLIF(early, 0) AS ratio
            FROM halves
-          WHERE pass_count >= $1 AND early > 0 AND late IS NOT NULL
+          WHERE pass_count >= $1::int AND early > 0 AND late IS NOT NULL
        ),
        computed AS (
          SELECT fi.id,
@@ -681,14 +688,14 @@ class FireClusterJob {
                   -- Geometry gate: without it, a satellite moving toward
                   -- nadir manufactures a "weakening".
                   WHEN s.geometry_ratio IS NULL
-                    OR s.geometry_ratio > $2 THEN NULL
+                    OR s.geometry_ratio > $2::numeric THEN NULL
                   -- A fixed heat source is not a fire with a trend; left in,
                   -- it would sit here forever labelled "stable".
                   WHEN fi.distinct_days_seen >= 2
                    AND COALESCE(fi.max_frp_mw, 0) < 10
                    AND fi.overpass_count >= 6 THEN NULL
-                  WHEN s.ratio < $3 THEN 'weakening'
-                  WHEN s.ratio > $4 THEN 'intensifying'
+                  WHEN s.ratio < $3::numeric THEN 'weakening'
+                  WHEN s.ratio > $4::numeric THEN 'intensifying'
                   ELSE 'stable'
                 END AS new_trend
            FROM fire_incidents fi
