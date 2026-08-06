@@ -22,15 +22,21 @@ const RECENT_DETECTION_HOURS = 6;
 /**
  * The evidence bar an incident must clear before it is counted as a fire that
  * was burning and is no longer being detected. Mirrors IncidentSignificance
- * in the Flutter client, which is what the map filter uses.
+ * in the Flutter client, which is what the map filter uses — if one moves,
+ * both move, or the home card and the map disagree about how many fires
+ * there were.
  *
  * Of 237 live incidents, 149 were seen on exactly one overpass and never
  * again. Counting all 227 no-longer-detected incidents put "194" on the home
- * screen next to a map showing 13 — and a number that large, next to the
+ * screen next to a map showing 15 — and a number that large, next to the
  * words "detection ended", reads as a body count of extinguished fires.
+ *
+ * The power floor is 8 MW rather than a higher overpass count on purpose:
+ * requiring four passes admits ~24-hour, 1-4 MW sources that are visible on
+ * every pass, which is the signature of a gas flare, not a wildfire.
  */
 const SIGNIFICANT_MIN_OVERPASSES = 2;
-const SIGNIFICANT_MIN_FRP_MW = 10;
+const SIGNIFICANT_MIN_FRP_MW = 8;
 
 /**
  * GET /api/incidents/summary — the last 24 hours in three numbers.
