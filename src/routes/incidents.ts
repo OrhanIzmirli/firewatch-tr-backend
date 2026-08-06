@@ -61,6 +61,7 @@ router.get(
                   i.city_id,
                   EXTRACT(EPOCH FROM (i.last_detected_at - i.first_detected_at))
                     / 3600.0 AS duration_hours,
+                  i.max_frp_mw,
                   i.last_detected_at > NOW() - ($1 || ' hours')::interval
                     AS is_active,
                   (i.overpass_count >= $2
@@ -86,26 +87,33 @@ router.get(
            FROM windowed
          ),
          longest AS (
-           -- The evidence bar applies here too. Without it this picked the
-           -- incident with the largest duration_hours full stop, and the
-           -- thing that burns longest in this data is not a fire: a fixed
-           -- industrial heat source is visible on every overpass forever,
-           -- so it wins a "longest running" contest against every real
-           -- wildfire, which eventually goes out. It put a 4.35 MW source
-           -- in urban Istanbul on the home screen as Turkey's
-           -- longest-running fire.
+           -- Ranked by peak radiative power, NOT by duration.
+           --
+           -- Duration is censored by the two-day ingest window: the longest
+           -- incident in the whole feed is 34.5 h and the values pile up at
+           -- 24.0 h and 24.8 h, so "longest running" ranks by how close an
+           -- incident is to the window edge. Worse, the thing that reaches
+           -- that edge is whatever never stops — a fixed industrial source
+           -- beats every real wildfire at staying alight, and one duly
+           -- arrived on the home screen as the country's longest-running
+           -- fire at a flat 4.35 MW in urban Istanbul.
+           --
+           -- max_frp_mw has no such ceiling and is the measurement the
+           -- satellite actually makes. Duration is still returned, for the
+           -- client to render as a lower bound.
            SELECT w.id, w.duration_hours, w.first_detected_at,
-                  w.last_detected_at, c.name AS city_name
+                  w.last_detected_at, w.max_frp_mw, c.name AS city_name
            FROM windowed w
            LEFT JOIN turkey_cities c ON c.id = w.city_id
            WHERE w.is_active AND w.is_significant
-           ORDER BY w.duration_hours DESC NULLS LAST
+           ORDER BY w.max_frp_mw DESC NULLS LAST
            LIMIT 1
          )
          SELECT counts.active_count,
                 counts.detection_ended_24h,
                 longest.id AS longest_id,
                 longest.duration_hours AS longest_duration_hours,
+                longest.max_frp_mw AS longest_max_frp_mw,
                 longest.city_name AS longest_city_name,
                 longest.first_detected_at AS longest_first_detected_at,
                 longest.last_detected_at AS longest_last_detected_at
@@ -127,13 +135,16 @@ router.get(
           },
           active_count: Number(row.active_count ?? 0),
           detection_ended_24h: Number(row.detection_ended_24h ?? 0),
-          longest_active:
+          // Named for what it is ranked by. `duration_hours` is a LOWER
+          // BOUND, not a measurement: the ingest window truncates it.
+          strongest_active:
             row.longest_id === null || row.longest_id === undefined
               ? null
               : {
                   id: Number(row.longest_id),
                   city_name: row.longest_city_name ?? null,
-                  duration_hours: round(row.longest_duration_hours, 2),
+                  max_frp_mw: numeric(row.longest_max_frp_mw),
+                  duration_hours_at_least: round(row.longest_duration_hours, 2),
                   first_detected_at: row.longest_first_detected_at,
                   last_detected_at: row.longest_last_detected_at,
                 },
