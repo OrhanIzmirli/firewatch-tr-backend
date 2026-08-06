@@ -25,3 +25,6 @@ Thumbs.db
 
 # Build
 build/
+
+# Cached TLE element sets — refetched from Celestrak, never source
+.tle-cache/
