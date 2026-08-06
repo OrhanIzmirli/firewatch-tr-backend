@@ -11,6 +11,112 @@ const MAX_LIMIT = 500;
 const DEFAULT_WINDOW_DAYS = 7;
 
 /**
+ * Mirrors RECENT_DETECTION_HOURS in fireClusterJob. The summary recomputes
+ * freshness from last_detected_at rather than reading the stored
+ * satellite_state, because that column is only as fresh as the last cluster
+ * run — if the job is late, a stored 'detected_recently' would report a fire
+ * as currently burning when the newest evidence is hours old.
+ */
+const RECENT_DETECTION_HOURS = 6;
+
+/**
+ * GET /api/incidents/summary — the last 24 hours in three numbers.
+ *
+ * Registered before '/' so the literal path wins over any future ':id' route.
+ *
+ * `detection_ended_24h` counts incidents that crossed the recency threshold
+ * during the last 24 hours. It is NOT a count of fires that were put out:
+ * a satellite that sees nothing has not seen anything, which is a statement
+ * about the satellite. The client must label it accordingly.
+ */
+router.get(
+  '/summary',
+  rateLimit('incidents_summary', 60, 60_000),
+  async (_req: Request, res: Response) => {
+    try {
+      const result = await pool.query(
+        `WITH windowed AS (
+           SELECT i.id,
+                  i.first_detected_at,
+                  i.last_detected_at,
+                  i.city_id,
+                  EXTRACT(EPOCH FROM (i.last_detected_at - i.first_detected_at))
+                    / 3600.0 AS duration_hours,
+                  i.last_detected_at > NOW() - ($1 || ' hours')::interval
+                    AS is_active
+           FROM fire_incidents i
+           WHERE i.last_detected_at > NOW() - INTERVAL '14 days'
+         ),
+         counts AS (
+           SELECT
+             COUNT(*) FILTER (WHERE is_active) AS active_count,
+             -- Crossed the threshold within the last 24 h: the crossing
+             -- moment is last_detected_at + threshold.
+             COUNT(*) FILTER (
+               WHERE NOT is_active
+                 AND last_detected_at
+                     > NOW() - (($1::int + 24) || ' hours')::interval
+             ) AS detection_ended_24h
+           FROM windowed
+         ),
+         longest AS (
+           SELECT w.id, w.duration_hours, w.first_detected_at,
+                  w.last_detected_at, c.name AS city_name
+           FROM windowed w
+           LEFT JOIN turkey_cities c ON c.id = w.city_id
+           WHERE w.is_active
+           ORDER BY w.duration_hours DESC NULLS LAST
+           LIMIT 1
+         )
+         SELECT counts.active_count,
+                counts.detection_ended_24h,
+                longest.id AS longest_id,
+                longest.duration_hours AS longest_duration_hours,
+                longest.city_name AS longest_city_name,
+                longest.first_detected_at AS longest_first_detected_at,
+                longest.last_detected_at AS longest_last_detected_at
+         FROM counts LEFT JOIN longest ON TRUE`,
+        [RECENT_DETECTION_HOURS]
+      );
+
+      const row = result.rows[0] ?? {};
+
+      res.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=300');
+      res.json({
+        status: 'success',
+        data: {
+          recent_detection_hours: RECENT_DETECTION_HOURS,
+          active_count: Number(row.active_count ?? 0),
+          detection_ended_24h: Number(row.detection_ended_24h ?? 0),
+          longest_active:
+            row.longest_id === null || row.longest_id === undefined
+              ? null
+              : {
+                  id: Number(row.longest_id),
+                  city_name: row.longest_city_name ?? null,
+                  duration_hours: round(row.longest_duration_hours, 2),
+                  first_detected_at: row.longest_first_detected_at,
+                  last_detected_at: row.longest_last_detected_at,
+                },
+        },
+      });
+    } catch (error) {
+      if ((error as { code?: string }).code === '42P01') {
+        res.status(503).json({
+          status: 'error',
+          message: 'Incident data is not available yet',
+        });
+        return;
+      }
+      console.error('incidents summary error:', error);
+      res
+        .status(500)
+        .json({ status: 'error', message: 'Unable to load incident summary' });
+    }
+  }
+);
+
+/**
  * GET /api/incidents — clustered fire incidents.
  *
  * This is a NEW endpoint. /api/thermal is untouched and still serves the
