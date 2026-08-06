@@ -47,11 +47,31 @@ const FIRMS_BASE = process.env.FIRMS_BASE_URL ?? 'https://firms.modaps.eosdis.na
  * routes/thermal.ts keeps its own ladder untouched — the shipped app depends
  * on that endpoint's current behaviour.
  */
+/**
+ * Two days, not one, and the extra day is about not losing rows permanently.
+ *
+ * FIRMS windows by ACQUISITION date while publishing in near real time, three
+ * to six hours behind the overpass. A pixel acquired at 21:00 UTC is therefore
+ * published after the following midnight, by which point a one-day window
+ * covers only the new day — and that row carries yesterday's acq_date, so it
+ * falls outside the window and is never seen again. Measured at 08:30 UTC, the
+ * two-day window held 618 rows dated yesterday against 3 dated today.
+ *
+ * The second failure mode is gaps. This runs on an instance that sleeps when
+ * idle, and any gap spanning UTC midnight loses everything recorded before it.
+ * A two-day window makes a missed run recoverable instead of fatal.
+ *
+ * Re-fetching costs nothing in the database: the natural key on
+ * (product, acquired_at, latitude, longitude) turns every row already held
+ * into an ON CONFLICT DO NOTHING, so the second day is read and discarded
+ * rather than duplicated.
+ */
+const INGEST_DAYS = 2;
 const INGEST_PRODUCTS = [
-    { product: 'VIIRS_SNPP_NRT', days: 1 },
-    { product: 'VIIRS_NOAA20_NRT', days: 1 },
-    { product: 'VIIRS_NOAA21_NRT', days: 1 },
-    { product: 'MODIS_NRT', days: 1 },
+    { product: 'VIIRS_SNPP_NRT', days: INGEST_DAYS },
+    { product: 'VIIRS_NOAA20_NRT', days: INGEST_DAYS },
+    { product: 'VIIRS_NOAA21_NRT', days: INGEST_DAYS },
+    { product: 'MODIS_NRT', days: INGEST_DAYS },
 ];
 /**
  * Turkey's bounding box — identical values to routes/fires.ts, deliberately,
