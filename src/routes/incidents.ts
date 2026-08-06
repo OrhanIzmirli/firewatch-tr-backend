@@ -20,6 +20,19 @@ const DEFAULT_WINDOW_DAYS = 7;
 const RECENT_DETECTION_HOURS = 6;
 
 /**
+ * The evidence bar an incident must clear before it is counted as a fire that
+ * was burning and is no longer being detected. Mirrors IncidentSignificance
+ * in the Flutter client, which is what the map filter uses.
+ *
+ * Of 237 live incidents, 149 were seen on exactly one overpass and never
+ * again. Counting all 227 no-longer-detected incidents put "194" on the home
+ * screen next to a map showing 13 — and a number that large, next to the
+ * words "detection ended", reads as a body count of extinguished fires.
+ */
+const SIGNIFICANT_MIN_OVERPASSES = 2;
+const SIGNIFICANT_MIN_FRP_MW = 10;
+
+/**
  * GET /api/incidents/summary — the last 24 hours in three numbers.
  *
  * Registered before '/' so the literal path wins over any future ':id' route.
@@ -43,7 +56,11 @@ router.get(
                   EXTRACT(EPOCH FROM (i.last_detected_at - i.first_detected_at))
                     / 3600.0 AS duration_hours,
                   i.last_detected_at > NOW() - ($1 || ' hours')::interval
-                    AS is_active
+                    AS is_active,
+                  (i.overpass_count >= $2
+                   AND COALESCE(i.max_frp_mw, 0) >= $3
+                   AND i.peak_confidence_tier IS DISTINCT FROM 'low')
+                    AS is_significant
            FROM fire_incidents i
            WHERE i.last_detected_at > NOW() - INTERVAL '14 days'
          ),
@@ -51,9 +68,12 @@ router.get(
            SELECT
              COUNT(*) FILTER (WHERE is_active) AS active_count,
              -- Crossed the threshold within the last 24 h: the crossing
-             -- moment is last_detected_at + threshold.
+             -- moment is last_detected_at + threshold. Only incidents with
+             -- real evidence behind them are counted; a single-overpass
+             -- pixel that is no longer seen is not a fire that stopped.
              COUNT(*) FILTER (
                WHERE NOT is_active
+                 AND is_significant
                  AND last_detected_at
                      > NOW() - (($1::int + 24) || ' hours')::interval
              ) AS detection_ended_24h
@@ -76,7 +96,7 @@ router.get(
                 longest.first_detected_at AS longest_first_detected_at,
                 longest.last_detected_at AS longest_last_detected_at
          FROM counts LEFT JOIN longest ON TRUE`,
-        [RECENT_DETECTION_HOURS]
+        [RECENT_DETECTION_HOURS, SIGNIFICANT_MIN_OVERPASSES, SIGNIFICANT_MIN_FRP_MW]
       );
 
       const row = result.rows[0] ?? {};
@@ -86,6 +106,11 @@ router.get(
         status: 'success',
         data: {
           recent_detection_hours: RECENT_DETECTION_HOURS,
+          significance: {
+            min_overpasses: SIGNIFICANT_MIN_OVERPASSES,
+            min_frp_mw: SIGNIFICANT_MIN_FRP_MW,
+            excluded_confidence_tier: 'low',
+          },
           active_count: Number(row.active_count ?? 0),
           detection_ended_24h: Number(row.detection_ended_24h ?? 0),
           longest_active:
