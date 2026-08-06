@@ -80,6 +80,11 @@ router.get('/summary', (0, security_1.rateLimit)('incidents_summary', 60, 60000)
          counts AS (
            SELECT
              COUNT(*) FILTER (WHERE is_active) AS active_count,
+             -- The headline number needs two layers. "60 active detections"
+             -- alone reads as sixty fires; most are single fresh pixels that
+             -- have not had a second overpass yet.
+             COUNT(*) FILTER (WHERE is_active AND is_significant)
+               AS active_significant_count,
              -- Crossed the threshold within the last 24 h: the crossing
              -- moment is last_detected_at + threshold. Only incidents with
              -- real evidence behind them are counted; a single-overpass
@@ -116,6 +121,7 @@ router.get('/summary', (0, security_1.rateLimit)('incidents_summary', 60, 60000)
            LIMIT 1
          )
          SELECT counts.active_count,
+                counts.active_significant_count,
                 counts.detection_ended_24h,
                 longest.id AS longest_id,
                 longest.duration_hours AS longest_duration_hours,
@@ -136,6 +142,7 @@ router.get('/summary', (0, security_1.rateLimit)('incidents_summary', 60, 60000)
                     excluded_confidence_tier: 'low',
                 },
                 active_count: Number(row.active_count ?? 0),
+                active_significant_count: Number(row.active_significant_count ?? 0),
                 detection_ended_24h: Number(row.detection_ended_24h ?? 0),
                 // Named for what it is ranked by. `duration_hours` is a LOWER
                 // BOUND, not a measurement: the ingest window truncates it.
@@ -282,7 +289,17 @@ router.get('/', (0, security_1.rateLimit)('incidents', 60, 60000), async (req, r
               official_confirmed_at,
               spread_bearing_deg,
               spread_speed_mh,
-              spread_confidence
+              spread_confidence,
+              -- Persistence metrics, exposed so the CV threshold that will
+              -- eventually separate gas flares from fires can be measured
+              -- from outside the database.
+              distinct_days_seen,
+              frp_mean,
+              frp_stddev,
+              frp_trend,
+              frp_trend_ratio,
+              frp_trend_passes,
+              frp_geometry_ratio
        FROM fire_incidents i
        LEFT JOIN turkey_cities c ON c.id = i.city_id
        WHERE ${conditions.join(' AND ')}
@@ -324,6 +341,25 @@ router.get('/', (0, security_1.rateLimit)('incidents', 60, 60000), async (req, r
                 source: row.official_source,
                 source_url: row.official_source_url,
                 confirmed_at: row.official_confirmed_at,
+            },
+            // How the radiated heat is changing. Null unless three passes agree
+            // and the viewing geometry held still — see migration 005 for why the
+            // second condition is not optional.
+            //
+            // 'weakening' means the fire is radiating less heat. It does NOT mean
+            // anyone is fighting it: a satellite cannot see a crew or an aircraft.
+            trend: {
+                direction: row.frp_trend ?? null,
+                ratio: numeric(row.frp_trend_ratio),
+                passes: row.frp_trend_passes ?? null,
+                geometry_ratio: numeric(row.frp_geometry_ratio),
+            },
+            // Raw persistence numbers. Nothing consumes these yet; they exist so a
+            // threshold can be measured rather than guessed.
+            persistence: {
+                distinct_days_seen: row.distinct_days_seen ?? null,
+                frp_mean: numeric(row.frp_mean),
+                frp_stddev: numeric(row.frp_stddev),
             },
             // Derived from how the detection pattern moved, which is not the same
             // as how the fire moved. Null whenever the evidence is too thin.
