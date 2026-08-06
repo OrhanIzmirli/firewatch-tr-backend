@@ -98,29 +98,11 @@ CREATE INDEX IF NOT EXISTS idx_fire_incidents_persistence
 
 COMMIT;
 
--- Backfill for rows that predate this migration. Safe to re-run; it only
--- touches incidents whose detections still exist (the 90-day prune window),
--- and it recomputes from fire_detections rather than folding, which is
--- correct exactly once, at backfill time.
+-- Backfill for incidents that predate this migration lives in a file of its
+-- own: 004b_backfill_persistence_metrics.sql.
 --
--- Run separately and deliberately, not as part of the transaction above:
---
---   UPDATE fire_incidents fi SET
---     seen_days          = d.days,
---     distinct_days_seen = COALESCE(array_length(d.days, 1), 0),
---     frp_sum            = d.s,
---     frp_sum_sq         = d.sq,
---     frp_sample_count   = d.n
---   FROM (
---     SELECT incident_id,
---            ARRAY(SELECT DISTINCT (acquired_at AT TIME ZONE 'UTC')::date
---                  FROM fire_detections x
---                  WHERE x.incident_id = fd.incident_id ORDER BY 1) AS days,
---            COALESCE(sum(frp_mw), 0)      AS s,
---            COALESCE(sum(frp_mw * frp_mw), 0) AS sq,
---            count(frp_mw)::int            AS n
---     FROM fire_detections fd
---     WHERE incident_id IS NOT NULL
---     GROUP BY incident_id
---   ) d
---   WHERE fi.id = d.incident_id;
+-- It used to be a commented-out block here, which is how it came to be
+-- skipped: "apply the migration" means "run the file", the DDL succeeded, and
+-- the backfill sat inert inside `--` comments. 285 of 289 incidents kept
+-- distinct_days_seen = 0, which silently disabled the fixed-source exclusion
+-- downstream. Run 004b after this one.
