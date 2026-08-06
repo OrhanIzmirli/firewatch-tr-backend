@@ -47,6 +47,7 @@ const news_1 = __importDefault(require("./routes/news"));
 const feedback_1 = __importDefault(require("./routes/feedback"));
 const thermal_1 = __importDefault(require("./routes/thermal"));
 const incidents_1 = __importDefault(require("./routes/incidents"));
+const pipelineHealth_1 = __importDefault(require("./routes/pipelineHealth"));
 const legal_1 = __importDefault(require("./routes/legal"));
 const security_1 = require("./middleware/security");
 const newsScraperJob_1 = __importStar(require("./jobs/newsScraperJob"));
@@ -86,6 +87,9 @@ app.use('/api/notify', notifications_1.default);
 app.use('/api/feedback', feedback_1.default);
 app.use('/api/thermal', thermal_1.default);
 app.use('/api/incidents', incidents_1.default);
+// Registered before the /api/health handler so /api/health/pipeline resolves
+// here rather than falling through.
+app.use('/api/health', pipelineHealth_1.default);
 app.get('/api/health', (req, res) => {
     res.status(200).json({
         status: 'OK',

@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const database_1 = __importDefault(require("../config/database"));
+const jobRunRecorder_1 = require("../services/jobRunRecorder");
 /**
  * Turns raw FIRMS pixels into fire incidents.
  *
@@ -165,8 +166,10 @@ class FireClusterJob {
         return row?.incidents !== null && row?.detections !== null;
     }
     async runClustering() {
+        const startedAt = new Date();
         const stats = {
             skipped: false,
+            failed: false,
             unclusteredConsidered: 0,
             clustersFormed: 0,
             incidentsCreated: 0,
@@ -180,6 +183,7 @@ class FireClusterJob {
             stats.skipped = true;
             console.log('⏭️  fire_incidents missing — skipping clustering. ' +
                 'Apply database/migrations/003_add_fire_incidents.sql first.');
+            await (0, jobRunRecorder_1.recordJobRun)('cluster', startedAt, 'skipped', { ...stats });
             return stats;
         }
         const client = await database_1.default.connect();
@@ -209,11 +213,18 @@ class FireClusterJob {
                 `${stats.incidentsExtended} extended), spread computed for ` +
                 `${stats.spreadComputed}, trend for ${stats.trendComputed}, ` +
                 `states refreshed ${stats.statesRefreshed}`);
+            await (0, jobRunRecorder_1.recordJobRun)('cluster', startedAt, 'ok', { ...stats });
+            await (0, jobRunRecorder_1.pruneJobRuns)();
             return stats;
         }
         catch (error) {
             await client.query('ROLLBACK');
-            console.error('❌ Clustering failed:', error.message);
+            stats.failed = true;
+            stats.error = error.message;
+            console.error('❌ Clustering failed:', stats.error);
+            // Recorded outside the transaction that just rolled back, which is the
+            // only reason this survives to be seen.
+            await (0, jobRunRecorder_1.recordJobRun)('cluster', startedAt, 'failed', { ...stats }, error);
             return stats;
         }
         finally {
@@ -625,19 +636,23 @@ class FireClusterJob {
          -- evidence is worse than no trend, and the CHECK constraint would
          -- reject a trend without its supporting numbers anyway.
          frp_trend          = c.new_trend,
-         frp_trend_ratio    = CASE WHEN c.new_trend IS NULL THEN NULL
-                                   ELSE round(c.ratio::numeric, 3) END,
-         frp_trend_passes   = CASE WHEN c.new_trend IS NULL THEN NULL
-                                   ELSE c.pass_count END,
-         frp_geometry_ratio = CASE WHEN c.new_trend IS NULL THEN NULL
-                                   ELSE round(c.geometry_ratio::numeric, 3) END,
+         -- The diagnostics are written whether or not a trend was published,
+         -- so "why is there no trend here" is answerable from the API. When
+         -- these were cleared alongside the trend, a suppressed incident and
+         -- one with too few passes looked identical, and the geometry gate
+         -- could not be audited from outside at all. The CHECK constraint
+         -- only requires them to be present when a trend IS published, so
+         -- keeping them is allowed.
+         frp_trend_ratio    = round(c.ratio::numeric, 3),
+         frp_trend_passes   = c.pass_count,
+         frp_geometry_ratio = round(c.geometry_ratio::numeric, 3),
          updated_at         = NOW()
        FROM computed c
        WHERE fi.id = c.id
          AND (fi.frp_trend IS DISTINCT FROM c.new_trend
-              OR fi.frp_trend_ratio IS DISTINCT FROM
-                 CASE WHEN c.new_trend IS NULL THEN NULL
-                      ELSE round(c.ratio::numeric, 3) END)`, [
+              OR fi.frp_trend_ratio IS DISTINCT FROM round(c.ratio::numeric, 3)
+              OR fi.frp_geometry_ratio
+                 IS DISTINCT FROM round(c.geometry_ratio::numeric, 3))`, [
             TREND_MIN_PASSES,
             TREND_MAX_GEOMETRY_RATIO,
             TREND_WEAKENING_BELOW,

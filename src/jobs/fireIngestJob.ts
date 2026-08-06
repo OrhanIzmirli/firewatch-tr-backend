@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import axios from 'axios';
 import pool from '../config/database';
+import { recordJobRun } from '../services/jobRunRecorder';
 import { regionKeyForCoordinates, regionKeyForRegionName } from '../utils/regions';
 import fireClusterJob from './fireClusterJob';
 
@@ -288,6 +289,7 @@ class FireIngestJob {
   }
 
   async runIngest(): Promise<IngestStats> {
+    const startedAt = new Date();
     const stats: IngestStats = {
       products: [],
       perProduct: [],
@@ -373,6 +375,13 @@ class FireIngestJob {
           `malformed ${stats.malformed}, ` +
           `pruned ${stats.pruned}`
       );
+      await recordJobRun('ingest', startedAt, 'ok', {
+        products: stats.products,
+        fetched: stats.fetched,
+        inserted: stats.inserted,
+        duplicates: stats.duplicates,
+        pruned: stats.pruned,
+      });
       for (const p of stats.perProduct) {
         console.log(
           `      ${p.product.padEnd(17)} fetched ${String(p.fetched).padStart(5)} ` +
@@ -384,6 +393,7 @@ class FireIngestJob {
       return stats;
     } catch (error) {
       console.error('❌ Fire ingest failed:', (error as Error).message);
+      await recordJobRun('ingest', startedAt, 'failed', { fetched: stats.fetched }, error);
       return stats;
     }
   }
