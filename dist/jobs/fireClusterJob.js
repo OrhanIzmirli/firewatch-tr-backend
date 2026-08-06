@@ -84,6 +84,36 @@ function passCountSql(arrayExpr) {
   )`;
 }
 class FireClusterJob {
+    constructor() {
+        /**
+         * Whether migration 004 has been applied. The persistence metrics are
+         * written only when their columns exist, so a server that is ahead of the
+         * database keeps clustering correctly instead of failing on every insert.
+         * Checked once per run, not per row.
+         */
+        this.persistenceColumns = null;
+    }
+    async hasPersistenceColumns() {
+        if (this.persistenceColumns !== null)
+            return this.persistenceColumns;
+        try {
+            const result = await database_1.default.query(`SELECT count(*)::int AS n
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'fire_incidents'
+            AND column_name IN ('seen_days', 'distinct_days_seen',
+                                'frp_sum', 'frp_sum_sq', 'frp_sample_count')`);
+            this.persistenceColumns = Number(result.rows[0]?.n ?? 0) === 5;
+        }
+        catch {
+            this.persistenceColumns = false;
+        }
+        if (!this.persistenceColumns) {
+            console.log('ℹ️  persistence metrics not stored — apply ' +
+                'database/migrations/004_add_incident_persistence_metrics.sql');
+        }
+        return this.persistenceColumns;
+    }
     async tablesExist() {
         const result = await database_1.default.query(`SELECT to_regclass('public.fire_incidents')  AS incidents,
               to_regclass('public.fire_detections') AS detections`);
@@ -173,6 +203,15 @@ class FireClusterJob {
               ST_AsText(ST_Multi(ST_Collect(geom)))       AS footprint_wkt,
               ST_AsText(ST_Centroid(ST_Collect(geom)))    AS centroid_wkt,
               max(frp_mw)                                 AS max_frp_mw,
+              -- Accumulators, not statistics: a mean cannot be folded into
+              -- another mean without its weight, and this job folds.
+              COALESCE(sum(frp_mw), 0)                    AS frp_sum,
+              COALESCE(sum(frp_mw * frp_mw), 0)           AS frp_sum_sq,
+              count(frp_mw)::int                          AS frp_sample_count,
+              -- The UTC dates this cluster was seen on. Stored as a set so
+              -- re-processing the same detection cannot inflate the count.
+              ARRAY(SELECT DISTINCT (acquired_at AT TIME ZONE 'UTC')::date
+                    ORDER BY 1)                           AS seen_days,
               (array_agg(confidence_tier ORDER BY
                  CASE confidence_tier WHEN 'high' THEN 0 WHEN 'nominal' THEN 1 ELSE 2 END
                ))[1]                                      AS peak_confidence_tier,
@@ -190,6 +229,10 @@ class FireClusterJob {
             footprintWkt: row.footprint_wkt,
             centroidWkt: row.centroid_wkt,
             maxFrpMw: row.max_frp_mw === null ? null : Number(row.max_frp_mw),
+            frpSum: Number(row.frp_sum ?? 0),
+            frpSumSq: Number(row.frp_sum_sq ?? 0),
+            frpSampleCount: Number(row.frp_sample_count ?? 0),
+            seenDays: (row.seen_days ?? []),
             peakConfidenceTier: row.peak_confidence_tier,
             cityId: row.city_id === null ? null : Number(row.city_id),
             regionKey: row.region_key,
@@ -216,21 +259,14 @@ class FireClusterJob {
         return result.rows[0] ? Number(result.rows[0].id) : null;
     }
     async createIncident(client, cluster) {
-        const result = await client.query(`INSERT INTO fire_incidents (
-         first_detected_at, last_detected_at, detection_count,
-         overpass_times, overpass_count,
-         centroid, footprint, max_frp_mw, peak_confidence_tier,
-         city_id, region_key,
-         satellite_state, hours_since_last_detection
-       ) VALUES (
-         $1, $2, $3, $4::timestamptz[], COALESCE(${passCountSql('$4::timestamptz[]')}, 0),
-         ST_GeomFromText($5, 4326), ST_Multi(ST_GeomFromText($6, 4326)),
-         $7, $8, $9, $10,
-         CASE WHEN $2::timestamptz > NOW() - INTERVAL '${RECENT_DETECTION_HOURS} hours'
-              THEN 'detected_recently' ELSE 'no_recent_detection' END,
-         GREATEST(EXTRACT(EPOCH FROM (NOW() - $2::timestamptz)) / 3600.0, 0)
-       )
-       RETURNING id`, [
+        const persistence = await this.hasPersistenceColumns();
+        const extraColumns = persistence
+            ? ', seen_days, distinct_days_seen, frp_sum, frp_sum_sq, frp_sample_count'
+            : '';
+        const extraValues = persistence
+            ? `, $11::date[], COALESCE(array_length($11::date[], 1), 0), $12, $13, $14`
+            : '';
+        const params = [
             cluster.firstDetectedAt,
             cluster.lastDetectedAt,
             cluster.detectionCount,
@@ -241,7 +277,25 @@ class FireClusterJob {
             cluster.peakConfidenceTier,
             cluster.cityId,
             cluster.regionKey,
-        ]);
+        ];
+        if (persistence) {
+            params.push(cluster.seenDays, cluster.frpSum, cluster.frpSumSq, cluster.frpSampleCount);
+        }
+        const result = await client.query(`INSERT INTO fire_incidents (
+         first_detected_at, last_detected_at, detection_count,
+         overpass_times, overpass_count,
+         centroid, footprint, max_frp_mw, peak_confidence_tier,
+         city_id, region_key,
+         satellite_state, hours_since_last_detection${extraColumns}
+       ) VALUES (
+         $1, $2, $3, $4::timestamptz[], COALESCE(${passCountSql('$4::timestamptz[]')}, 0),
+         ST_GeomFromText($5, 4326), ST_Multi(ST_GeomFromText($6, 4326)),
+         $7, $8, $9, $10,
+         CASE WHEN $2::timestamptz > NOW() - INTERVAL '${RECENT_DETECTION_HOURS} hours'
+              THEN 'detected_recently' ELSE 'no_recent_detection' END,
+         GREATEST(EXTRACT(EPOCH FROM (NOW() - $2::timestamptz)) / 3600.0, 0)${extraValues}
+       )
+       RETURNING id`, params);
         await this.linkDetections(client, Number(result.rows[0].id), cluster.detectionIds);
     }
     /**
@@ -253,6 +307,45 @@ class FireClusterJob {
      * still describe everything it ever saw.
      */
     async extendIncident(client, incidentId, cluster) {
+        const persistence = await this.hasPersistenceColumns();
+        // Days fold as a SET UNION, not an addition. The incident match rule
+        // (72 h, 2 km) deliberately extends the same incident run after run, so
+        // an additive counter would climb every time the job re-saw the same day.
+        // Unioning dates is idempotent: seeing 2026-08-06 for the fifth time
+        // leaves the array, and therefore the counter, unchanged. The FRP
+        // accumulators DO add, and that is correct — they are weighted by sample
+        // count, and each detection is linked exactly once (linkDetections sets
+        // incident_id, and the cluster query only reads rows where it is NULL).
+        const persistenceSet = persistence
+            ? `,
+         seen_days = sub.days,
+         distinct_days_seen = COALESCE(array_length(sub.days, 1), 0),
+         frp_sum = frp_sum + $11::numeric,
+         frp_sum_sq = frp_sum_sq + $12::numeric,
+         frp_sample_count = frp_sample_count + $13`
+            : '';
+        const persistenceSub = persistence
+            ? `,
+           ARRAY(
+             SELECT DISTINCT unnest(fi2.seen_days || $14::date[])
+             ORDER BY 1
+           ) AS days`
+            : '';
+        const params = [
+            incidentId,
+            cluster.firstDetectedAt,
+            cluster.lastDetectedAt,
+            cluster.detectionCount,
+            cluster.overpassTimes,
+            cluster.footprintWkt,
+            cluster.maxFrpMw,
+            cluster.peakConfidenceTier,
+            cluster.cityId,
+            cluster.regionKey,
+        ];
+        if (persistence) {
+            params.push(cluster.frpSum, cluster.frpSumSq, cluster.frpSampleCount, cluster.seenDays);
+        }
         await client.query(`UPDATE fire_incidents SET
          first_detected_at = LEAST(first_detected_at, $2::timestamptz),
          last_detected_at  = GREATEST(last_detected_at, $3::timestamptz),
@@ -269,26 +362,15 @@ class FireClusterJob {
            END,
          city_id    = COALESCE(city_id, $9),
          region_key = COALESCE(region_key, $10),
-         updated_at = NOW()
+         updated_at = NOW()${persistenceSet}
        FROM (
          SELECT ARRAY(
            SELECT DISTINCT unnest(fi2.overpass_times || $5::timestamptz[])
            ORDER BY 1
-         ) AS times
+         ) AS times${persistenceSub}
          FROM fire_incidents fi2 WHERE fi2.id = $1
        ) sub
-       WHERE id = $1`, [
-            incidentId,
-            cluster.firstDetectedAt,
-            cluster.lastDetectedAt,
-            cluster.detectionCount,
-            cluster.overpassTimes,
-            cluster.footprintWkt,
-            cluster.maxFrpMw,
-            cluster.peakConfidenceTier,
-            cluster.cityId,
-            cluster.regionKey,
-        ]);
+       WHERE id = $1`, params);
         await this.linkDetections(client, incidentId, cluster.detectionIds);
     }
     async linkDetections(client, incidentId, ids) {
