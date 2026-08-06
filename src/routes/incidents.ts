@@ -86,11 +86,19 @@ router.get(
            FROM windowed
          ),
          longest AS (
+           -- The evidence bar applies here too. Without it this picked the
+           -- incident with the largest duration_hours full stop, and the
+           -- thing that burns longest in this data is not a fire: a fixed
+           -- industrial heat source is visible on every overpass forever,
+           -- so it wins a "longest running" contest against every real
+           -- wildfire, which eventually goes out. It put a 4.35 MW source
+           -- in urban Istanbul on the home screen as Turkey's
+           -- longest-running fire.
            SELECT w.id, w.duration_hours, w.first_detected_at,
                   w.last_detected_at, c.name AS city_name
            FROM windowed w
            LEFT JOIN turkey_cities c ON c.id = w.city_id
-           WHERE w.is_active
+           WHERE w.is_active AND w.is_significant
            ORDER BY w.duration_hours DESC NULLS LAST
            LIMIT 1
          )
