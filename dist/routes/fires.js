@@ -66,6 +66,69 @@ router.get('/nearest-city', async (req, res) => {
         res.status(500).json({ status: 'error', message: 'Unable to resolve location' });
     }
 });
+// POST /api/fires/nearest-city/batch — body: { coords: [{lat, lng}, ...] }
+//
+// One round trip instead of hundreds. Enriching the app's raw detection
+// layer used to issue ~276 sequential nearest-city lookups at ~1.3s each on
+// a cold backend; this answers the same question for every coordinate in a
+// single LATERAL KNN query. Per-item semantics are identical to the single
+// endpoint above (same bbox rejection, same fallback label).
+router.post('/nearest-city/batch', (0, security_1.rateLimit)('nearest-city-batch', 30, 60000), async (req, res) => {
+    try {
+        const coords = req.body?.coords;
+        if (!Array.isArray(coords) || coords.length === 0 || coords.length > 400) {
+            res.status(400).json({
+                status: 'error',
+                message: 'coords must be a non-empty array of at most 400 {lat, lng} pairs',
+            });
+            return;
+        }
+        const parsed = coords.map((c) => ({ lat: Number(c?.lat), lng: Number(c?.lng) }));
+        if (parsed.some((c) => !Number.isFinite(c.lat) || !Number.isFinite(c.lng))) {
+            res.status(400).json({ status: 'error', message: 'every coord needs numeric lat and lng' });
+            return;
+        }
+        const results = parsed.map((c) => isWithinTurkey(c.lat, c.lng)
+            ? null
+            : { outsideTurkey: true, city: null, region: null, distance_km: null });
+        const insideIdx = parsed.map((_, i) => i).filter((i) => results[i] === null);
+        if (insideIdx.length > 0) {
+            const lats = insideIdx.map((i) => parsed[i].lat);
+            const lngs = insideIdx.map((i) => parsed[i].lng);
+            const query = await database_1.default.query(`SELECT pts.idx, c.name, c.region, c.distance_km
+           FROM unnest($1::float8[], $2::float8[]) WITH ORDINALITY AS pts(lat, lng, idx)
+           CROSS JOIN LATERAL (
+             SELECT name, region,
+                    ST_Distance(location::geography,
+                                ST_SetSRID(ST_MakePoint(pts.lng, pts.lat), 4326)::geography) / 1000 AS distance_km
+             FROM turkey_cities
+             ORDER BY location <-> ST_SetSRID(ST_MakePoint(pts.lng, pts.lat), 4326)
+             LIMIT 1
+           ) c`, [lats, lngs]);
+            for (const row of query.rows) {
+                const originalIndex = insideIdx[Number(row.idx) - 1];
+                results[originalIndex] = {
+                    outsideTurkey: false,
+                    city: row.name,
+                    region: row.region,
+                    distance_km: Math.round(row.distance_km),
+                };
+            }
+            // An inside coord the query didn't answer (empty table) gets the
+            // same generic label as the single endpoint.
+            for (const i of insideIdx) {
+                if (results[i] === null) {
+                    results[i] = { outsideTurkey: false, city: 'Türkiye', region: 'Türkiye', distance_km: null };
+                }
+            }
+        }
+        res.json({ status: 'success', data: results });
+    }
+    catch (error) {
+        console.error('nearest-city batch error:', error);
+        res.status(500).json({ status: 'error', message: 'Unable to resolve locations' });
+    }
+});
 // GET /api/fires/reports — Raporları listele
 router.get('/reports', security_1.requireAdminToken, async (req, res) => {
     try {

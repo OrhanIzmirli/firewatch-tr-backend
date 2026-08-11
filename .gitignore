@@ -1,6 +1,4 @@
 # Environment
-.env
-.env.local
 .env.*.local
 
 # Firebase
@@ -28,3 +26,4 @@ build/
 
 # Cached TLE element sets — refetched from Celestrak, never source
 .tle-cache/
+config.bat
