@@ -230,3 +230,5 @@ runStartupMigrations();
 app.listen(PORT, () => {
   console.log(`FireWatch TR backend running on port ${PORT}`);
 });
+
+
