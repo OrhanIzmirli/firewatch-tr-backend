@@ -16,6 +16,14 @@ const router = (0, express_1.Router)();
 const EXPECTED = {
     ingest: { intervalMinutes: 30, job: 'ingest' },
     cluster: { intervalMinutes: 30, job: 'cluster' },
+    // Shadow-mode news verification runs 30 minutes after each 6-hour scrape.
+    // Until migration 007 is applied it deliberately records 'skipped' every
+    // run; that is the job proving it is alive, not failing, and must not put
+    // the whole endpoint into 503.
+    news_verify: { intervalMinutes: 360, job: 'news_verify', skippedIsAlive: true },
+    // News-reported sightings run 45 minutes after each scrape. Records
+    // 'skipped' until migrations 008/009 are applied and districts seeded.
+    news_sighting: { intervalMinutes: 360, job: 'news_sighting', skippedIsAlive: true },
 };
 const STALE_AFTER_INTERVALS = 2;
 /**
@@ -48,6 +56,9 @@ router.get('/pipeline', (0, security_1.rateLimit)('pipeline_health', 60, 60000),
                   WHERE r.job = j.job AND r.status = 'ok'
                   ORDER BY finished_at DESC LIMIT 1)  AS last_success_stats,
                 (SELECT finished_at FROM job_runs r
+                  WHERE r.job = j.job AND r.status = 'skipped'
+                  ORDER BY finished_at DESC LIMIT 1)  AS last_skipped_at,
+                (SELECT finished_at FROM job_runs r
                   WHERE r.job = j.job AND r.status = 'failed'
                   ORDER BY finished_at DESC LIMIT 1)  AS last_failure_at,
                 (SELECT error FROM job_runs r
@@ -62,9 +73,13 @@ router.get('/pipeline', (0, security_1.rateLimit)('pipeline_health', 60, 60000),
         const now = Date.now();
         const jobs = Object.values(EXPECTED).map((expected) => {
             const row = result.rows.find((r) => r.job === expected.job);
-            const lastSuccess = row?.last_success_at
-                ? new Date(row.last_success_at)
-                : null;
+            const aliveTimes = [row?.last_success_at];
+            if (expected.skippedIsAlive)
+                aliveTimes.push(row?.last_skipped_at);
+            const lastSuccess = aliveTimes
+                .filter(Boolean)
+                .map((t) => new Date(t))
+                .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
             const secondsSince = lastSuccess
                 ? Math.round((now - lastSuccess.getTime()) / 1000)
                 : null;
@@ -116,6 +131,67 @@ router.get('/pipeline', (0, security_1.rateLimit)('pipeline_health', 60, 60000),
         res
             .status(500)
             .json({ status: 'error', message: 'Unable to read pipeline health' });
+    }
+});
+/**
+ * GET /api/health/status-claims — the shadow run's review report.
+ *
+ * This page is how a human decides whether the news→incident matching can
+ * ever be trusted with the official axis. It answers three questions:
+ *
+ *   1. Where does the pipeline stop? (outcome counts — if everything dies at
+ *      'no_city' the extractor is fine and the matcher is starved)
+ *   2. What is it claiming? (state counts over matched rows)
+ *   3. Are the individual matches right? (the newest matched rows, with the
+ *      exact phrase that decided each, to be read against the article)
+ *
+ * Nothing here writes anything; official_state promotion stays manual until
+ * this report has been boring for a while.
+ */
+router.get('/status-claims', (0, security_1.rateLimit)('status_claims', 30, 60000), async (_req, res) => {
+    try {
+        const [outcomes, states, recent] = await Promise.all([
+            database_1.default.query(`SELECT outcome, count(*)::int AS count
+             FROM incident_news_claims
+            WHERE created_at > NOW() - INTERVAL '7 days'
+            GROUP BY outcome ORDER BY count DESC`),
+            database_1.default.query(`SELECT claim_state, count(*)::int AS count
+             FROM incident_news_claims
+            WHERE outcome = 'matched'
+              AND created_at > NOW() - INTERVAL '7 days'
+            GROUP BY claim_state ORDER BY count DESC`),
+            database_1.default.query(`SELECT c.id, c.news_id, c.incident_id, c.claim_state, c.claim_phrase,
+                  c.claim_rule, c.suppressed_rules, c.city_name,
+                  c.news_published_at, c.created_at,
+                  n.title, n.source, n.source_url
+             FROM incident_news_claims c
+             JOIN news n ON n.id = c.news_id
+            WHERE c.outcome = 'matched'
+            ORDER BY c.created_at DESC
+            LIMIT 50`),
+        ]);
+        res.set('Cache-Control', 'no-store');
+        res.json({
+            mode: 'shadow',
+            note: 'These claims are recorded for review only; official_state is never written by this pipeline.',
+            outcomes_7d: outcomes.rows,
+            matched_states_7d: states.rows,
+            recent_matches: recent.rows,
+        });
+    }
+    catch (error) {
+        if (error.code === '42P01') {
+            res.status(200).json({
+                mode: 'shadow',
+                message: 'incident_news_claims table missing — apply ' +
+                    'database/migrations/007_add_incident_news_claims.sql',
+            });
+            return;
+        }
+        console.error('status-claims report error:', error);
+        res
+            .status(500)
+            .json({ status: 'error', message: 'Unable to read status claims' });
     }
 });
 exports.default = router;

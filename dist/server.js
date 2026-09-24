@@ -54,6 +54,8 @@ const newsScraperJob_1 = __importStar(require("./jobs/newsScraperJob"));
 const riskCalculatorJob_1 = __importDefault(require("./jobs/riskCalculatorJob"));
 const fireIngestJob_1 = __importDefault(require("./jobs/fireIngestJob"));
 const fireClusterJob_1 = __importDefault(require("./jobs/fireClusterJob"));
+const newsVerificationJob_1 = __importDefault(require("./jobs/newsVerificationJob"));
+const newsSightingJob_1 = __importDefault(require("./jobs/newsSightingJob"));
 const cacheService_1 = __importDefault(require("./services/cacheService"));
 const database_1 = __importDefault(require("./config/database"));
 const app = (0, express_1.default)();
@@ -128,6 +130,17 @@ app.get('/api/admin/ingest-fires', security_1.requireAdminToken, async (req, res
         const stats = await fireIngestJob_1.default.runIngest();
         const clustering = await fireClusterJob_1.default.runClustering();
         res.json({ status: 'success', data: { ingest: stats, clustering } });
+    }
+    catch (error) {
+        res.status(500).json({ status: 'error', message: 'Admin operation failed' });
+    }
+});
+// Manuel haber-sighting tetikleyici — sonucu döndürür, tablo yoksa 'skipped'
+app.get('/api/admin/news-sightings', security_1.requireAdminToken, async (req, res) => {
+    try {
+        console.log('🔧 Manual news sighting run triggered');
+        const stats = await newsSightingJob_1.default.runSightings();
+        res.json({ status: 'success', data: stats });
     }
     catch (error) {
         res.status(500).json({ status: 'error', message: 'Admin operation failed' });
@@ -246,6 +259,12 @@ if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
     // Skips itself until migration 002 has been applied, so deploying this
     // before running the migration is harmless.
     fireIngestJob_1.default.start();
+    // Shadow mode: writes incident_news_claims only, never official_state.
+    // Skips itself until migration 007 has been applied.
+    newsVerificationJob_1.default.start();
+    // Writes news_reported_sightings only, never fire_incidents. Skips
+    // itself until migrations 008/009 are applied and districts are seeded.
+    newsSightingJob_1.default.start();
     console.log('Background jobs started');
 }
 runStartupMigrations();
