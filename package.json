@@ -15,7 +15,10 @@
     "test:official-status": "ts-node --project tsconfig.scripts.json scripts/test-official-status.ts",
     "test:news-verification": "ts-node --project tsconfig.scripts.json scripts/test-news-verification.ts",
     "test:news-sighting": "ts-node --project tsconfig.scripts.json scripts/test-news-sighting.ts",
-    "seed:districts": "ts-node --project tsconfig.scripts.json scripts/seed-turkey-districts.ts"
+    "seed:districts": "ts-node --project tsconfig.scripts.json scripts/seed-turkey-districts.ts",
+    "seed:district-boundaries": "ts-node --project tsconfig.scripts.json scripts/seed-district-boundaries.ts",
+    "test:burned-area": "ts-node --project tsconfig.scripts.json scripts/test-burned-area.ts",
+    "backtest:burned-area": "ts-node --project tsconfig.scripts.json scripts/backtest-burned-area.ts"
   },
   "keywords": [],
   "author": "",
@@ -28,6 +31,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "firebase-admin": "^14.1.0",
+    "geotiff": "^3.0.5",
     "ioredis": "^5.11.0",
     "morgan": "^1.10.1",
     "node-cron": "^4.2.1",

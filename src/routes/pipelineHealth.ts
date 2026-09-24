@@ -24,6 +24,10 @@ const EXPECTED: Record<
   // News-reported sightings run 45 minutes after each scrape. Records
   // 'skipped' until migrations 008/009 are applied and districts seeded.
   news_sighting: { intervalMinutes: 360, job: 'news_sighting', skippedIsAlive: true },
+  // Burned area polls NASA once a day; most days it has nothing to fetch and
+  // says so with an 'ok' carrying zero downloads. Before migration 010 or
+  // without Earthdata credentials it records 'skipped'.
+  burned_area: { intervalMinutes: 1440, job: 'burned_area', skippedIsAlive: true },
 };
 
 const STALE_AFTER_INTERVALS = 2;

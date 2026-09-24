@@ -11,6 +11,7 @@ import feedbackRoutes from './routes/feedback';
 import thermalRoutes from './routes/thermal';
 import incidentRoutes from './routes/incidents';
 import pipelineHealthRoutes from './routes/pipelineHealth';
+import lossSummaryRoutes from './routes/lossSummary';
 import legalRoutes from './routes/legal';
 import { rateLimit, requireAdminToken as secureAdminToken, securityHeaders } from './middleware/security';
 import newsScraperJob, { checkRelevance } from './jobs/newsScraperJob';
@@ -19,6 +20,7 @@ import fireIngestJob from './jobs/fireIngestJob';
 import fireClusterJob from './jobs/fireClusterJob';
 import newsVerificationJob from './jobs/newsVerificationJob';
 import newsSightingJob from './jobs/newsSightingJob';
+import burnedAreaJob from './jobs/burnedAreaJob';
 import cacheService from './services/cacheService';
 import pool from './config/database';
 
@@ -56,6 +58,7 @@ app.use('/api/notify', notificationRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/thermal', thermalRoutes);
 app.use('/api/incidents', incidentRoutes);
+app.use('/api/loss-summary', lossSummaryRoutes);
 // Registered before the /api/health handler so /api/health/pipeline resolves
 // here rather than falling through.
 app.use('/api/health', pipelineHealthRoutes);
@@ -110,6 +113,18 @@ app.get('/api/admin/news-sightings', secureAdminToken, async (req, res) => {
   try {
     console.log('🔧 Manual news sighting run triggered');
     const stats = await newsSightingJob.runSightings();
+    res.json({ status: 'success', data: stats });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: 'Admin operation failed' });
+  }
+});
+
+// Manuel yanan-alan tetikleyici — CMR kontrolü, AppEEARS gönderimi/indirmesi;
+// tablo veya Earthdata hesabı yoksa 'skipped' kaydeder ve boş stats döndürür
+app.get('/api/admin/burned-area', secureAdminToken, async (req, res) => {
+  try {
+    console.log('🔧 Manual burned area run triggered');
+    const stats = await burnedAreaJob.run();
     res.json({ status: 'success', data: stats });
   } catch (error) {
     res.status(500).json({ status: 'error', message: 'Admin operation failed' });
@@ -241,6 +256,10 @@ if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
   // Writes news_reported_sightings only, never fire_incidents. Skips
   // itself until migrations 008/009 are applied and districts are seeded.
   newsSightingJob.start();
+  // Writes burned_pixels / burned_area_monthly and the fire_incidents.optical_*
+  // axis only. Skips itself until migration 010 is applied and the Earthdata
+  // service account is configured.
+  burnedAreaJob.start();
   console.log('Background jobs started');
 }
 

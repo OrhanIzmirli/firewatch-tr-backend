@@ -48,6 +48,7 @@ const feedback_1 = __importDefault(require("./routes/feedback"));
 const thermal_1 = __importDefault(require("./routes/thermal"));
 const incidents_1 = __importDefault(require("./routes/incidents"));
 const pipelineHealth_1 = __importDefault(require("./routes/pipelineHealth"));
+const lossSummary_1 = __importDefault(require("./routes/lossSummary"));
 const legal_1 = __importDefault(require("./routes/legal"));
 const security_1 = require("./middleware/security");
 const newsScraperJob_1 = __importStar(require("./jobs/newsScraperJob"));
@@ -56,6 +57,7 @@ const fireIngestJob_1 = __importDefault(require("./jobs/fireIngestJob"));
 const fireClusterJob_1 = __importDefault(require("./jobs/fireClusterJob"));
 const newsVerificationJob_1 = __importDefault(require("./jobs/newsVerificationJob"));
 const newsSightingJob_1 = __importDefault(require("./jobs/newsSightingJob"));
+const burnedAreaJob_1 = __importDefault(require("./jobs/burnedAreaJob"));
 const cacheService_1 = __importDefault(require("./services/cacheService"));
 const database_1 = __importDefault(require("./config/database"));
 const app = (0, express_1.default)();
@@ -89,6 +91,7 @@ app.use('/api/notify', notifications_1.default);
 app.use('/api/feedback', feedback_1.default);
 app.use('/api/thermal', thermal_1.default);
 app.use('/api/incidents', incidents_1.default);
+app.use('/api/loss-summary', lossSummary_1.default);
 // Registered before the /api/health handler so /api/health/pipeline resolves
 // here rather than falling through.
 app.use('/api/health', pipelineHealth_1.default);
@@ -140,6 +143,18 @@ app.get('/api/admin/news-sightings', security_1.requireAdminToken, async (req, r
     try {
         console.log('🔧 Manual news sighting run triggered');
         const stats = await newsSightingJob_1.default.runSightings();
+        res.json({ status: 'success', data: stats });
+    }
+    catch (error) {
+        res.status(500).json({ status: 'error', message: 'Admin operation failed' });
+    }
+});
+// Manuel yanan-alan tetikleyici — CMR kontrolü, AppEEARS gönderimi/indirmesi;
+// tablo veya Earthdata hesabı yoksa 'skipped' kaydeder ve boş stats döndürür
+app.get('/api/admin/burned-area', security_1.requireAdminToken, async (req, res) => {
+    try {
+        console.log('🔧 Manual burned area run triggered');
+        const stats = await burnedAreaJob_1.default.run();
         res.json({ status: 'success', data: stats });
     }
     catch (error) {
@@ -265,6 +280,10 @@ if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
     // Writes news_reported_sightings only, never fire_incidents. Skips
     // itself until migrations 008/009 are applied and districts are seeded.
     newsSightingJob_1.default.start();
+    // Writes burned_pixels / burned_area_monthly and the fire_incidents.optical_*
+    // axis only. Skips itself until migration 010 is applied and the Earthdata
+    // service account is configured.
+    burnedAreaJob_1.default.start();
     console.log('Background jobs started');
 }
 runStartupMigrations();
