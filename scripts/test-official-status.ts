@@ -53,6 +53,16 @@ const CASES: Case[] = [
     expect: 'ongoing',
     why: 'extinguishing work ongoing',
   },
+  {
+    text: "İzmir ve Aydın'da orman yangınları devam ediyor.",
+    expect: 'ongoing',
+    why: "plural 'yangınları' — dotless ı broke the ASCII \\w bridge to devam ediyor",
+  },
+  {
+    text: 'Orman yangını üçüncü gününde devam ediyor.',
+    expect: 'ongoing',
+    why: 'Turkish-lettered words between the fire word and devam ediyor',
+  },
 
   // ---- real sentences from the live feed --------------------------------
   {

@@ -17,6 +17,7 @@ import newsScraperJob, { checkRelevance } from './jobs/newsScraperJob';
 import riskCalculatorJob from './jobs/riskCalculatorJob';
 import fireIngestJob from './jobs/fireIngestJob';
 import fireClusterJob from './jobs/fireClusterJob';
+import newsVerificationJob from './jobs/newsVerificationJob';
 import cacheService from './services/cacheService';
 import pool from './config/database';
 
@@ -222,6 +223,9 @@ if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
   // Skips itself until migration 002 has been applied, so deploying this
   // before running the migration is harmless.
   fireIngestJob.start();
+  // Shadow mode: writes incident_news_claims only, never official_state.
+  // Skips itself until migration 007 has been applied.
+  newsVerificationJob.start();
   console.log('Background jobs started');
 }
 
