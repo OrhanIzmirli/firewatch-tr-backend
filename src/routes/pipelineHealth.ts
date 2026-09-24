@@ -21,6 +21,9 @@ const EXPECTED: Record<
   // run; that is the job proving it is alive, not failing, and must not put
   // the whole endpoint into 503.
   news_verify: { intervalMinutes: 360, job: 'news_verify', skippedIsAlive: true },
+  // News-reported sightings run 45 minutes after each scrape. Records
+  // 'skipped' until migrations 008/009 are applied and districts seeded.
+  news_sighting: { intervalMinutes: 360, job: 'news_sighting', skippedIsAlive: true },
 };
 
 const STALE_AFTER_INTERVALS = 2;

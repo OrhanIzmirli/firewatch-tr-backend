@@ -18,6 +18,7 @@ import riskCalculatorJob from './jobs/riskCalculatorJob';
 import fireIngestJob from './jobs/fireIngestJob';
 import fireClusterJob from './jobs/fireClusterJob';
 import newsVerificationJob from './jobs/newsVerificationJob';
+import newsSightingJob from './jobs/newsSightingJob';
 import cacheService from './services/cacheService';
 import pool from './config/database';
 
@@ -99,6 +100,17 @@ app.get('/api/admin/ingest-fires', secureAdminToken, async (req, res) => {
     const stats = await fireIngestJob.runIngest();
     const clustering = await fireClusterJob.runClustering();
     res.json({ status: 'success', data: { ingest: stats, clustering } });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: 'Admin operation failed' });
+  }
+});
+
+// Manuel haber-sighting tetikleyici — sonucu döndürür, tablo yoksa 'skipped'
+app.get('/api/admin/news-sightings', secureAdminToken, async (req, res) => {
+  try {
+    console.log('🔧 Manual news sighting run triggered');
+    const stats = await newsSightingJob.runSightings();
+    res.json({ status: 'success', data: stats });
   } catch (error) {
     res.status(500).json({ status: 'error', message: 'Admin operation failed' });
   }
@@ -226,6 +238,9 @@ if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
   // Shadow mode: writes incident_news_claims only, never official_state.
   // Skips itself until migration 007 has been applied.
   newsVerificationJob.start();
+  // Writes news_reported_sightings only, never fire_incidents. Skips
+  // itself until migrations 008/009 are applied and districts are seeded.
+  newsSightingJob.start();
   console.log('Background jobs started');
 }
 

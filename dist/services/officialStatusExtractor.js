@@ -118,7 +118,11 @@ const POSITIVE_RULES = [
     },
     {
         name: 'pos:devam-ediyor',
-        pattern: /yang[ıi]n\w*\s+(?:\w+\s+){0,3}?devam\s+ediyor/,
+        // No \w here either: JS \w is ASCII-only, so "yangınları" (with 'ı')
+        // broke the bridge between the fire word and "devam ediyor" and the
+        // extremely common "orman yangınları devam ediyor" headline matched
+        // nothing. The classes below are the lowercased Turkish alphabet.
+        pattern: /yang[ıi]n[a-zçğıöşü]*\s+(?:[a-zçğıöşü0-9']+\s+){0,3}?devam\s+ediyor/,
         state: 'ongoing',
     },
     {
@@ -134,7 +138,11 @@ const STATE_STRENGTH = {
 };
 const VEGETATION_TERMS = /(orman|otluk|an[ıi]z|makilik|[öo]rt[üu]\s+yang[ıi]n|çal[ıi]l[ıi]k|çam|a[ğg]a[çc]l[ıi]k|milli\s+park|zeytinlik|bu[ğg]day)/;
 const STRUCTURE_TERMS = /(tekne|gemi|yat|trafo|fabrika|atölye|apartman|bina|daire|ev\s+yang[ıi]n|i[şs]\s+yeri|ara[çc]|otomobil|kamyon|otob[üu]s|[çc]iftli[ğg]i|ah[ıi]r|depo|market|hastane|okul|baca|konteyner)/;
-const FOREIGN_TERMS = /(bulgaristan|yunanistan|italya|ispanya|portekiz|fransa|almanya|kaliforniya|amerika|abd|kanada|avustralya|rusya|ukrayna|suriye|irak|iran|israil|f[ıi]rt[ıi]na\s+abd)/;
+// 'tunus': an AA wire story on Tunisian fires ("Tunus'ta orman yangınları
+// Akdeniz'in doğal mirasını tehdit ediyor") passed as relevant and was
+// geocoded to Akdeniz, Mersin. 'fas' (Morocco) is deliberately absent: this
+// is a bare substring test and "vefasız", "fasulye" would trip it.
+const FOREIGN_TERMS = /(bulgaristan|yunanistan|italya|ispanya|portekiz|fransa|almanya|kaliforniya|amerika|abd|kanada|avustralya|rusya|ukrayna|suriye|irak|iran|israil|tunus|cezayir|l[iı]bya|f[ıi]rt[ıi]na\s+abd)/;
 function assessRelevance(text) {
     const low = (0, turkishText_1.turkishToLower)(text);
     // "ateş" as well as "yangın": wire copy routinely writes "çöp alanından

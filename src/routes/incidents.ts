@@ -247,8 +247,10 @@ router.get('/', rateLimit('incidents', 60, 60_000), async (req: Request, res: Re
     // The key is the full parameter set, in a fixed order. Keying on
     // anything less would serve a Marmara-filtered page to someone who asked
     // for Ege — the kind of bug that looks like missing fires.
+    // v2: the payload gained news_reported. Keyed separately so a v1 entry
+    // cached before the deploy cannot be served without it.
     const cacheKey =
-      'incidents:v1:' +
+      'incidents:v2:' +
       JSON.stringify({
         days,
         limit,
@@ -257,16 +259,23 @@ router.get('/', rateLimit('incidents', 60, 60_000), async (req: Request, res: Re
         state: typeof state === 'string' ? state : null,
       });
 
-    const cached = await cacheService.get<{ count: number; data: unknown[] }>(
-      cacheKey
-    );
+    const cached = await cacheService.get<{
+      count: number;
+      data: unknown[];
+      news_reported: unknown[];
+    }>(cacheKey);
     if (cached) {
       res.set(
         'Cache-Control',
         'public, max-age=120, stale-while-revalidate=300'
       );
       res.set('X-Cache', 'HIT');
-      res.json({ status: 'success', count: cached.count, data: cached.data });
+      res.json({
+        status: 'success',
+        count: cached.count,
+        data: cached.data,
+        news_reported: cached.news_reported ?? [],
+      });
       return;
     }
 
@@ -405,15 +414,23 @@ router.get('/', rateLimit('incidents', 60, 60_000), async (req: Request, res: Re
       },
     }));
 
+    // Kept OUT of `data`: the shipped client parses that array as satellite
+    // incidents, and a sighting has no satellite axis to parse. A separate
+    // key is additive for old clients and unmistakable for new ones.
+    const newsReported = await loadNewsReported(
+      typeof regionKey === 'string' && regionKey !== '' ? regionKey : null,
+      typeof cityId === 'string' && cityId !== '' ? Number(cityId) : null
+    );
+
     await cacheService.set(
       cacheKey,
-      { count: data.length, data },
+      { count: data.length, data, news_reported: newsReported },
       INCIDENTS_CACHE_TTL_SECONDS
     );
 
     res.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=300');
     res.set('X-Cache', 'MISS');
-    res.json({ status: 'success', count: data.length, data });
+    res.json({ status: 'success', count: data.length, data, news_reported: newsReported });
   } catch (error) {
     // A missing table means migration 003 has not been applied yet.
     if ((error as { code?: string }).code === '42P01') {
@@ -427,6 +444,77 @@ router.get('/', rateLimit('incidents', 60, 60_000), async (req: Request, res: Re
     res.status(500).json({ status: 'error', message: 'Unable to load incidents' });
   }
 });
+
+/** Sightings are at most 48 h old by construction, so no ?days= applies. */
+const NEWS_REPORTED_LIMIT = 100;
+
+/**
+ * Open news-reported sightings — fires a newspaper has reported and the
+ * satellite has not seen. NOT incidents: no satellite, optical or official
+ * axis exists for them, and `source: 'news_only'` says so on every row.
+ *
+ * `confidence` is the number of independent articles behind the sighting,
+ * bucketed: one source is shown faded, two or more normally. It is about
+ * the report, not about the fire.
+ */
+async function loadNewsReported(
+  regionKey: string | null,
+  provinceId: number | null
+): Promise<unknown[]> {
+  const conditions = [`s.status = 'news_reported'`, `s.expires_at > NOW()`];
+  const params: unknown[] = [];
+  if (regionKey !== null) {
+    params.push(regionKey);
+    conditions.push(`s.region_key = $${params.length}`);
+  }
+  if (provinceId !== null) {
+    params.push(provinceId);
+    conditions.push(`s.province_id = $${params.length}`);
+  }
+  params.push(NEWS_REPORTED_LIMIT);
+
+  try {
+    const result = await pool.query(
+      `SELECT s.id, s.district_name, s.province_id, c.name AS city_name, s.region_key,
+              ST_Y(s.location) AS latitude,
+              ST_X(s.location) AS longitude,
+              s.corroborating_count, s.first_reported_at, s.last_reported_at, s.expires_at,
+              (SELECT json_agg(json_build_object(
+                        'id', n.id, 'title', n.title, 'source', n.source,
+                        'source_url', n.source_url, 'published_at', n.published_at
+                      ) ORDER BY n.published_at)
+                 FROM news n WHERE n.id = ANY(s.corroborating_news_ids)) AS articles
+         FROM news_reported_sightings s
+         LEFT JOIN turkey_cities c ON c.id = s.province_id
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY s.last_reported_at DESC
+        LIMIT $${params.length}`,
+      params
+    );
+    return result.rows.map((row: any) => ({
+      id: Number(row.id),
+      source: 'news_only',
+      status: 'news_reported',
+      confidence: Number(row.corroborating_count) >= 2 ? 'corroborated' : 'single_source',
+      corroborating_count: Number(row.corroborating_count),
+      geocode_level: 'district',
+      district_name: row.district_name,
+      city_id: row.province_id,
+      city_name: row.city_name ?? null,
+      region_key: row.region_key,
+      latitude: round(row.latitude, 5),
+      longitude: round(row.longitude, 5),
+      first_reported_at: row.first_reported_at,
+      last_reported_at: row.last_reported_at,
+      expires_at: row.expires_at,
+      articles: (row.articles ?? []) as unknown[],
+    }));
+  } catch (error) {
+    // Migration 009 not applied: the incident list must not go dark for it.
+    if ((error as { code?: string }).code === '42P01') return [];
+    throw error;
+  }
+}
 
 function clampInt(raw: unknown, fallback: number, min: number, max: number): number {
   const parsed = Number(raw);

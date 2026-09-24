@@ -190,8 +190,12 @@ const VEGETATION_TERMS =
 const STRUCTURE_TERMS =
   /(tekne|gemi|yat|trafo|fabrika|atölye|apartman|bina|daire|ev\s+yang[ıi]n|i[şs]\s+yeri|ara[çc]|otomobil|kamyon|otob[üu]s|[çc]iftli[ğg]i|ah[ıi]r|depo|market|hastane|okul|baca|konteyner)/;
 
+// 'tunus': an AA wire story on Tunisian fires ("Tunus'ta orman yangınları
+// Akdeniz'in doğal mirasını tehdit ediyor") passed as relevant and was
+// geocoded to Akdeniz, Mersin. 'fas' (Morocco) is deliberately absent: this
+// is a bare substring test and "vefasız", "fasulye" would trip it.
 const FOREIGN_TERMS =
-  /(bulgaristan|yunanistan|italya|ispanya|portekiz|fransa|almanya|kaliforniya|amerika|abd|kanada|avustralya|rusya|ukrayna|suriye|irak|iran|israil|f[ıi]rt[ıi]na\s+abd)/;
+  /(bulgaristan|yunanistan|italya|ispanya|portekiz|fransa|almanya|kaliforniya|amerika|abd|kanada|avustralya|rusya|ukrayna|suriye|irak|iran|israil|tunus|cezayir|l[iı]bya|f[ıi]rt[ıi]na\s+abd)/;
 
 export function assessRelevance(text: string): RelevanceResult {
   const low = turkishToLower(text);
