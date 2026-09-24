@@ -3,6 +3,7 @@ import pool from '../config/database';
 import { rateLimit } from '../middleware/security';
 import { isRegionKey } from '../utils/regions';
 import cacheService from '../services/cacheService';
+import { heatSourceColumnsAvailable, HEAT_SOURCE_CLASS, HEAT_SOURCE_MIN_DISTINCT_DAYS, HEAT_SOURCE_MAX_MEAN_FRP_MW, HEAT_SOURCE_MAX_PEAK_FRP_MW } from '../services/heatSource';
 
 const router = Router();
 
@@ -63,6 +64,9 @@ router.get(
   '/summary',
   rateLimit('incidents_summary', 60, 60_000),
   async (_req: Request, res: Response) => {
+    // Migration 011 may not be applied yet; without the column nothing is
+    // persistent and the numbers are exactly what they were before.
+    const hasHeatSource = await heatSourceColumnsAvailable(pool);
     try {
       const result = await pool.query(
         `WITH windowed AS (
@@ -79,16 +83,18 @@ router.get(
                    AND COALESCE(i.max_frp_mw, 0) >= $3
                    AND i.peak_confidence_tier IS DISTINCT FROM 'low')
                     AS is_significant
+                  , ${hasHeatSource ? 'i.heat_source_class IS NOT NULL' : 'false'}
+                    AS is_persistent
            FROM fire_incidents i
            WHERE i.last_detected_at > NOW() - INTERVAL '14 days'
          ),
          counts AS (
            SELECT
-             COUNT(*) FILTER (WHERE is_active) AS active_count,
+             COUNT(*) FILTER (WHERE is_active AND NOT is_persistent) AS active_count,
              -- The headline number needs two layers. "60 active detections"
              -- alone reads as sixty fires; most are single fresh pixels that
              -- have not had a second overpass yet.
-             COUNT(*) FILTER (WHERE is_active AND is_significant)
+             COUNT(*) FILTER (WHERE is_active AND is_significant AND NOT is_persistent)
                AS active_significant_count,
              -- Crossed the threshold within the last 24 h: the crossing
              -- moment is last_detected_at + threshold. Only incidents with
@@ -96,10 +102,16 @@ router.get(
              -- pixel that is no longer seen is not a fire that stopped.
              COUNT(*) FILTER (
                WHERE NOT is_active
+                 AND NOT is_persistent
                  AND is_significant
                  AND last_detected_at
                      > NOW() - (($1::int + 24) || ' hours')::interval
-             ) AS detection_ended_24h
+             ) AS detection_ended_24h,
+             -- Fixed heat sources currently radiating: steelworks, refineries,
+             -- flares. Counted apart so the headline is fires and this is
+             -- what was taken out of it, never silently dropped.
+             COUNT(*) FILTER (WHERE is_active AND is_persistent)
+               AS persistent_heat_sources_active
            FROM windowed
          ),
          longest AS (
@@ -121,11 +133,12 @@ router.get(
                   w.last_detected_at, w.max_frp_mw, c.name AS city_name
            FROM windowed w
            LEFT JOIN turkey_cities c ON c.id = w.city_id
-           WHERE w.is_active AND w.is_significant
+           WHERE w.is_active AND w.is_significant AND NOT w.is_persistent
            ORDER BY w.max_frp_mw DESC NULLS LAST
            LIMIT 1
          )
          SELECT counts.active_count,
+                counts.persistent_heat_sources_active,
                 counts.active_significant_count,
                 counts.detection_ended_24h,
                 longest.id AS longest_id,
@@ -140,6 +153,22 @@ router.get(
 
       const row = result.rows[0] ?? {};
 
+      // Where the fixed heat sources currently radiating are, so the client
+      // can grey out the raw detections sitting on top of them (2 km) on the
+      // map and the home list without another endpoint. Small: ~20 rows.
+      const persistent = hasHeatSource
+        ? await pool.query(
+            `SELECT i.id, ST_Y(i.centroid) AS latitude, ST_X(i.centroid) AS longitude,
+                    c.name AS city_name, i.distinct_days_seen, i.heat_source_flagged_at
+               FROM fire_incidents i
+               LEFT JOIN turkey_cities c ON c.id = i.city_id
+              WHERE i.heat_source_class IS NOT NULL
+                AND i.last_detected_at > NOW() - INTERVAL '14 days'
+              ORDER BY i.distinct_days_seen DESC
+              LIMIT 100`
+          )
+        : { rows: [] as any[] };
+
       res.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=300');
       res.json({
         status: 'success',
@@ -153,6 +182,23 @@ router.get(
           active_count: Number(row.active_count ?? 0),
           active_significant_count: Number(row.active_significant_count ?? 0),
           detection_ended_24h: Number(row.detection_ended_24h ?? 0),
+          persistent_heat_sources_active: Number(row.persistent_heat_sources_active ?? 0),
+          persistent_heat_sources: persistent.rows.map((r: any) => ({
+            id: Number(r.id),
+            latitude: round(r.latitude, 5),
+            longitude: round(r.longitude, 5),
+            city_name: r.city_name ?? null,
+            distinct_days_seen: r.distinct_days_seen ?? null,
+            flagged_at: r.heat_source_flagged_at ?? null,
+          })),
+          heat_source_rule: hasHeatSource
+            ? {
+                class: HEAT_SOURCE_CLASS,
+                min_distinct_days: HEAT_SOURCE_MIN_DISTINCT_DAYS,
+                max_mean_frp_mw: HEAT_SOURCE_MAX_MEAN_FRP_MW,
+                max_peak_frp_mw: HEAT_SOURCE_MAX_PEAK_FRP_MW,
+              }
+            : null,
           // Named for what it is ranked by. `duration_hours` is a LOWER
           // BOUND, not a measurement: the ingest window truncates it.
           strongest_active:
@@ -242,21 +288,32 @@ router.get('/', rateLimit('incidents', 60, 60_000), async (req: Request, res: Re
       conditions.push(`satellite_state = $${params.length}`);
     }
 
+    // Labelled rows stay in the list by default (a label is not a reason to
+    // hide anything); a caller that wants fires only may ask.
+    const hasHeatSource = await heatSourceColumnsAvailable(pool);
+    const excludePersistent = req.query.exclude_persistent === 'true';
+    if (excludePersistent && hasHeatSource) {
+      conditions.push('heat_source_class IS NULL');
+    }
+
     params.push(limit);
 
     // The key is the full parameter set, in a fixed order. Keying on
     // anything less would serve a Marmara-filtered page to someone who asked
     // for Ege — the kind of bug that looks like missing fires.
     // v2: the payload gained news_reported. Keyed separately so a v1 entry
+    // v3: heat_source added, and exclude_persistent is part of the key.
     // cached before the deploy cannot be served without it.
     const cacheKey =
-      'incidents:v2:' +
+      'incidents:v3:' +
       JSON.stringify({
         days,
         limit,
         region_key: typeof regionKey === 'string' ? regionKey : null,
         city_id: typeof cityId === 'string' ? cityId : null,
         state: typeof state === 'string' ? state : null,
+        exclude_persistent: excludePersistent,
+        heat_source_columns: hasHeatSource,
       });
 
     const cached = await cacheService.get<{
@@ -331,6 +388,11 @@ router.get('/', rateLimit('incidents', 60, 60_000), async (req: Request, res: Re
               distinct_days_seen,
               frp_mean,
               frp_stddev,
+              -- Migration 011: a label, never a filter. Selected as NULLs
+              -- until the columns exist so the row shape does not change.
+              ${hasHeatSource
+                ? 'heat_source_class, heat_source_reason, heat_source_flagged_at,'
+                : 'NULL::text AS heat_source_class, NULL::text AS heat_source_reason, NULL::timestamptz AS heat_source_flagged_at,'}
               frp_trend,
               frp_trend_ratio,
               frp_trend_passes,
@@ -399,6 +461,16 @@ router.get('/', rateLimit('incidents', 60, 60_000), async (req: Request, res: Re
 
       // Raw persistence numbers. Nothing consumes these yet; they exist so a
       // threshold can be measured rather than guessed.
+      // Fixed-heat-source label from the cluster job (migration 011).
+      // `class` is 'persistent_heat_source' or null. It says the heat comes
+      // from something that does not go out; it says nothing about any fire
+      // being over, and the client must not render it as such.
+      heat_source: {
+        class: row.heat_source_class ?? null,
+        reason: row.heat_source_reason ?? null,
+        flagged_at: row.heat_source_flagged_at ?? null,
+      },
+
       persistence: {
         distinct_days_seen: row.distinct_days_seen ?? null,
         frp_mean: numeric(row.frp_mean),

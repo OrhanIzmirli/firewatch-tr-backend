@@ -12,6 +12,7 @@ import {
   singleDistrict,
 } from '../services/placeMention';
 import { regionKeyForCoordinates } from '../utils/regions';
+import { heatSourceSqlCondition } from '../services/heatSource';
 
 /**
  * Fires the newspapers know about and the satellite does not (yet).
@@ -344,6 +345,7 @@ class NewsSightingJob {
             AND NOT (COALESCE(i.distinct_days_seen, 0) >= 2
                      AND COALESCE(i.max_frp_mw, 0) < 10
                      AND i.overpass_count >= 6)
+            AND NOT (${heatSourceSqlCondition('i')})
           WHERE s.status = 'news_reported'
        )
        UPDATE news_reported_sightings s

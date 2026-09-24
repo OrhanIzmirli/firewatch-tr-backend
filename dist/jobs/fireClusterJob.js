@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const database_1 = __importDefault(require("../config/database"));
 const jobRunRecorder_1 = require("../services/jobRunRecorder");
+const heatSource_1 = require("../services/heatSource");
 /**
  * Turns raw FIRMS pixels into fire incidents.
  *
@@ -178,6 +179,7 @@ class FireClusterJob {
             spreadComputed: 0,
             trendComputed: 0,
             statesRefreshed: 0,
+            heatSourcesFlagged: 0,
         };
         if (!(await this.tablesExist())) {
             stats.skipped = true;
@@ -207,12 +209,13 @@ class FireClusterJob {
             stats.spreadComputed = await this.refreshSpread(client);
             stats.trendComputed = await this.refreshFrpTrend(client);
             stats.statesRefreshed = await this.refreshSatelliteState(client);
+            stats.heatSourcesFlagged = await this.refreshHeatSourceClass(client);
             await client.query('COMMIT');
             console.log(`🔥 Clustering: ${stats.unclusteredConsidered} detections -> ` +
                 `${stats.clustersFormed} clusters (${stats.incidentsCreated} new incidents, ` +
                 `${stats.incidentsExtended} extended), spread computed for ` +
                 `${stats.spreadComputed}, trend for ${stats.trendComputed}, ` +
-                `states refreshed ${stats.statesRefreshed}`);
+                `states refreshed ${stats.statesRefreshed}, heat sources flagged ${stats.heatSourcesFlagged}`);
             await (0, jobRunRecorder_1.recordJobRun)('cluster', startedAt, 'ok', { ...stats });
             await (0, jobRunRecorder_1.pruneJobRuns)();
             return stats;
@@ -621,9 +624,10 @@ class FireClusterJob {
                     OR s.geometry_ratio > $2::numeric THEN NULL
                   -- A fixed heat source is not a fire with a trend; left in,
                   -- it would sit here forever labelled "stable".
-                  WHEN fi.distinct_days_seen >= 2
-                   AND COALESCE(fi.max_frp_mw, 0) < 10
-                   AND fi.overpass_count >= 6 THEN NULL
+                  WHEN (fi.distinct_days_seen >= 2
+                        AND COALESCE(fi.max_frp_mw, 0) < 10
+                        AND fi.overpass_count >= 6)
+                    OR (${(0, heatSource_1.heatSourceSqlCondition)('fi')}) THEN NULL
                   WHEN s.ratio < $3::numeric THEN 'weakening'
                   WHEN s.ratio > $4::numeric THEN 'intensifying'
                   ELSE 'stable'
@@ -658,6 +662,34 @@ class FireClusterJob {
             TREND_WEAKENING_BELOW,
             TREND_INTENSIFYING_ABOVE,
         ]);
+        return result.rowCount ?? 0;
+    }
+    /**
+     * Labels every incident that behaves like a fixed heat source, and removes
+     * the label from any that no longer does. The rule lives in
+     * services/heatSource.ts; migration 011 explains the numbers.
+     *
+     * Set-based and total: every row is re-evaluated every run, so the
+     * fifty-day steelworks rows that predate the migration are labelled on the
+     * first run after it, and a label never outlives its evidence. Nothing is
+     * deleted or hidden here — a label is written, that is all.
+     *
+     * Returns the number of rows that changed class this run (either way).
+     * Skipped, with a note, until migration 011 is applied.
+     */
+    async refreshHeatSourceClass(client) {
+        if (!(await (0, heatSource_1.heatSourceColumnsAvailable)(database_1.default))) {
+            console.log('ℹ️  heat_source_class not stored — apply database/migrations/011_add_heat_source_class.sql');
+            return 0;
+        }
+        const result = await client.query(`UPDATE fire_incidents fi SET
+         heat_source_class      = CASE WHEN ${(0, heatSource_1.heatSourceSqlCondition)('fi')} THEN $1 ELSE NULL END,
+         heat_source_reason     = CASE WHEN ${(0, heatSource_1.heatSourceSqlCondition)('fi')} THEN ${(0, heatSource_1.heatSourceReasonSql)('fi')} ELSE NULL END,
+         heat_source_flagged_at = CASE WHEN ${(0, heatSource_1.heatSourceSqlCondition)('fi')}
+                                       THEN COALESCE(fi.heat_source_flagged_at, NOW()) ELSE NULL END,
+         updated_at             = NOW()
+       WHERE (CASE WHEN ${(0, heatSource_1.heatSourceSqlCondition)('fi')} THEN $1 ELSE NULL END)
+             IS DISTINCT FROM fi.heat_source_class`, [heatSource_1.HEAT_SOURCE_CLASS]);
         return result.rowCount ?? 0;
     }
     async refreshSatelliteState(client) {

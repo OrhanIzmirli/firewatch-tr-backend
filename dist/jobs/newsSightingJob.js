@@ -9,6 +9,7 @@ const jobRunRecorder_1 = require("../services/jobRunRecorder");
 const officialStatusExtractor_1 = require("../services/officialStatusExtractor");
 const placeMention_1 = require("../services/placeMention");
 const regions_1 = require("../utils/regions");
+const heatSource_1 = require("../services/heatSource");
 /**
  * Fires the newspapers know about and the satellite does not (yet).
  *
@@ -268,6 +269,7 @@ class NewsSightingJob {
             AND NOT (COALESCE(i.distinct_days_seen, 0) >= 2
                      AND COALESCE(i.max_frp_mw, 0) < 10
                      AND i.overpass_count >= 6)
+            AND NOT (${(0, heatSource_1.heatSourceSqlCondition)('i')})
           WHERE s.status = 'news_reported'
        )
        UPDATE news_reported_sightings s

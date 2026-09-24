@@ -1,5 +1,6 @@
 import pool from '../config/database';
 import { recordJobRun, pruneJobRuns } from '../services/jobRunRecorder';
+import { heatSourceColumnsAvailable, heatSourceReasonSql, heatSourceSqlCondition, HEAT_SOURCE_CLASS } from '../services/heatSource';
 
 /**
  * Turns raw FIRMS pixels into fire incidents.
@@ -132,6 +133,7 @@ export interface ClusterStats {
   spreadComputed: number;
   trendComputed: number;
   statesRefreshed: number;
+  heatSourcesFlagged: number;
 }
 
 class FireClusterJob {
@@ -189,6 +191,7 @@ class FireClusterJob {
       spreadComputed: 0,
       trendComputed: 0,
       statesRefreshed: 0,
+      heatSourcesFlagged: 0,
     };
 
     if (!(await this.tablesExist())) {
@@ -224,6 +227,7 @@ class FireClusterJob {
       stats.spreadComputed = await this.refreshSpread(client);
       stats.trendComputed = await this.refreshFrpTrend(client);
       stats.statesRefreshed = await this.refreshSatelliteState(client);
+      stats.heatSourcesFlagged = await this.refreshHeatSourceClass(client);
 
       await client.query('COMMIT');
       console.log(
@@ -231,7 +235,7 @@ class FireClusterJob {
           `${stats.clustersFormed} clusters (${stats.incidentsCreated} new incidents, ` +
           `${stats.incidentsExtended} extended), spread computed for ` +
           `${stats.spreadComputed}, trend for ${stats.trendComputed}, ` +
-          `states refreshed ${stats.statesRefreshed}`
+          `states refreshed ${stats.statesRefreshed}, heat sources flagged ${stats.heatSourcesFlagged}`
       );
       await recordJobRun('cluster', startedAt, 'ok', { ...stats });
       await pruneJobRuns();
@@ -705,9 +709,10 @@ class FireClusterJob {
                     OR s.geometry_ratio > $2::numeric THEN NULL
                   -- A fixed heat source is not a fire with a trend; left in,
                   -- it would sit here forever labelled "stable".
-                  WHEN fi.distinct_days_seen >= 2
-                   AND COALESCE(fi.max_frp_mw, 0) < 10
-                   AND fi.overpass_count >= 6 THEN NULL
+                  WHEN (fi.distinct_days_seen >= 2
+                        AND COALESCE(fi.max_frp_mw, 0) < 10
+                        AND fi.overpass_count >= 6)
+                    OR (${heatSourceSqlCondition('fi')}) THEN NULL
                   WHEN s.ratio < $3::numeric THEN 'weakening'
                   WHEN s.ratio > $4::numeric THEN 'intensifying'
                   ELSE 'stable'
@@ -746,6 +751,39 @@ class FireClusterJob {
     );
     return result.rowCount ?? 0;
   }
+
+  /**
+   * Labels every incident that behaves like a fixed heat source, and removes
+   * the label from any that no longer does. The rule lives in
+   * services/heatSource.ts; migration 011 explains the numbers.
+   *
+   * Set-based and total: every row is re-evaluated every run, so the
+   * fifty-day steelworks rows that predate the migration are labelled on the
+   * first run after it, and a label never outlives its evidence. Nothing is
+   * deleted or hidden here — a label is written, that is all.
+   *
+   * Returns the number of rows that changed class this run (either way).
+   * Skipped, with a note, until migration 011 is applied.
+   */
+  private async refreshHeatSourceClass(client: any): Promise<number> {
+    if (!(await heatSourceColumnsAvailable(pool))) {
+      console.log('ℹ️  heat_source_class not stored — apply database/migrations/011_add_heat_source_class.sql');
+      return 0;
+    }
+    const result = await client.query(
+      `UPDATE fire_incidents fi SET
+         heat_source_class      = CASE WHEN ${heatSourceSqlCondition('fi')} THEN $1 ELSE NULL END,
+         heat_source_reason     = CASE WHEN ${heatSourceSqlCondition('fi')} THEN ${heatSourceReasonSql('fi')} ELSE NULL END,
+         heat_source_flagged_at = CASE WHEN ${heatSourceSqlCondition('fi')}
+                                       THEN COALESCE(fi.heat_source_flagged_at, NOW()) ELSE NULL END,
+         updated_at             = NOW()
+       WHERE (CASE WHEN ${heatSourceSqlCondition('fi')} THEN $1 ELSE NULL END)
+             IS DISTINCT FROM fi.heat_source_class`,
+      [HEAT_SOURCE_CLASS]
+    );
+    return result.rowCount ?? 0;
+  }
+
 
   private async refreshSatelliteState(client: any): Promise<number> {
     const result = await client.query(

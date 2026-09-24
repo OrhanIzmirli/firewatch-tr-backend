@@ -18,7 +18,8 @@
     "seed:districts": "ts-node --project tsconfig.scripts.json scripts/seed-turkey-districts.ts",
     "seed:district-boundaries": "ts-node --project tsconfig.scripts.json scripts/seed-district-boundaries.ts",
     "test:burned-area": "ts-node --project tsconfig.scripts.json scripts/test-burned-area.ts",
-    "backtest:burned-area": "ts-node --project tsconfig.scripts.json scripts/backtest-burned-area.ts"
+    "backtest:burned-area": "ts-node --project tsconfig.scripts.json scripts/backtest-burned-area.ts",
+    "test:heat-source": "ts-node --project tsconfig.scripts.json scripts/test-heat-source.ts"
   },
   "keywords": [],
   "author": "",
