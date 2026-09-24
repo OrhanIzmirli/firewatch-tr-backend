@@ -151,7 +151,12 @@ const POSITIVE_RULES: Rule[] = [
   },
   {
     name: 'pos:devam-ediyor',
-    pattern: /yang[ıi]n\w*\s+(?:\w+\s+){0,3}?devam\s+ediyor/,
+    // No \w here either: JS \w is ASCII-only, so "yangınları" (with 'ı')
+    // broke the bridge between the fire word and "devam ediyor" and the
+    // extremely common "orman yangınları devam ediyor" headline matched
+    // nothing. The classes below are the lowercased Turkish alphabet.
+    pattern:
+      /yang[ıi]n[a-zçğıöşü]*\s+(?:[a-zçğıöşü0-9']+\s+){0,3}?devam\s+ediyor/,
     state: 'ongoing',
   },
   {
