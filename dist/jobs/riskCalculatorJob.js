@@ -8,6 +8,7 @@ const axios_1 = __importDefault(require("axios"));
 const database_1 = __importDefault(require("../config/database"));
 const cacheService_1 = __importDefault(require("../services/cacheService"));
 const firmsProducts_1 = require("../services/firmsProducts");
+const weatherProviders_1 = require("../services/weatherProviders");
 const notificationService_1 = __importDefault(require("../services/notificationService"));
 const regions_1 = require("../utils/regions");
 const REGIONS = [
@@ -74,25 +75,15 @@ class RiskCalculatorJob {
             console.log(`Cache HIT: ${cacheKey}`);
             return cached;
         }
-        const response = await axios_1.default.get('https://api.open-meteo.com/v1/forecast', {
-            params: {
-                latitude: lat,
-                longitude: lng,
-                current: 'temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m',
-                wind_speed_unit: 'kmh',
-            },
-            timeout: 10000,
-        });
-        const current = response.data.current;
-        const windDeg = current.wind_direction_10m ?? 0;
-        const data = {
-            temperature: Math.round(current.temperature_2m),
-            humidity: Math.round(current.relative_humidity_2m),
-            windSpeed: Math.round(current.wind_speed_10m),
-            windDirection: this.degToDirection(windDeg),
-        };
-        await cacheService_1.default.set(cacheKey, data, CACHE_TTL);
-        return data;
+        // Open-Meteo first, MET Norway when it is rate-limited or down
+        // (services/weatherProviders.ts). A fallback answer is logged so the
+        // 429 streaks stay visible even though the row still gets written.
+        const reading = await (0, weatherProviders_1.fetchWeatherWithFallback)(lat, lng);
+        if (reading.notes.length > 0) {
+            console.warn(`Weather ${lat},${lng} from ${reading.provider} after: ${reading.notes.join('; ')}`);
+        }
+        await cacheService_1.default.set(cacheKey, reading.weather, CACHE_TTL);
+        return reading.weather;
     }
     async fetchFireStats(lat, lng) {
         const cacheKey = `nasa:fires:${lat}:${lng}`;
@@ -292,10 +283,6 @@ class RiskCalculatorJob {
         if (score >= 25)
             return 'Medium';
         return 'Low';
-    }
-    degToDirection(deg) {
-        const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-        return directions[Math.round(deg / 45) % 8];
     }
 }
 // Region radius is generous (400km) since REGIONS' lat/lng are single

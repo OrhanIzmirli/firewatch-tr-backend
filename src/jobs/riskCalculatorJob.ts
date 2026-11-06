@@ -3,6 +3,7 @@ import axios from 'axios';
 import pool from '../config/database';
 import cacheService from '../services/cacheService';
 import { RISK_FIRE_STATS_ATTEMPTS } from '../services/firmsProducts';
+import { WeatherData, fetchWeatherWithFallback } from '../services/weatherProviders';
 import notificationService from '../services/notificationService';
 import { regionKeyForCoordinates, regionKeyForRegionName } from '../utils/regions';
 
@@ -17,13 +18,6 @@ const REGIONS = [
 ];
 
 const CACHE_TTL = 300; // 5 dakika
-
-interface WeatherData {
-  temperature: number;
-  humidity: number;
-  windSpeed: number;
-  windDirection: string;
-}
 
 interface RiskResult {
   score: number;
@@ -108,28 +102,16 @@ class RiskCalculatorJob {
       return cached;
     }
 
-    const response = await axios.get('https://api.open-meteo.com/v1/forecast', {
-      params: {
-        latitude: lat,
-        longitude: lng,
-        current: 'temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m',
-        wind_speed_unit: 'kmh',
-      },
-      timeout: 10000,
-    });
+    // Open-Meteo first, MET Norway when it is rate-limited or down
+    // (services/weatherProviders.ts). A fallback answer is logged so the
+    // 429 streaks stay visible even though the row still gets written.
+    const reading = await fetchWeatherWithFallback(lat, lng);
+    if (reading.notes.length > 0) {
+      console.warn(`Weather ${lat},${lng} from ${reading.provider} after: ${reading.notes.join('; ')}`);
+    }
 
-    const current = response.data.current;
-    const windDeg = current.wind_direction_10m ?? 0;
-
-    const data: WeatherData = {
-      temperature: Math.round(current.temperature_2m),
-      humidity: Math.round(current.relative_humidity_2m),
-      windSpeed: Math.round(current.wind_speed_10m),
-      windDirection: this.degToDirection(windDeg),
-    };
-
-    await cacheService.set(cacheKey, data, CACHE_TTL);
-    return data;
+    await cacheService.set(cacheKey, reading.weather, CACHE_TTL);
+    return reading.weather;
   }
 
   private async fetchFireStats(lat: number, lng: number): Promise<FireStats> {
@@ -373,11 +355,6 @@ class RiskCalculatorJob {
     if (score >= 50) return 'High';
     if (score >= 25) return 'Medium';
     return 'Low';
-  }
-
-  private degToDirection(deg: number): string {
-    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-    return directions[Math.round(deg / 45) % 8];
   }
 }
 
