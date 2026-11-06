@@ -17,6 +17,7 @@ import {
   nearbyFireCountSql,
 } from '../src/services/nearbyFireCount';
 import { RegionKey } from '../src/utils/regions';
+import { regionFireStatsSql } from '../src/services/nearbyFireCount';
 
 let failures = 0;
 const b = (name: string, fn: () => void) => {
@@ -49,6 +50,20 @@ const regionsBlock = riskJob.slice(riskJob.indexOf('const REGIONS'), riskJob.ind
 const riskRegionNames = [...regionsBlock.matchAll(/name: '([^']+)'/g)].map((m) => m[1]);
 
 b('risk job has 7 regions', () => assert.strictEqual(riskRegionNames.length, 7));
+
+b('risk fire stats come from the same incident rows as nearby_fire_count', () => {
+  const sql = regionFireStatsSql();
+  assert.match(sql, /FROM fire_incidents i/);
+  assert.match(sql, /i\.last_detected_at > now\(\) - make_interval\(hours => \$1\)/);
+  assert.match(sql, /distinct_days_seen >= 7/, 'fixed heat sources must be excluded');
+  assert.match(sql, /d\.confidence_tier = 'high'/);
+  assert.match(sql, /i\.region_key IS NOT NULL/);
+});
+b('risk job reads the database count and no longer calls FIRMS', () => {
+  assert.match(riskJob, /loadRegionFireStats\(pool\)/);
+  assert.ok(!/firms\.modaps|NASA_API_KEY/.test(riskJob));
+  assert.match(riskJob, /fireStatsByRegion === null/, 'a stale pipeline must skip the run, not score zero fires');
+});
 
 b('every risk region gets a count; regions without fires get 0, not null', () => {
   const counts = new Map<RegionKey, number>([['ege', 5], ['marmara', 2]]);

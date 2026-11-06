@@ -23,16 +23,6 @@ export interface FirmsAttempt {
   days: number;
 }
 
-/** riskCalculatorJob.fetchFireStats: 4°x4° box around a region, small windows. */
-export const RISK_FIRE_STATS_ATTEMPTS: readonly FirmsAttempt[] = [
-  { product: 'VIIRS_NOAA20_NRT', days: 1 },
-  { product: 'VIIRS_NOAA21_NRT', days: 1 },
-  { product: 'MODIS_NRT', days: 1 },
-  { product: 'VIIRS_NOAA20_NRT', days: 2 },
-  { product: 'VIIRS_NOAA21_NRT', days: 2 },
-  { product: 'VIIRS_SNPP_NRT', days: 1 },
-];
-
 /**
  * routes/thermal.ts: the whole country, two days as the primary window (see
  * the comment there for why one day is too short).

@@ -4,10 +4,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const node_cron_1 = __importDefault(require("node-cron"));
-const axios_1 = __importDefault(require("axios"));
 const database_1 = __importDefault(require("../config/database"));
 const cacheService_1 = __importDefault(require("../services/cacheService"));
-const firmsProducts_1 = require("../services/firmsProducts");
+const nearbyFireCount_1 = require("../services/nearbyFireCount");
 const weatherProviders_1 = require("../services/weatherProviders");
 const notificationService_1 = __importDefault(require("../services/notificationService"));
 const regions_1 = require("../utils/regions");
@@ -35,11 +34,21 @@ class RiskCalculatorJob {
     }
     async runCalculator() {
         console.log('Running risk calculator at:', new Date().toISOString());
+        // The fire component is the app's own count: incidents of the last
+        // 24 h inside Turkey, fixed heat sources excluded — the same number
+        // /api/risk/summary shows as nearby_fire_count. Null means ingest or
+        // clustering is more than 6 h stale; then no row is written, because a
+        // score computed without its fire part would read as "no fires".
+        const fireStatsByRegion = await (0, nearbyFireCount_1.loadRegionFireStats)(database_1.default);
+        if (fireStatsByRegion === null) {
+            console.error('Risk calculator skipped: fire counts unavailable (ingest/cluster stale or unreadable)');
+            return;
+        }
         for (const region of REGIONS) {
             try {
                 const weather = await this.fetchWeather(region.lat, region.lng);
-                const fireStats = await this.fetchFireStats(region.lat, region.lng);
-                const risk = this.calculateRisk(weather, fireStats.total);
+                const fireStats = this.fireStatsFor(region, fireStatsByRegion);
+                const risk = this.calculateRisk(weather, fireStats.incidents);
                 await database_1.default.query(`INSERT INTO risk_data
             (region, date, general_risk_score, risk_level, temperature, humidity,
              wind_speed, wind_direction, dryness_index, vegetation_density)
@@ -55,7 +64,7 @@ class RiskCalculatorJob {
                     risk.drynessIndex,
                     risk.vegetationPressure,
                 ]);
-                console.log(`OK ${region.name}: Score=${risk.score}, Temp=${weather.temperature}, Hum=${weather.humidity}, Wind=${weather.windSpeed}, Fire=${fireStats.total}, HighConf=${fireStats.highConfidence}`);
+                console.log(`OK ${region.name}: Score=${risk.score}, Temp=${weather.temperature}, Hum=${weather.humidity}, Wind=${weather.windSpeed}, Fire=${fireStats.incidents} (db, 24h), HighConf=${fireStats.highConfidence}`);
                 // Best-effort: a notification failure must never take down the
                 // calculator loop or skip the risk_data row already just written.
                 await this.maybeSendRiskAlert(region, risk).catch((err) => console.error(`Risk alert failed for ${region.name}:`, err.message));
@@ -85,58 +94,9 @@ class RiskCalculatorJob {
         await cacheService_1.default.set(cacheKey, reading.weather, CACHE_TTL);
         return reading.weather;
     }
-    async fetchFireStats(lat, lng) {
-        const cacheKey = `nasa:fires:${lat}:${lng}`;
-        const cached = await cacheService_1.default.get(cacheKey);
-        if (cached !== null) {
-            console.log(`Cache HIT: ${cacheKey}`);
-            return cached;
-        }
-        const nasaApiKey = process.env.NASA_API_KEY;
-        if (!nasaApiKey)
-            throw new Error('NASA_API_KEY is not configured');
-        try {
-            const area = `${lng - 2},${lat - 2},${lng + 2},${lat + 2}`;
-            // NOAA-20/21 first: S-NPP has delivered nothing since 2026-11-02
-            // (services/firmsProducts.ts).
-            let stats = { total: 0, highConfidence: 0 };
-            for (const attempt of firmsProducts_1.RISK_FIRE_STATS_ATTEMPTS) {
-                const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(nasaApiKey)}/${attempt.product}/${area}/${attempt.days}`;
-                const response = await axios_1.default.get(url, { timeout: 15000 });
-                stats = this.parseFireStats(response.data);
-                if (stats.total > 0)
-                    break;
-            }
-            await cacheService_1.default.set(cacheKey, stats, CACHE_TTL);
-            return stats;
-        }
-        catch (error) {
-            throw new Error(`NASA thermal count unavailable: ${error.message}`);
-        }
-    }
-    // High confidence = VIIRS 'h' or a numeric MODIS confidence >= 80 — same
-    // tiering the Flutter client uses (fire_api_service.dart _confidenceRank),
-    // kept consistent so "high confidence" means the same thing everywhere.
-    parseFireStats(csv) {
-        const lines = csv.trim().split(/\r?\n/);
-        if (lines.length <= 1)
-            return { total: 0, highConfidence: 0 };
-        const header = lines[0].split(',');
-        const confidenceIdx = header.indexOf('confidence');
-        let highConfidence = 0;
-        for (let i = 1; i < lines.length; i++) {
-            const cols = lines[i].split(',');
-            const raw = (confidenceIdx >= 0 ? cols[confidenceIdx] : '')?.trim().toLowerCase() ?? '';
-            const numeric = Number(raw);
-            if (raw !== '' && !Number.isNaN(numeric)) {
-                if (numeric >= 80)
-                    highConfidence++;
-            }
-            else if (raw === 'h') {
-                highConfidence++;
-            }
-        }
-        return { total: lines.length - 1, highConfidence };
+    fireStatsFor(region, stats) {
+        const key = (0, regions_1.regionKeyForRegionName)(region.name) ?? (0, regions_1.regionKeyForCoordinates)(region.lat, region.lng);
+        return (key && stats.get(key)) ?? { incidents: 0, highConfidence: 0 };
     }
     async cityIdsInRegion(regionKey) {
         if (regionKey === null)

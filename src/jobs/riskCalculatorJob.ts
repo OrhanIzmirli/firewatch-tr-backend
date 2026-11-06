@@ -1,8 +1,7 @@
 import cron from 'node-cron';
-import axios from 'axios';
 import pool from '../config/database';
 import cacheService from '../services/cacheService';
-import { RISK_FIRE_STATS_ATTEMPTS } from '../services/firmsProducts';
+import { RegionFireStats, loadRegionFireStats } from '../services/nearbyFireCount';
 import { WeatherData, fetchWeatherWithFallback } from '../services/weatherProviders';
 import notificationService from '../services/notificationService';
 import { regionKeyForCoordinates, regionKeyForRegionName } from '../utils/regions';
@@ -26,11 +25,6 @@ interface RiskResult {
   vegetationPressure: number;
 }
 
-interface FireStats {
-  total: number;
-  highConfidence: number;
-}
-
 type Region = typeof REGIONS[number];
 
 const RISK_ALERT_THRESHOLD = 70;
@@ -50,11 +44,22 @@ class RiskCalculatorJob {
   async runCalculator() {
     console.log('Running risk calculator at:', new Date().toISOString());
 
+    // The fire component is the app's own count: incidents of the last
+    // 24 h inside Turkey, fixed heat sources excluded — the same number
+    // /api/risk/summary shows as nearby_fire_count. Null means ingest or
+    // clustering is more than 6 h stale; then no row is written, because a
+    // score computed without its fire part would read as "no fires".
+    const fireStatsByRegion = await loadRegionFireStats(pool);
+    if (fireStatsByRegion === null) {
+      console.error('Risk calculator skipped: fire counts unavailable (ingest/cluster stale or unreadable)');
+      return;
+    }
+
     for (const region of REGIONS) {
       try {
         const weather = await this.fetchWeather(region.lat, region.lng);
-        const fireStats = await this.fetchFireStats(region.lat, region.lng);
-        const risk = this.calculateRisk(weather, fireStats.total);
+        const fireStats = this.fireStatsFor(region, fireStatsByRegion);
+        const risk = this.calculateRisk(weather, fireStats.incidents);
 
         await pool.query(
           `INSERT INTO risk_data
@@ -75,7 +80,7 @@ class RiskCalculatorJob {
           ]
         );
 
-        console.log(`OK ${region.name}: Score=${risk.score}, Temp=${weather.temperature}, Hum=${weather.humidity}, Wind=${weather.windSpeed}, Fire=${fireStats.total}, HighConf=${fireStats.highConfidence}`);
+        console.log(`OK ${region.name}: Score=${risk.score}, Temp=${weather.temperature}, Hum=${weather.humidity}, Wind=${weather.windSpeed}, Fire=${fireStats.incidents} (db, 24h), HighConf=${fireStats.highConfidence}`);
 
         // Best-effort: a notification failure must never take down the
         // calculator loop or skip the risk_data row already just written.
@@ -114,59 +119,9 @@ class RiskCalculatorJob {
     return reading.weather;
   }
 
-  private async fetchFireStats(lat: number, lng: number): Promise<FireStats> {
-    const cacheKey = `nasa:fires:${lat}:${lng}`;
-    const cached = await cacheService.get<FireStats>(cacheKey);
-    if (cached !== null) {
-      console.log(`Cache HIT: ${cacheKey}`);
-      return cached;
-    }
-
-    const nasaApiKey = process.env.NASA_API_KEY;
-    if (!nasaApiKey) throw new Error('NASA_API_KEY is not configured');
-
-    try {
-      const area = `${lng - 2},${lat - 2},${lng + 2},${lat + 2}`;
-      // NOAA-20/21 first: S-NPP has delivered nothing since 2026-11-02
-      // (services/firmsProducts.ts).
-      let stats: FireStats = { total: 0, highConfidence: 0 };
-      for (const attempt of RISK_FIRE_STATS_ATTEMPTS) {
-        const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(nasaApiKey)}/${attempt.product}/${area}/${attempt.days}`;
-        const response = await axios.get(url, { timeout: 15000 });
-        stats = this.parseFireStats(response.data as string);
-        if (stats.total > 0) break;
-      }
-
-      await cacheService.set(cacheKey, stats, CACHE_TTL);
-      return stats;
-    } catch (error) {
-      throw new Error(`NASA thermal count unavailable: ${(error as Error).message}`);
-    }
-  }
-
-  // High confidence = VIIRS 'h' or a numeric MODIS confidence >= 80 — same
-  // tiering the Flutter client uses (fire_api_service.dart _confidenceRank),
-  // kept consistent so "high confidence" means the same thing everywhere.
-  private parseFireStats(csv: string): FireStats {
-    const lines = csv.trim().split(/\r?\n/);
-    if (lines.length <= 1) return { total: 0, highConfidence: 0 };
-
-    const header = lines[0].split(',');
-    const confidenceIdx = header.indexOf('confidence');
-
-    let highConfidence = 0;
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(',');
-      const raw = (confidenceIdx >= 0 ? cols[confidenceIdx] : '')?.trim().toLowerCase() ?? '';
-      const numeric = Number(raw);
-      if (raw !== '' && !Number.isNaN(numeric)) {
-        if (numeric >= 80) highConfidence++;
-      } else if (raw === 'h') {
-        highConfidence++;
-      }
-    }
-
-    return { total: lines.length - 1, highConfidence };
+  private fireStatsFor(region: Region, stats: Map<string, RegionFireStats>): RegionFireStats {
+    const key = regionKeyForRegionName(region.name) ?? regionKeyForCoordinates(region.lat, region.lng);
+    return (key && stats.get(key)) ?? { incidents: 0, highConfidence: 0 };
   }
 
   // Region radius is generous (400km) since REGIONS' lat/lng are single

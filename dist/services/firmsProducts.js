@@ -19,16 +19,7 @@
  * run and unions them, so an empty S-NPP simply adds nothing.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.THERMAL_ATTEMPTS = exports.RISK_FIRE_STATS_ATTEMPTS = void 0;
-/** riskCalculatorJob.fetchFireStats: 4°x4° box around a region, small windows. */
-exports.RISK_FIRE_STATS_ATTEMPTS = [
-    { product: 'VIIRS_NOAA20_NRT', days: 1 },
-    { product: 'VIIRS_NOAA21_NRT', days: 1 },
-    { product: 'MODIS_NRT', days: 1 },
-    { product: 'VIIRS_NOAA20_NRT', days: 2 },
-    { product: 'VIIRS_NOAA21_NRT', days: 2 },
-    { product: 'VIIRS_SNPP_NRT', days: 1 },
-];
+exports.THERMAL_ATTEMPTS = void 0;
 /**
  * routes/thermal.ts: the whole country, two days as the primary window (see
  * the comment there for why one day is too short).

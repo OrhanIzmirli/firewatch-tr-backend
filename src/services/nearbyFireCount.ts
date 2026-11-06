@@ -94,3 +94,65 @@ export async function loadNearbyFireCounts(db: Pool): Promise<Map<RegionKey, num
     return null;
   }
 }
+
+/**
+ * What the risk calculator's fire component needs per region, from the
+ * same rows as nearby_fire_count: incidents seen in the window (fixed heat
+ * sources excluded) and how many of their detections in the window carried
+ * NASA's high confidence tier. Until 2026-11-07 the calculator counted raw
+ * FIRMS pixels in a 4°x4° box around one point per region, which crossed
+ * borders and counted flares; the app's own count is the one users see.
+ */
+export interface RegionFireStats {
+  incidents: number;
+  highConfidence: number;
+}
+
+export function regionFireStatsSql(): string {
+  return `SELECT i.region_key,
+                 count(*)::int AS incidents,
+                 COALESCE(sum(hc.n), 0)::int AS high_confidence
+            FROM fire_incidents i
+            LEFT JOIN LATERAL (
+              SELECT count(*) AS n
+                FROM fire_detections d
+               WHERE d.incident_id = i.id
+                 AND d.confidence_tier = 'high'
+                 AND d.acquired_at > now() - make_interval(hours => $1)
+            ) hc ON true
+           WHERE i.last_detected_at > now() - make_interval(hours => $1)
+             AND i.region_key IS NOT NULL
+             AND NOT COALESCE((${heatSourceSqlCondition('i')}), false)
+           GROUP BY i.region_key`;
+}
+
+/** Per-region stats, or null when the pipeline is stale or unreadable. */
+export async function loadRegionFireStats(db: Pool): Promise<Map<RegionKey, RegionFireStats> | null> {
+  try {
+    const runs = await db.query(
+      `SELECT j.job, now() AS db_now,
+              (SELECT max(r.finished_at) FROM job_runs r
+                WHERE r.job = j.job AND r.status = 'ok') AS last_ok
+         FROM unnest($1::text[]) AS j(job)`,
+      [[...NEARBY_FIRE_PIPELINE_JOBS]]
+    );
+    if (runs.rows.length === 0) return null;
+    const now = new Date(runs.rows[0].db_now);
+    const lastOk: Record<string, Date | null> = {};
+    for (const r of runs.rows) lastOk[r.job] = r.last_ok ? new Date(r.last_ok) : null;
+    if (!isPipelineFresh(lastOk, now)) return null;
+
+    const result = await db.query(regionFireStatsSql(), [NEARBY_FIRE_WINDOW_HOURS]);
+    const stats = new Map<RegionKey, RegionFireStats>();
+    for (const r of result.rows) {
+      stats.set(r.region_key as RegionKey, {
+        incidents: Number(r.incidents),
+        highConfidence: Number(r.high_confidence),
+      });
+    }
+    return stats;
+  } catch (error) {
+    console.error('region fire stats unavailable:', (error as Error).message);
+    return null;
+  }
+}

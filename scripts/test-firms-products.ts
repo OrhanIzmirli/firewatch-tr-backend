@@ -10,7 +10,7 @@
 import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { FirmsAttempt, RISK_FIRE_STATS_ATTEMPTS, THERMAL_ATTEMPTS } from '../src/services/firmsProducts';
+import { FirmsAttempt, THERMAL_ATTEMPTS } from '../src/services/firmsProducts';
 
 let failures = 0;
 const b = (name: string, fn: () => void) => {
@@ -44,16 +44,15 @@ function checkOrder(name: string, attempts: readonly FirmsAttempt[]) {
   });
 }
 
-checkOrder('risk fire stats', RISK_FIRE_STATS_ATTEMPTS);
 checkOrder('thermal', THERMAL_ATTEMPTS);
 
 b('thermal keeps two days as its primary window', () => assert.strictEqual(THERMAL_ATTEMPTS[0].days, 2));
 
 const src = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8');
-b('riskCalculatorJob uses the shared list and names no product itself', () => {
+b('riskCalculatorJob no longer calls FIRMS: its fire count comes from the database', () => {
   const job = src('src/jobs/riskCalculatorJob.ts');
-  assert.match(job, /for \(const attempt of RISK_FIRE_STATS_ATTEMPTS\)/);
-  assert.ok(!/'VIIRS_SNPP_NRT'|'MODIS_NRT'/.test(job));
+  assert.ok(!/firms\.modaps|RISK_FIRE_STATS_ATTEMPTS|NASA_API_KEY/.test(job));
+  assert.match(job, /loadRegionFireStats\(pool\)/);
 });
 b('thermal route uses the shared list and names no product itself', () => {
   const route = src('src/routes/thermal.ts');
