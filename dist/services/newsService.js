@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const database_1 = __importDefault(require("../config/database"));
 const turkishText_1 = require("../utils/turkishText");
+const newsSourceLogos_1 = require("../utils/newsSourceLogos");
 // Jaccard similarity over word tokens — catches near-duplicate titles that
 // differ only by a repeated/dropped word or minor punctuation (the same
 // story re-published with a slightly edited headline, or an RSS glitch
@@ -41,7 +42,7 @@ class NewsService {
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout after 8s')), 8000)),
             ]);
             console.log('📰 Query result rows:', result.rows.length);
-            return result.rows;
+            return result.rows.map(newsSourceLogos_1.withSourceLogo);
         }
         catch (error) {
             console.error('❌ Error fetching news:', error);
@@ -55,7 +56,7 @@ class NewsService {
                 database_1.default.query('SELECT * FROM news WHERE id = $1', [id]),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout after 8s')), 8000)),
             ]);
-            return result.rows[0] || null;
+            return result.rows[0] ? (0, newsSourceLogos_1.withSourceLogo)(result.rows[0]) : null;
         }
         catch (error) {
             console.error('❌ Error fetching news by id:', error);

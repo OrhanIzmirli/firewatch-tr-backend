@@ -37,6 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 require('dotenv').config();
+const path_1 = __importDefault(require("path"));
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const morgan_1 = __importDefault(require("morgan"));
@@ -60,6 +61,7 @@ const newsSightingJob_1 = __importDefault(require("./jobs/newsSightingJob"));
 const burnedAreaJob_1 = __importDefault(require("./jobs/burnedAreaJob"));
 const cacheService_1 = __importDefault(require("./services/cacheService"));
 const database_1 = __importDefault(require("./config/database"));
+const newsSourceLogos_1 = require("./utils/newsSourceLogos");
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
 app.set('trust proxy', 1);
@@ -85,6 +87,15 @@ app.use((0, security_1.rateLimit)('global', 300, 60000));
 app.use(express_1.default.json({ limit: '10mb', type: 'application/json' }));
 app.use((0, morgan_1.default)(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use((0, compression_1.default)());
+// News source logos (utils/newsSourceLogos.ts) and nothing else live in
+// public/. Resolved from __dirname so it works from src/ under ts-node and
+// from dist/ in the Docker image (which copies public/ next to dist/).
+app.use(newsSourceLogos_1.STATIC_MOUNT_PATH, express_1.default.static(path_1.default.join(__dirname, '..', 'public'), {
+    index: false,
+    dotfiles: 'ignore',
+    redirect: false,
+    maxAge: '7d',
+}));
 app.use('/api/fires', fires_1.default);
 app.use('/api/news', news_1.default);
 app.use('/api/notify', notifications_1.default);

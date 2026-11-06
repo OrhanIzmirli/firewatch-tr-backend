@@ -1,6 +1,7 @@
 import pool from '../config/database';
 import { News } from '../types';
 import { turkishToLower } from '../utils/turkishText';
+import { withSourceLogo } from '../utils/newsSourceLogos';
 
 // Jaccard similarity over word tokens — catches near-duplicate titles that
 // differ only by a repeated/dropped word or minor punctuation (the same
@@ -43,7 +44,7 @@ class NewsService {
         ),
       ]) as any;
       console.log('📰 Query result rows:', result.rows.length);
-      return result.rows;
+      return result.rows.map(withSourceLogo);
     } catch (error) {
       console.error('❌ Error fetching news:', error);
       throw error;
@@ -59,7 +60,7 @@ class NewsService {
           setTimeout(() => reject(new Error('Query timeout after 8s')), 8000)
         ),
       ]) as any;
-      return result.rows[0] || null;
+      return result.rows[0] ? withSourceLogo(result.rows[0]) : null;
     } catch (error) {
       console.error('❌ Error fetching news by id:', error);
       throw error;

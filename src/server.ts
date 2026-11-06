@@ -1,5 +1,6 @@
 require('dotenv').config();
 
+import path from 'path';
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
@@ -23,6 +24,7 @@ import newsSightingJob from './jobs/newsSightingJob';
 import burnedAreaJob from './jobs/burnedAreaJob';
 import cacheService from './services/cacheService';
 import pool from './config/database';
+import { STATIC_MOUNT_PATH } from './utils/newsSourceLogos';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -51,6 +53,19 @@ app.use(rateLimit('global', 300, 60_000));
 app.use(express.json({ limit: '10mb', type: 'application/json' }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(compression());
+
+// News source logos (utils/newsSourceLogos.ts) and nothing else live in
+// public/. Resolved from __dirname so it works from src/ under ts-node and
+// from dist/ in the Docker image (which copies public/ next to dist/).
+app.use(
+  STATIC_MOUNT_PATH,
+  express.static(path.join(__dirname, '..', 'public'), {
+    index: false,
+    dotfiles: 'ignore',
+    redirect: false,
+    maxAge: '7d',
+  })
+);
 
 app.use('/api/fires', fireRoutes);
 app.use('/api/news', newsRoutes);

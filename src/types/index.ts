@@ -29,6 +29,8 @@ export interface News {
   is_breaking: boolean;
   image_url?: string;
   thumbnail_url?: string;
+  // Derived from `source` at read time (utils/newsSourceLogos), not a column.
+  source_logo_url?: string;
   published_at?: Date;
   scraped_at?: Date;
   related_fire_ids?: number[];
