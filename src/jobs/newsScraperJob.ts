@@ -128,6 +128,7 @@ class NewsScraperJob {
       blocked: 0,
       too_short: 0,
       not_wildfire: 0,
+      foreign: 0,
       ok: 0,
     };
 
@@ -192,7 +193,7 @@ class NewsScraperJob {
     );
     console.log(
       `   Filter breakdown — no must-have keyword in title: ${filterCounts.no_must_have}, ` +
-      `blocked: ${filterCounts.blocked}, not a wildfire: ${filterCounts.not_wildfire}, passed: ${filterCounts.ok}`
+      `blocked: ${filterCounts.blocked}, not a wildfire: ${filterCounts.not_wildfire}, abroad: ${filterCounts.foreign}, passed: ${filterCounts.ok}`
     );
   }
 }

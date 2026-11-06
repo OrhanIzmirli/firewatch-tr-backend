@@ -1,5 +1,6 @@
 import { turkishToLower } from './turkishText';
 import { assessWildfire } from './wildfireRelevance';
+import { assessTurkey } from './newsGeography';
 
 /**
  * Which news items belong in the app's fires feed. Used twice:
@@ -121,7 +122,7 @@ const BLOCKED_KEYWORDS = [
 
 export type RelevanceResult = {
   relevant: boolean;
-  reason: 'no_must_have' | 'blocked' | 'too_short' | 'not_wildfire' | 'ok';
+  reason: 'no_must_have' | 'blocked' | 'too_short' | 'not_wildfire' | 'foreign' | 'ok';
 };
 
 // Strict whitelist: MUST_HAVE_KEYWORDS (specific fire/disaster terms) match
@@ -149,6 +150,10 @@ export function checkRelevance(title: string, fullText: string): RelevanceResult
   // The feed is wildfires only: building/vehicle fires, storms, floods and
   // weather pass the whitelist above but are not what the app is for.
   if (!assessWildfire(title, fullText).wildfire) return { relevant: false, reason: 'not_wildfire' };
+
+  // ...and wildfires in Turkey: a fire abroad stays only when it is in a
+  // neighbouring country and the text ties it to Turkey (utils/newsGeography.ts).
+  if (!assessTurkey(title, fullText).turkey) return { relevant: false, reason: 'foreign' };
 
   return { relevant: true, reason: 'ok' };
 }

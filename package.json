@@ -25,7 +25,8 @@
     "test:fire-history": "ts-node --project tsconfig.scripts.json scripts/test-fire-history.ts",
     "test:wildfire-relevance": "ts-node --project tsconfig.scripts.json scripts/test-wildfire-relevance.ts",
     "test:firms-products": "ts-node --project tsconfig.scripts.json scripts/test-firms-products.ts",
-    "test:weather-providers": "ts-node --project tsconfig.scripts.json scripts/test-weather-providers.ts"
+    "test:weather-providers": "ts-node --project tsconfig.scripts.json scripts/test-weather-providers.ts",
+    "test:news-geography": "ts-node --project tsconfig.scripts.json scripts/test-news-geography.ts"
   },
   "keywords": [],
   "author": "",

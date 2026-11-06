@@ -5,6 +5,7 @@ exports.isInFiresFeed = isInFiresFeed;
 exports.relevantPageIds = relevantPageIds;
 const turkishText_1 = require("./turkishText");
 const wildfireRelevance_1 = require("./wildfireRelevance");
+const newsGeography_1 = require("./newsGeography");
 /**
  * Which news items belong in the app's fires feed. Used twice:
  *   - jobs/newsScraperJob.ts, before an RSS item is stored, and
@@ -142,6 +143,10 @@ function checkRelevance(title, fullText) {
     // weather pass the whitelist above but are not what the app is for.
     if (!(0, wildfireRelevance_1.assessWildfire)(title, fullText).wildfire)
         return { relevant: false, reason: 'not_wildfire' };
+    // ...and wildfires in Turkey: a fire abroad stays only when it is in a
+    // neighbouring country and the text ties it to Turkey (utils/newsGeography.ts).
+    if (!(0, newsGeography_1.assessTurkey)(title, fullText).turkey)
+        return { relevant: false, reason: 'foreign' };
     return { relevant: true, reason: 'ok' };
 }
 /**
