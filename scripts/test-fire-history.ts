@@ -10,6 +10,7 @@
 import assert from 'node:assert';
 import {
   FIRMS_MAP_URL,
+  HISTORY_MAX_RANGE_DAYS,
   HISTORY_BUFFER_M,
   HISTORY_MIN_DETECTIONS,
   historySql,
@@ -41,9 +42,14 @@ b('range: from after to is rejected, same day is fine', () => {
   assert.ok('error' in parseHistoryRange({ from: '2026-08-02', to: '2026-08-01' }));
   assert.deepStrictEqual(parseHistoryRange({ from: '2026-08-01', to: '2026-08-01' }), { from: '2026-08-01', to: '2026-08-01' });
 });
-b('range: at most 366 days inclusive', () => {
-  assert.ok(!('error' in parseHistoryRange({ from: '2024-01-01', to: '2024-12-31' })), '366 days (leap year) allowed');
-  assert.ok('error' in parseHistoryRange({ from: '2024-01-01', to: '2025-01-01' }), '367 days rejected');
+b('range: up to 1,100 days inclusive, enough for the app presets', () => {
+  assert.strictEqual(HISTORY_MAX_RANGE_DAYS, 1100);
+  // "Geçen yazdan beri": June 1 of last year to today
+  assert.ok(!('error' in parseHistoryRange({ from: '2025-06-01', to: '2026-11-06' })));
+  // "Son 3 yıl": same day three years ago to today, across a leap day
+  assert.ok(!('error' in parseHistoryRange({ from: '2023-11-06', to: '2026-11-06' })));
+  assert.ok(!('error' in parseHistoryRange({ from: '2024-01-01', to: '2027-01-04' })), '1,100 days allowed');
+  assert.ok('error' in parseHistoryRange({ from: '2024-01-01', to: '2027-01-05' }), '1,101 days rejected');
 });
 
 b('SQL: Istanbul day bounds, end day inclusive, overlap test', () => {

@@ -25,7 +25,13 @@ import { heatSourceSqlCondition } from './heatSource';
  */
 
 export const HISTORY_MIN_DETECTIONS = 5;
-export const HISTORY_MAX_RANGE_DAYS = 366;
+/**
+ * The app's period presets reach back to June 1 of last year (~520 days) and
+ * three years from today (up to 1,097 days inclusive). 1,100 covers both.
+ * Payload grows with the data: about 0.8 MB gzipped per 3 months of fire
+ * season at today's inclusion rule.
+ */
+export const HISTORY_MAX_RANGE_DAYS = 1100;
 /** Half a VIIRS I-band pixel (375 m), metres. */
 export const HISTORY_BUFFER_M = 188;
 /** Simplification tolerance in degrees (~55 m at Türkiye's latitude). */
@@ -58,7 +64,7 @@ export function parseIsoDate(value: unknown): string | null {
 
 export type HistoryRange = { from: string; to: string } | { error: string };
 
-/** Validates ?from&to: both required ISO dates, from ≤ to, at most 366 days. */
+/** Validates ?from&to: both required ISO dates, from ≤ to, at most HISTORY_MAX_RANGE_DAYS days. */
 export function parseHistoryRange(query: { from?: unknown; to?: unknown }): HistoryRange {
   const from = parseIsoDate(query.from);
   const to = parseIsoDate(query.to);
