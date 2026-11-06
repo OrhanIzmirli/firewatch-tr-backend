@@ -62,6 +62,7 @@ const burnedAreaJob_1 = __importDefault(require("./jobs/burnedAreaJob"));
 const cacheService_1 = __importDefault(require("./services/cacheService"));
 const database_1 = __importDefault(require("./config/database"));
 const newsSourceLogos_1 = require("./utils/newsSourceLogos");
+const nearbyFireCount_1 = require("./services/nearbyFireCount");
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
 app.set('trust proxy', 1);
@@ -244,8 +245,12 @@ app.get('/api/risk/summary', async (req, res) => {
       FROM risk_data r1
       ORDER BY r1.region, r1.created_at DESC
     `);
-        await cacheService_1.default.set(cacheKey, result.rows, 300); // calculator runs every 3h, 5 min cache is safe
-        res.json({ status: 'success', data: result.rows });
+        // nearby_fire_count: same region, last 24 h, fixed heat sources excluded;
+        // null for every region when the satellite pipeline is stale.
+        const counts = await (0, nearbyFireCount_1.loadNearbyFireCounts)(database_1.default);
+        const data = (0, nearbyFireCount_1.attachNearbyFireCounts)(result.rows, counts);
+        await cacheService_1.default.set(cacheKey, data, 300); // calculator runs every 3h, 5 min cache is safe
+        res.json({ status: 'success', data });
     }
     catch (error) {
         res.status(500).json({ status: 'error', message: 'Risk data unavailable' });

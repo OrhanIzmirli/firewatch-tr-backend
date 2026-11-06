@@ -25,6 +25,7 @@ import burnedAreaJob from './jobs/burnedAreaJob';
 import cacheService from './services/cacheService';
 import pool from './config/database';
 import { STATIC_MOUNT_PATH } from './utils/newsSourceLogos';
+import { attachNearbyFireCounts, loadNearbyFireCounts } from './services/nearbyFireCount';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -222,8 +223,13 @@ app.get('/api/risk/summary', async (req, res) => {
       ORDER BY r1.region, r1.created_at DESC
     `);
 
-    await cacheService.set(cacheKey, result.rows, 300); // calculator runs every 3h, 5 min cache is safe
-    res.json({ status: 'success', data: result.rows });
+    // nearby_fire_count: same region, last 24 h, fixed heat sources excluded;
+    // null for every region when the satellite pipeline is stale.
+    const counts = await loadNearbyFireCounts(pool);
+    const data = attachNearbyFireCounts(result.rows, counts);
+
+    await cacheService.set(cacheKey, data, 300); // calculator runs every 3h, 5 min cache is safe
+    res.json({ status: 'success', data });
   } catch (error) {
     res.status(500).json({ status: 'error', message: 'Risk data unavailable' });
   }
