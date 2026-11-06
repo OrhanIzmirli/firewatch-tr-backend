@@ -36,6 +36,8 @@ const KEEP: [number, string, string?][] = [
   // building/vehicle named, but the story is the wildfire
   [2578, "Bursa Karacabey’de orman yangını Fabrikaya ulaşmadan söndürüldü"],
   [2705, "Marmaris’te orman yangını! Çıkarma gemileri devreye girdi"],
+  [2748, "Balıkesir'de kamyondaki yangın ormana sıçradı: Alevlere müdahale ediliyor"],
+  [3622, "Orman yolunda alev alan otomobil yangına neden oldu", "Denizli'nin Acıpayam ilçesinde ormanlık alanda çıkan araç yangını, orman ve itfaiye ekiplerinin hızlı müdahalesiyle büyümeden söndürüldü. Araçtan yükselen alevlerin neden olduğu örtü yangınında 1 dönüm arazi zarar gördü."],
   // signal only in the summary
   [3043, "Bursa'daki yangın kontrol altına alındı", "Bursa'nın Kestel ilçesinde orman dışı alanda çıkan yangın havadan ve karadan müdahaleyle kontrol altına alındı."],
 ];
@@ -55,6 +57,11 @@ const DROP: [number, string, string?][] = [
   // weak signal, but the title names a building or vehicle
   [2275, "Çatalca'da fabrika yangını", "Fabrikada çıkan yangın yandaki otluk alana sıçradı."],
   [3378, "Bursa'da tarlada bulunan baraka alevlere teslim oldu"],
+  // a vehicle or building burned in or near a forest; the forest did not
+  [3739, "Kocaeli'de korkunç olay! Otomatik acil durum bildirimi ekipleri harekete geçirdi, yanan araçta iş insanı ölü bulundu", "Kocaeli’nin Derince ilçesinde otomobilin otomatik kaza ve acil durum bildirimi göndermesi üzerine bölgeye sevk edilen ekipler, ormanda yanan araçta iş insanı Zeynel Abidin’in cansız bedenini buldu."],
+  [3736, "Kocaeli'de lüks araçtan 112'ye otomatik ihbar! Ekipler iş adamının cansız bedeniyle karşılaştı", "Kocaeli'nin Derince ilçesinde yoldan çıkarak ormanlık alana giren lüks otomobil alevlere teslim oldu."],
+  [2152, "Seyir halindeki tırın dorsesi alev alev yandı", "Orman Genel Müdürlüğü ve itfaiye ekiplerinin hızlı müdahalesiyle yangın ormana sıçramadan söndürülürken, dorse kullanılamaz hale geldi."],
+  [3694, "Bungalov yangını korkuttu, alevler ormana sıçramadan söndürüldü", "Yangın, Nilüfer ilçesi Ayvaköy Mahallesi'nde ormanlık alanda bulunan bir bungalov evde çıktı. Ekiplerin hızlı çalışması sayesinde yangın, ormanlık alana sıçramadan söndürüldü. Muhtemel bir orman yangınının önüne geçilirken, olayda bungalov evde maddi hasar meydana geldi."],
   // "orman ürünleri" is a timber plant, not a forest
   [3685, "Bursa’da talaş silosu alevlere teslim oldu", "Bursa’nın İnegöl ilçesinde bir orman ürünleri fabrikasında çıkan yangın, itfaiye ekiplerince söndürüldü."],
   [1916, "Bursa'da fabrika bahçesinde çıkan yangın korkuttu", "Bursa'nın İnegöl ilçesinde faaliyet gösteren bir orman ürünleri fabrikasının bahçesinde çıkan yangın korkuttu."],
