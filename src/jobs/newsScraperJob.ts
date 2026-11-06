@@ -3,6 +3,7 @@ import axios from 'axios';
 import * as xml2js from 'xml2js';
 import newsService from '../services/newsService';
 import { turkishToLower } from '../utils/turkishText';
+import { assessWildfire } from '../utils/wildfireRelevance';
 
 const CITY_REGION_MAP: Record<string, string> = {
   'izmir': 'Ege', 'muğla': 'Ege', 'aydın': 'Ege', 'denizli': 'Ege',
@@ -185,7 +186,7 @@ function detectCategory(text: string): string {
 
 type RelevanceResult = {
   relevant: boolean;
-  reason: 'no_must_have' | 'blocked' | 'too_short' | 'ok';
+  reason: 'no_must_have' | 'blocked' | 'too_short' | 'not_wildfire' | 'ok';
 };
 
 // Strict whitelist: MUST_HAVE_KEYWORDS (specific fire/disaster terms) match
@@ -209,6 +210,10 @@ export function checkRelevance(title: string, fullText: string): RelevanceResult
   }
 
   if (titleLower.length <= 10) return { relevant: false, reason: 'too_short' };
+
+  // The feed is wildfires only: building/vehicle fires, storms, floods and
+  // weather pass the whitelist above but are not what the app is for.
+  if (!assessWildfire(title, fullText).wildfire) return { relevant: false, reason: 'not_wildfire' };
 
   return { relevant: true, reason: 'ok' };
 }
@@ -262,6 +267,7 @@ class NewsScraperJob {
       no_must_have: 0,
       blocked: 0,
       too_short: 0,
+      not_wildfire: 0,
       ok: 0,
     };
 
@@ -326,7 +332,7 @@ class NewsScraperJob {
     );
     console.log(
       `   Filter breakdown — no must-have keyword in title: ${filterCounts.no_must_have}, ` +
-      `blocked: ${filterCounts.blocked}, passed: ${filterCounts.ok}`
+      `blocked: ${filterCounts.blocked}, not a wildfire: ${filterCounts.not_wildfire}, passed: ${filterCounts.ok}`
     );
   }
 }

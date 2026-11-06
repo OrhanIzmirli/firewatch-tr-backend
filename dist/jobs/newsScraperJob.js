@@ -42,6 +42,7 @@ const axios_1 = __importDefault(require("axios"));
 const xml2js = __importStar(require("xml2js"));
 const newsService_1 = __importDefault(require("../services/newsService"));
 const turkishText_1 = require("../utils/turkishText");
+const wildfireRelevance_1 = require("../utils/wildfireRelevance");
 const CITY_REGION_MAP = {
     'izmir': 'Ege', 'muğla': 'Ege', 'aydın': 'Ege', 'denizli': 'Ege',
     'manisa': 'Ege', 'uşak': 'Ege', 'kütahya': 'Ege', 'afyon': 'Ege',
@@ -234,6 +235,10 @@ function checkRelevance(title, fullText) {
     }
     if (titleLower.length <= 10)
         return { relevant: false, reason: 'too_short' };
+    // The feed is wildfires only: building/vehicle fires, storms, floods and
+    // weather pass the whitelist above but are not what the app is for.
+    if (!(0, wildfireRelevance_1.assessWildfire)(title, fullText).wildfire)
+        return { relevant: false, reason: 'not_wildfire' };
     return { relevant: true, reason: 'ok' };
 }
 function estimateReadMinutes(text) {
@@ -282,6 +287,7 @@ class NewsScraperJob {
             no_must_have: 0,
             blocked: 0,
             too_short: 0,
+            not_wildfire: 0,
             ok: 0,
         };
         for (const source of RSS_SOURCES) {
@@ -340,7 +346,7 @@ class NewsScraperJob {
         }
         console.log(`✅ Scraper done. Fetched: ${totalFetched} | Passed whitelist: ${filterCounts.ok} | Added (new): ${totalAdded}`);
         console.log(`   Filter breakdown — no must-have keyword in title: ${filterCounts.no_must_have}, ` +
-            `blocked: ${filterCounts.blocked}, passed: ${filterCounts.ok}`);
+            `blocked: ${filterCounts.blocked}, not a wildfire: ${filterCounts.not_wildfire}, passed: ${filterCounts.ok}`);
     }
 }
 exports.default = new NewsScraperJob();
