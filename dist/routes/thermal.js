@@ -7,6 +7,7 @@ const axios_1 = __importDefault(require("axios"));
 const express_1 = require("express");
 const cacheService_1 = __importDefault(require("../services/cacheService"));
 const security_1 = require("../middleware/security");
+const firmsProducts_1 = require("../services/firmsProducts");
 const router = (0, express_1.Router)();
 const TURKEY_AREA = '25,35,45,43';
 const FIRMS_BASE = 'https://firms.modaps.eosdis.nasa.gov/api/area/csv';
@@ -23,8 +24,9 @@ const FIRMS_BASE = 'https://firms.modaps.eosdis.nasa.gov/api/area/csv';
  *
  * Ten is a floor, not a target: it is high enough that a nearly-empty window
  * is recognised as one, low enough that a genuinely quiet winter day is not
- * mistaken for a broken feed. Falling through costs nothing, because every
- * later attempt is a superset of the earlier one.
+ * mistaken for a broken feed. Falling through costs little: the next attempt
+ * is either a longer window of the same satellite or another satellite's
+ * view of the same days, and the best thin answer is kept as a fallback.
  */
 const MIN_ACCEPTABLE_ROWS = 10;
 function rowCount(csv) {
@@ -69,11 +71,11 @@ router.get('/', (0, security_1.rateLimit)('thermal', 60, 60000), async (_req, re
     // Age is handled by the client: FirePoint.smartStatus marks anything twelve
     // hours or older 'historical' regardless of confidence, so the extra day
     // shows as past detections rather than as false active fires.
-    const attempts = [
-        { product: 'VIIRS_SNPP_NRT', days: 2 },
-        { product: 'VIIRS_SNPP_NRT', days: 3 },
-        { product: 'MODIS_NRT', days: 2 },
-    ];
+    //
+    // NOAA-20/21 first: S-NPP has delivered nothing since 2026-11-02. Same
+    // VIIRS columns, so the app parses the CSV unchanged
+    // (services/firmsProducts.ts).
+    const attempts = firmsProducts_1.THERMAL_ATTEMPTS;
     try {
         // Best non-empty response seen so far, used when nothing clears the floor
         // — returning thin data still beats returning none.

@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import axios from 'axios';
 import pool from '../config/database';
 import cacheService from '../services/cacheService';
+import { RISK_FIRE_STATS_ATTEMPTS } from '../services/firmsProducts';
 import notificationService from '../services/notificationService';
 import { regionKeyForCoordinates, regionKeyForRegionName } from '../utils/regions';
 
@@ -144,13 +145,10 @@ class RiskCalculatorJob {
 
     try {
       const area = `${lng - 2},${lat - 2},${lng + 2},${lat + 2}`;
-      const attempts = [
-        { product: 'VIIRS_SNPP_NRT', days: 1 },
-        { product: 'MODIS_NRT', days: 1 },
-        { product: 'VIIRS_SNPP_NRT', days: 2 },
-      ];
+      // NOAA-20/21 first: S-NPP has delivered nothing since 2026-11-02
+      // (services/firmsProducts.ts).
       let stats: FireStats = { total: 0, highConfidence: 0 };
-      for (const attempt of attempts) {
+      for (const attempt of RISK_FIRE_STATS_ATTEMPTS) {
         const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(nasaApiKey)}/${attempt.product}/${area}/${attempt.days}`;
         const response = await axios.get(url, { timeout: 15000 });
         stats = this.parseFireStats(response.data as string);

@@ -7,6 +7,7 @@ const node_cron_1 = __importDefault(require("node-cron"));
 const axios_1 = __importDefault(require("axios"));
 const database_1 = __importDefault(require("../config/database"));
 const cacheService_1 = __importDefault(require("../services/cacheService"));
+const firmsProducts_1 = require("../services/firmsProducts");
 const notificationService_1 = __importDefault(require("../services/notificationService"));
 const regions_1 = require("../utils/regions");
 const REGIONS = [
@@ -105,13 +106,10 @@ class RiskCalculatorJob {
             throw new Error('NASA_API_KEY is not configured');
         try {
             const area = `${lng - 2},${lat - 2},${lng + 2},${lat + 2}`;
-            const attempts = [
-                { product: 'VIIRS_SNPP_NRT', days: 1 },
-                { product: 'MODIS_NRT', days: 1 },
-                { product: 'VIIRS_SNPP_NRT', days: 2 },
-            ];
+            // NOAA-20/21 first: S-NPP has delivered nothing since 2026-11-02
+            // (services/firmsProducts.ts).
             let stats = { total: 0, highConfidence: 0 };
-            for (const attempt of attempts) {
+            for (const attempt of firmsProducts_1.RISK_FIRE_STATS_ATTEMPTS) {
                 const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(nasaApiKey)}/${attempt.product}/${area}/${attempt.days}`;
                 const response = await axios_1.default.get(url, { timeout: 15000 });
                 stats = this.parseFireStats(response.data);

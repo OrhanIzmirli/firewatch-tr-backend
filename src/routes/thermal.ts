@@ -2,6 +2,7 @@ import axios from 'axios';
 import { Response, Router } from 'express';
 import cacheService from '../services/cacheService';
 import { rateLimit } from '../middleware/security';
+import { THERMAL_ATTEMPTS } from '../services/firmsProducts';
 
 const router = Router();
 
@@ -23,8 +24,9 @@ type ThermalPayload = { csv: string; product: string; days: number; fetchedAt: s
  *
  * Ten is a floor, not a target: it is high enough that a nearly-empty window
  * is recognised as one, low enough that a genuinely quiet winter day is not
- * mistaken for a broken feed. Falling through costs nothing, because every
- * later attempt is a superset of the earlier one.
+ * mistaken for a broken feed. Falling through costs little: the next attempt
+ * is either a longer window of the same satellite or another satellite's
+ * view of the same days, and the best thin answer is kept as a fallback.
  */
 const MIN_ACCEPTABLE_ROWS = 10;
 
@@ -79,11 +81,11 @@ router.get('/', rateLimit('thermal', 60, 60_000), async (_req, res) => {
   // Age is handled by the client: FirePoint.smartStatus marks anything twelve
   // hours or older 'historical' regardless of confidence, so the extra day
   // shows as past detections rather than as false active fires.
-  const attempts = [
-    { product: 'VIIRS_SNPP_NRT', days: 2 },
-    { product: 'VIIRS_SNPP_NRT', days: 3 },
-    { product: 'MODIS_NRT', days: 2 },
-  ];
+  //
+  // NOAA-20/21 first: S-NPP has delivered nothing since 2026-11-02. Same
+  // VIIRS columns, so the app parses the CSV unchanged
+  // (services/firmsProducts.ts).
+  const attempts = THERMAL_ATTEMPTS;
 
   try {
     // Best non-empty response seen so far, used when nothing clears the floor
