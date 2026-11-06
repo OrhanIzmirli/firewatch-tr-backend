@@ -1,5 +1,7 @@
 /**
- * Unit test for the wildfire gate on scraped news (utils/wildfireRelevance.ts).
+ * Unit test for the wildfire gate on news (utils/wildfireRelevance.ts) and
+ * its use on both sides: before an RSS item is stored and when /api/news
+ * is read (utils/newsRelevance.ts, services/newsService.ts).
  *
  *   npm run test:wildfire-relevance
  *
@@ -11,6 +13,7 @@ import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { assessWildfire } from '../src/utils/wildfireRelevance';
+import { checkRelevance, isInFiresFeed, relevantPageIds } from '../src/utils/newsRelevance';
 
 let failures = 0;
 const b = (name: string, fn: () => void) => {
@@ -100,10 +103,43 @@ b('forest entry bans count as fire news (#2356)', () => {
 });
 
 b('checkRelevance applies the gate after the whitelist and blocklist', () => {
-  const src = readFileSync(join(__dirname, '../src/jobs/newsScraperJob.ts'), 'utf8');
-  const fn = src.slice(src.indexOf('export function checkRelevance'), src.indexOf('function estimateReadMinutes'));
-  assert.match(fn, /if \(!assessWildfire\(title, fullText\)\.wildfire\) return \{ relevant: false, reason: 'not_wildfire' \}/);
-  assert.ok(fn.indexOf('BLOCKED_KEYWORDS') < fn.indexOf('assessWildfire'), 'gate must run after the blocklist');
+  assert.deepStrictEqual(checkRelevance("Muğla'da orman yangını", "Muğla'da orman yangını çıktı"), { relevant: true, reason: 'ok' });
+  // passes the whitelist on "yangın", stopped by the wildfire gate
+  assert.deepStrictEqual(checkRelevance("TEM'de otomobil yangını", "TEM'de otomobil yangını trafiği durdurdu"), { relevant: false, reason: 'not_wildfire' });
+  // blocklist still wins over a wildfire word
+  assert.strictEqual(checkRelevance('Orman yangını davası: mahkeme karar verdi', 'Orman yangını davası').reason, 'blocked');
+});
+
+// ---- read side: /api/news hides irrelevant stored rows without deleting them
+const rows = [
+  { id: 10, title: "Muğla'da orman yangını", summary: 'Havadan ve karadan müdahale ediliyor.' },
+  { id: 9, title: "Bursa'da apartman dairesi alev alev yandı", summary: '' },
+  { id: 8, title: "Kaş'ta makilik alanda çıkan yangın söndürüldü", summary: null },
+  { id: 7, title: "İstanbul'a serin hava geliyor!", summary: 'Sıcaklıklar düşüyor, fırtına uyarısı.' },
+  { id: 6, title: "Uşak'ta meşelik alanda çıkan yangına müdahale ediliyor", summary: '' },
+];
+b('isInFiresFeed keeps wildfire rows and drops the rest', () => {
+  assert.deepStrictEqual(rows.filter(isInFiresFeed).map((r) => r.id), [10, 8, 6]);
+});
+b('pagination counts relevant rows only, in input order', () => {
+  assert.deepStrictEqual(relevantPageIds(rows, 2, 0), [10, 8]);
+  assert.deepStrictEqual(relevantPageIds(rows, 2, 2), [6]);
+  assert.deepStrictEqual(relevantPageIds(rows, 2, 4), []);
+});
+b('newsService filters getAllNews and getNewsCount, and deletes nothing', () => {
+  const src = readFileSync(join(__dirname, '../src/services/newsService.ts'), 'utf8');
+  const all = src.slice(src.indexOf('async getAllNews'), src.indexOf('async getNewsById'));
+  const count = src.slice(src.indexOf('async getNewsCount'));
+  assert.match(all, /relevantPageIds\(candidates\.rows, limit, offset\)/);
+  assert.ok(!/LIMIT \$|OFFSET \$/.test(all), 'SQL paging would count irrelevant rows');
+  assert.match(count, /\.filter\(isInFiresFeed\)\.length/);
+  assert.ok(!/DELETE/i.test(all + count));
+});
+b('scraper and clean-news use the same checkRelevance', () => {
+  const job = readFileSync(join(__dirname, '../src/jobs/newsScraperJob.ts'), 'utf8');
+  assert.match(job, /import \{ RelevanceResult, checkRelevance \} from '\.\.\/utils\/newsRelevance'/);
+  assert.match(job, /export \{ checkRelevance \}/);
+  assert.ok(!/const BLOCKED_KEYWORDS/.test(job), 'keyword lists must live only in utils/newsRelevance.ts');
 });
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILED`);

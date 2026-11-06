@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const database_1 = __importDefault(require("../config/database"));
 const turkishText_1 = require("../utils/turkishText");
 const newsSourceLogos_1 = require("../utils/newsSourceLogos");
+const newsRelevance_1 = require("../utils/newsRelevance");
 // Jaccard similarity over word tokens — catches near-duplicate titles that
 // differ only by a repeated/dropped word or minor punctuation (the same
 // story re-published with a slightly edited headline, or an RSS glitch
@@ -25,24 +26,35 @@ function titleSimilarity(a, b) {
     return union === 0 ? 0 : intersection / union;
 }
 const DUPLICATE_TITLE_THRESHOLD = 0.8;
+function withTimeout(promise, message, ms = 8000) {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 class NewsService {
+    /**
+     * Feed page of news, newest first. Rows that fail the current relevance
+     * filter (utils/newsRelevance.ts) — stored under an older, looser filter —
+     * stay in the table but are left out, and limit/offset count relevant
+     * rows only. Titles and summaries are filtered first; full rows are
+     * fetched for the page alone.
+     */
     async getAllNews(category, limit = 20, offset = 0) {
-        let query = 'SELECT * FROM news WHERE 1=1';
-        const params = [];
-        if (category) {
-            query += ' AND category = $' + (params.length + 1);
-            params.push(category);
-        }
-        query += ' ORDER BY published_at DESC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
-        params.push(limit, offset);
         try {
-            console.log('📰 Executing query:', query, params);
-            const result = await Promise.race([
-                database_1.default.query(query, params),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout after 8s')), 8000)),
-            ]);
-            console.log('📰 Query result rows:', result.rows.length);
-            return result.rows.map(newsSourceLogos_1.withSourceLogo);
+            const candidates = await withTimeout(database_1.default.query(`SELECT id, title, summary FROM news
+            WHERE ($1::text IS NULL OR category = $1)
+            ORDER BY published_at DESC NULLS LAST, id DESC`, [category ?? null]), 'Query timeout after 8s');
+            const ids = (0, newsRelevance_1.relevantPageIds)(candidates.rows, limit, offset);
+            if (ids.length === 0)
+                return [];
+            const result = await withTimeout(database_1.default.query('SELECT * FROM news WHERE id = ANY($1::int[])', [ids]), 'Query timeout after 8s');
+            const byId = new Map(result.rows.map((r) => [r.id, r]));
+            return ids
+                .map((id) => byId.get(id))
+                .filter((r) => r !== undefined)
+                .map(newsSourceLogos_1.withSourceLogo);
         }
         catch (error) {
             console.error('❌ Error fetching news:', error);
@@ -124,19 +136,11 @@ class NewsService {
             throw error;
         }
     }
+    /** Number of news items in the feed: same relevance filter as getAllNews. */
     async getNewsCount(category) {
-        let query = 'SELECT COUNT(*) FROM news WHERE 1=1';
-        const params = [];
-        if (category) {
-            query += ' AND category = $' + (params.length + 1);
-            params.push(category);
-        }
         try {
-            const result = await Promise.race([
-                database_1.default.query(query, params),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Count timeout after 8s')), 8000)),
-            ]);
-            return parseInt(result.rows[0].count, 10);
+            const result = await withTimeout(database_1.default.query('SELECT title, summary FROM news WHERE ($1::text IS NULL OR category = $1)', [category ?? null]), 'Count timeout after 8s');
+            return result.rows.filter(newsRelevance_1.isInFiresFeed).length;
         }
         catch (error) {
             console.error('❌ Error counting news:', error);

@@ -2,6 +2,7 @@ import pool from '../config/database';
 import { News } from '../types';
 import { turkishToLower } from '../utils/turkishText';
 import { withSourceLogo } from '../utils/newsSourceLogos';
+import { isInFiresFeed, relevantPageIds } from '../utils/newsRelevance';
 
 // Jaccard similarity over word tokens — catches near-duplicate titles that
 // differ only by a repeated/dropped word or minor punctuation (the same
@@ -22,29 +23,45 @@ function titleSimilarity(a: string, b: string): number {
 
 const DUPLICATE_TITLE_THRESHOLD = 0.8;
 
+function withTimeout<T>(promise: Promise<T>, message: string, ms = 8000): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 class NewsService {
+  /**
+   * Feed page of news, newest first. Rows that fail the current relevance
+   * filter (utils/newsRelevance.ts) — stored under an older, looser filter —
+   * stay in the table but are left out, and limit/offset count relevant
+   * rows only. Titles and summaries are filtered first; full rows are
+   * fetched for the page alone.
+   */
   async getAllNews(category?: string, limit: number = 20, offset: number = 0): Promise<News[]> {
-    let query = 'SELECT * FROM news WHERE 1=1';
-    const params: any[] = [];
-
-    if (category) {
-      query += ' AND category = $' + (params.length + 1);
-      params.push(category);
-    }
-
-    query += ' ORDER BY published_at DESC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
-    params.push(limit, offset);
-
     try {
-      console.log('📰 Executing query:', query, params);
-      const result = await Promise.race([
-        pool.query(query, params),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Query timeout after 8s')), 8000)
+      const candidates = await withTimeout(
+        pool.query(
+          `SELECT id, title, summary FROM news
+            WHERE ($1::text IS NULL OR category = $1)
+            ORDER BY published_at DESC NULLS LAST, id DESC`,
+          [category ?? null]
         ),
-      ]) as any;
-      console.log('📰 Query result rows:', result.rows.length);
-      return result.rows.map(withSourceLogo);
+        'Query timeout after 8s'
+      );
+      const ids = relevantPageIds(candidates.rows, limit, offset);
+      if (ids.length === 0) return [];
+
+      const result = await withTimeout(
+        pool.query('SELECT * FROM news WHERE id = ANY($1::int[])', [ids]),
+        'Query timeout after 8s'
+      );
+      const byId = new Map<number, News>(result.rows.map((r: News) => [r.id, r]));
+      return ids
+        .map((id) => byId.get(id))
+        .filter((r): r is News => r !== undefined)
+        .map(withSourceLogo);
     } catch (error) {
       console.error('❌ Error fetching news:', error);
       throw error;
@@ -144,23 +161,17 @@ class NewsService {
     }
   }
 
+  /** Number of news items in the feed: same relevance filter as getAllNews. */
   async getNewsCount(category?: string): Promise<number> {
-    let query = 'SELECT COUNT(*) FROM news WHERE 1=1';
-    const params: any[] = [];
-
-    if (category) {
-      query += ' AND category = $' + (params.length + 1);
-      params.push(category);
-    }
-
     try {
-      const result = await Promise.race([
-        pool.query(query, params),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Count timeout after 8s')), 8000)
+      const result = await withTimeout(
+        pool.query(
+          'SELECT title, summary FROM news WHERE ($1::text IS NULL OR category = $1)',
+          [category ?? null]
         ),
-      ]) as any;
-      return parseInt(result.rows[0].count, 10);
+        'Count timeout after 8s'
+      );
+      return result.rows.filter(isInFiresFeed).length;
     } catch (error) {
       console.error('❌ Error counting news:', error);
       throw error;
