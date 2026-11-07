@@ -2,6 +2,12 @@ import cron from 'node-cron';
 import pool from '../config/database';
 import { recordJobRun } from '../services/jobRunRecorder';
 import { RETENTION_DAYS, STORED_COORDINATE_DECIMALS } from '../utils/locationPrivacy';
+import { trackedPlacesAvailable } from '../services/trackedPlaces';
+
+/** A tracked-places device whose FCM token died this long ago is deleted. */
+export const DEAD_TOKEN_GRACE_DAYS = 7;
+/** place_notifications only exist to stop repeat alerts; incidents stop alerting after 12 h. */
+export const PLACE_NOTIFICATION_RETENTION_DAYS = 30;
 
 /**
  * Enforces the retention rules in utils/locationPrivacy.ts and the privacy
@@ -14,7 +20,11 @@ import { RETENTION_DAYS, STORED_COORDINATE_DECIMALS } from '../utils/locationPri
  *    registers the device afresh.
  * 2. Fire reports older than RETENTION_DAYS are deleted with their photos,
  *    name and phone.
- * 3. Safety nets, normally no-ops because the write paths already do this:
+ * 3. Tracked places (migration 014, when applied): a device not seen for
+ *    RETENTION_DAYS, or whose FCM token has been dead for
+ *    DEAD_TOKEN_GRACE_DAYS, is deleted with all its places (cascade);
+ *    place_notifications older than PLACE_NOTIFICATION_RETENTION_DAYS go.
+ * 4. Safety nets, normally no-ops because the write paths already do this:
  *    an inactive device keeps no location, and no stored coordinate is
  *    more precise than STORED_COORDINATE_DECIMALS. They catch rows written
  *    by an older deploy or by hand.
@@ -27,6 +37,8 @@ export interface RetentionStats {
   inactiveLocationsErased: number;
   deviceLocationsRounded: number;
   reportLocationsRounded: number;
+  placeDevicesDeleted: number;
+  placeNotificationsDeleted: number;
 }
 
 class PrivacyRetentionJob {
@@ -40,6 +52,8 @@ class PrivacyRetentionJob {
 
   async run(): Promise<RetentionStats> {
     const startedAt = new Date();
+    // Checked before the transaction: a missing table would abort it.
+    const placesReady = await trackedPlacesAvailable(pool);
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -71,6 +85,27 @@ class PrivacyRetentionJob {
         [STORED_COORDINATE_DECIMALS]
       );
 
+      let placeDevices = 0;
+      let placeNotifications = 0;
+      if (placesReady) {
+        placeDevices =
+          (
+            await client.query(
+              `DELETE FROM place_devices
+               WHERE last_seen_at < NOW() - make_interval(days => $1)
+                  OR (fcm_token IS NULL AND token_invalid_at < NOW() - make_interval(days => $2))`,
+              [RETENTION_DAYS, DEAD_TOKEN_GRACE_DAYS]
+            )
+          ).rowCount ?? 0;
+        placeNotifications =
+          (
+            await client.query(
+              `DELETE FROM place_notifications WHERE created_at < NOW() - make_interval(days => $1)`,
+              [PLACE_NOTIFICATION_RETENTION_DAYS]
+            )
+          ).rowCount ?? 0;
+      }
+
       await client.query('COMMIT');
 
       const stats: RetentionStats = {
@@ -79,11 +114,14 @@ class PrivacyRetentionJob {
         inactiveLocationsErased: inactive.rowCount ?? 0,
         deviceLocationsRounded: deviceRounded.rowCount ?? 0,
         reportLocationsRounded: reportRounded.rowCount ?? 0,
+        placeDevicesDeleted: placeDevices,
+        placeNotificationsDeleted: placeNotifications,
       };
       console.log(
         `🔒 Privacy retention: ${stats.devicesDeleted} device(s) and ${stats.reportsDeleted} report(s) ` +
           `older than ${RETENTION_DAYS} days deleted; ${stats.inactiveLocationsErased} inactive location(s) erased; ` +
-          `${stats.deviceLocationsRounded + stats.reportLocationsRounded} location(s) rounded`
+          `${stats.deviceLocationsRounded + stats.reportLocationsRounded} location(s) rounded; ` +
+          `${stats.placeDevicesDeleted} tracked-place device(s) and ${stats.placeNotificationsDeleted} place alert record(s) deleted`
       );
       await recordJobRun('privacy_retention', startedAt, 'ok', { ...stats });
       return stats;

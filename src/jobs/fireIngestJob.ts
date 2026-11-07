@@ -4,6 +4,7 @@ import pool from '../config/database';
 import { recordJobRun } from '../services/jobRunRecorder';
 import { regionKeyForCoordinates, regionKeyForRegionName } from '../utils/regions';
 import fireClusterJob from './fireClusterJob';
+import placeAlertJob from './placeAlertJob';
 
 /**
  * Persists raw FIRMS thermal detections into fire_detections.
@@ -366,6 +367,9 @@ class FireIngestJob {
       // Clustering runs in the same tick as ingest so a detection never sits
       // unattached for a whole cron interval.
       await fireClusterJob.runClustering();
+      // Tracked-place heat alerts read the incidents clustering just wrote.
+      // Never throws; skips itself until migration 014 is applied.
+      await placeAlertJob.run();
 
       console.log(
         `🛰️  Ingest [${stats.products.join(', ') || 'none'}]: fetched ${stats.fetched}, ` +

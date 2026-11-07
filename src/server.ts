@@ -15,6 +15,7 @@ import pipelineHealthRoutes from './routes/pipelineHealth';
 import lossSummaryRoutes from './routes/lossSummary';
 import historyRoutes from './routes/history';
 import legalRoutes from './routes/legal';
+import placesRoutes from './routes/places';
 import { rateLimit, requireAdminToken as secureAdminToken, securityHeaders } from './middleware/security';
 import newsScraperJob, { checkRelevance } from './jobs/newsScraperJob';
 import riskCalculatorJob from './jobs/riskCalculatorJob';
@@ -87,6 +88,7 @@ app.use('/api/thermal', thermalRoutes);
 app.use('/api/incidents', incidentRoutes);
 app.use('/api/loss-summary', lossSummaryRoutes);
 app.use('/api/history', historyRoutes);
+app.use('/api/places', placesRoutes);
 // Registered before the /api/health handler so /api/health/pipeline resolves
 // here rather than falling through.
 app.use('/api/health', pipelineHealthRoutes);

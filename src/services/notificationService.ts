@@ -59,7 +59,56 @@ export async function forgetDeadTokens(tokens: string[]): Promise<number> {
   }
 }
 
+/** One push to one device, each with its own text (tracked-place alerts). */
+export interface PushMessage {
+  token: string;
+  title: string;
+  body: string;
+  data?: Record<string, string>;
+  androidChannelId?: string;
+  /** Replaces an earlier notification with the same tag instead of stacking. */
+  tag?: string;
+  ttlSeconds?: number;
+}
+
+export interface PushResult {
+  success: boolean;
+  deadToken: boolean;
+}
+
 class NotificationService {
+  /**
+   * Sends individually-worded messages, 500 per FCM call, and reports each
+   * one's fate in input order. Dead tokens are reported, not cleaned up, so
+   * the caller can clear them wherever it keeps them.
+   */
+  async sendMessages(messages: PushMessage[]): Promise<PushResult[]> {
+    const results: PushResult[] = [];
+    for (const batch of chunk(messages, FCM_MULTICAST_LIMIT)) {
+      try {
+        const response = await getMessaging().sendEach(
+          batch.map((m) => ({
+            token: m.token,
+            notification: { title: m.title, body: m.body },
+            data: m.data ?? {},
+            android: {
+              priority: 'high' as const,
+              ttl: m.ttlSeconds !== undefined ? m.ttlSeconds * 1000 : undefined,
+              notification: { channelId: m.androidChannelId, tag: m.tag },
+            },
+          }))
+        );
+        for (const r of response.responses) {
+          results.push({ success: r.success, deadToken: !r.success && isDeadTokenError(r.error?.code) });
+        }
+      } catch (error) {
+        console.error('❌ sendEach chunk failed:', (error as Error).message);
+        for (let i = 0; i < batch.length; i++) results.push({ success: false, deadToken: false });
+      }
+    }
+    return results;
+  }
+
   async sendToToken(token: string, title: string, body: string, data?: any): Promise<boolean> {
     try {
       const message = {

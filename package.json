@@ -28,7 +28,9 @@
     "test:weather-providers": "ts-node --project tsconfig.scripts.json scripts/test-weather-providers.ts",
     "test:news-geography": "ts-node --project tsconfig.scripts.json scripts/test-news-geography.ts",
     "test:border-gate": "ts-node --project tsconfig.scripts.json scripts/test-border-gate.ts",
-    "test:location-privacy": "ts-node --project tsconfig.scripts.json scripts/test-location-privacy.ts"
+    "test:location-privacy": "ts-node --project tsconfig.scripts.json scripts/test-location-privacy.ts",
+    "test:tracked-places": "ts-node --project tsconfig.scripts.json scripts/test-tracked-places.ts",
+    "test:tracked-places-db": "ts-node --project tsconfig.scripts.json scripts/test-tracked-places-db.ts"
   },
   "keywords": [],
   "author": "",

@@ -53,6 +53,7 @@ const privacyTr = `
 <tr><th>Veri</th><th>Ne zaman ve neden</th><th>Ne kadar süre</th></tr>
 <tr><td>Yaklaşık konum (yaklaşık 1 km hassasiyetinde enlem/boylam)</td><td>Yalnızca konum izni verip bildirimler için otomatik taramayı başlattığınızda. Size bölgenizle ilgili yangın ve risk uyarıları gönderebilmek için. Tam konumunuz saklanmaz; sunucuya yazılmadan önce yaklaşık 1 km'ye yuvarlanır.</td><td>Bildirimler açık olduğu sürece. Bildirimleri kapattığınızda, uygulamada "Konum verimi sil"e dokunduğunuzda veya cihaz belirteciniz geçersizleştiğinde (ör. uygulamayı kaldırdığınızda) hemen silinir.</td></tr>
 <tr><td>Cihaz belirteci (Firebase Cloud Messaging token), bildirim kapsamı tercihi (tüm Türkiye / bölge / il), kayıt ve güncelleme zamanı</td><td>Bildirim gönderebilmek ve seçtiğiniz kapsama uymak için. Uygulama her açıldığında belirteci yeniler.</td><td>Uygulamayı son açışınızdan itibaren 90 gün; sonra kayıt tamamen silinir. Uygulamayı yeniden açtığınızda yeni kayıt oluşur.</td></tr>
+<tr><td>Takip ettiğin yerler: verdiğin ad, yaklaşık 1 km'ye yuvarlanmış konum, yarıçap (5/10/25 km), bildirim tercihi; bu yerler için gönderilen uyarıların kaydı. Cihazın, hesap yerine uygulamanın ürettiği rastgele bir kimlikle tanınır.</td><td>Yalnızca "Takip ettiğim yerler"e yer eklediğinde. Yarıçap içinde yeni uydu ısı tespiti olduğunda sana bildirim göndermek ve aynı tespit için ikinci bildirim göndermemek için.</td><td>Sen silene kadar. Uygulamayı 90 gün açmazsan ya da cihaz belirtecin 7 gündür geçersizse tüm yerlerin silinir. Uyarı kayıtları 30 gün sonra silinir.</td></tr>
 <tr><td>Yangın ihbarı: yaklaşık 1 km'ye yuvarlanmış konum, başlık, açıklama, isteğe bağlı ad ve en fazla 3 fotoğraf</td><td>Yalnızca ihbar gönderdiğinizde. İhbarı incelemek ve uydu tespitleriyle karşılaştırmak için.</td><td>90 gün; sonra fotoğraflarıyla birlikte silinir.</td></tr>
 <tr><td>Geri bildirim: puan, kategori, mesaj, uygulama sürümü ve isteğe bağlı e-posta adresi</td><td>Yalnızca geri bildirim gönderdiğinizde. Uygulamayı geliştirmek ve isterseniz size dönebilmek için.</td><td>Silinmesini isteyene kadar.</td></tr>
 <tr><td>Sunucu erişim kayıtları: IP adresi, istek yolu, zaman, tarayıcı/uygulama bilgisi</td><td>Hizmeti çalıştırmak, hataları ve kötüye kullanımı tespit etmek için. Konum bilgisi bu kayıtlara yazılmaz.</td><td>Barındırma sağlayıcısının (Render) kısa süreli kayıt saklama süresi boyunca.</td></tr>
@@ -68,7 +69,7 @@ const privacyTr = `
 </ul>
 
 <h2>Yalnızca cihazınızda kalan veriler</h2>
-<p>Dil ve bildirim tercihleri, kayıtlı yerleriniz, izleme listeniz ve uygulama içi uyarı kutunuz telefonunuzda saklanır; bize gönderilmez. Uygulamayı kaldırdığınızda silinir.</p>
+<p>Dil ve bildirim tercihleri, haritadaki il/ilçe kısayollarınız, izleme listeniz ve uygulama içi uyarı kutunuz telefonunuzda saklanır; bize gönderilmez. Uygulamayı kaldırdığınızda silinir.</p>
 
 <h2>Verileri kimlerle paylaşıyoruz</h2>
 <p>Verilerinizi satmayız, reklam için kullanmayız ve reklam ağlarıyla paylaşmayız. Uygulamada analitik veya izleme yazılımı yoktur. Verileriniz yalnızca hizmeti bizim adımıza çalıştıran altyapı sağlayıcılarında işlenir:</p>
@@ -85,14 +86,14 @@ const privacyTr = `
 <ul>
   <li><strong>CARTO ve OpenStreetMap</strong> — harita karoları (görüntülediğiniz harita bölgesi)</li>
   <li><strong>Google Fonts</strong> — yazı tipleri</li>
-  <li><strong>Copernicus EFFIS/GWIS</strong> — yangın hava indeksi; kayıtlı bir yerin indeksine baktığınızda o yerin koordinatları gönderilir</li>
+  <li><strong>Copernicus EFFIS/GWIS</strong> — yangın hava indeksi; kayıtlı ya da takip ettiğin bir yerin indeksine baktığınızda o yerin koordinatları gönderilir</li>
   <li><strong>Open-Meteo</strong> — bir yangının bulunduğu noktadaki rüzgâr (sizin konumunuz değil, yangının konumu gönderilir)</li>
 </ul>
 <p>Yangın ve termal tespit verileri (NASA FIRMS) ile risk hesabındaki hava durumu (Open-Meteo, MET Norway) sunucumuz tarafından çekilir; bu isteklerde sizinle ilgili veri yoktur. "Paylaş" düğmesiyle gönderdiğiniz içerik seçtiğiniz uygulamaya gider ve sunucumuzdan geçmez.</p>
 
 <h2>Haklarınız ve verilerinizi silme</h2>
 <ul>
-  <li><strong>Konum:</strong> Uygulamada Ayarlar → "Konum verimi sil" sunucudaki konumunuzu hemen siler. Bildirimleri kapatmak da konumu siler.</li>
+  <li><strong>Konum ve takip edilen yerler:</strong> Uygulamada Ayarlar → "Konum verimi sil" sunucudaki konumunuzu ve tüm takip ettiğiniz yerleri hemen siler. Tek bir yeri listeden silebilirsiniz. Bildirimleri kapatmak bildirim konumunuzu siler.</li>
   <li><strong>Diğer veriler:</strong> İhbar, geri bildirim veya e-posta adresinizin silinmesini, verilerinize erişimi ya da düzeltilmesini <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a> adresinden isteyebilirsiniz. Kaydı bulabilmemiz için ihbarın veya geri bildirimin tarihini belirtin. Talebinize en geç 30 gün içinde yanıt veririz.</li>
   <li>6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) ve uygulandığı durumlarda GDPR kapsamındaki haklarınızı aynı adresten kullanabilirsiniz.</li>
 </ul>
@@ -116,6 +117,7 @@ const privacyEn = `
 <tr><th>Data</th><th>When and why</th><th>How long</th></tr>
 <tr><td>Approximate location (latitude/longitude rounded to about 1 km)</td><td>Only when you grant location permission and start automatic monitoring for notifications. Used to send you fire and risk alerts for your area. Your exact location is never stored; it is rounded to about 1 km before it is written.</td><td>While notifications are on. Deleted immediately when you turn notifications off, tap "Delete my location data" in the app, or your device token becomes invalid (e.g. you uninstall the app).</td></tr>
 <tr><td>Device token (Firebase Cloud Messaging), notification scope (all of Turkey / region / province), registration and update time</td><td>To deliver notifications and respect the scope you chose. The app refreshes the token each time it opens.</td><td>90 days after you last opened the app, then deleted entirely. Opening the app again creates a new record.</td></tr>
+<tr><td>Your tracked places: the name you give, location rounded to about 1 km, radius (5/10/25 km), alert setting; a record of alerts sent for them. Your device is identified by a random ID the app generates, not by an account.</td><td>Only when you add a place to "My places". Used to notify you of new satellite heat detections within the radius, and never twice for the same detection.</td><td>Until you delete them. If you don't open the app for 90 days, or your device token has been invalid for 7 days, all your places are deleted. Alert records are deleted after 30 days.</td></tr>
 <tr><td>Fire report: location rounded to about 1 km, title, description, optional name and up to 3 photos</td><td>Only when you send a report. Used to review it and compare it with satellite detections.</td><td>90 days, then deleted together with its photos.</td></tr>
 <tr><td>Feedback: rating, category, message, app version and an optional email address</td><td>Only when you send feedback. Used to improve the app and, if you wish, to reply to you.</td><td>Until you ask us to delete it.</td></tr>
 <tr><td>Server access logs: IP address, request path, time, browser/app information</td><td>To run the service and detect errors and abuse. Locations are never written to these logs.</td><td>For the short log retention period of our hosting provider (Render).</td></tr>
@@ -131,7 +133,7 @@ const privacyEn = `
 </ul>
 
 <h2>Data that stays on your device</h2>
-<p>Language and notification preferences, saved places, your watchlist and the in-app alert inbox are stored on your phone and never sent to us. They are removed when you uninstall the app.</p>
+<p>Language and notification preferences, your province/district map shortcuts, your watchlist and the in-app alert inbox are stored on your phone and never sent to us. They are removed when you uninstall the app.</p>
 
 <h2>Who we share data with</h2>
 <p>We do not sell your data, use it for advertising, or share it with ad networks. The app contains no analytics or tracking software. Your data is processed only by infrastructure providers that run the service on our behalf:</p>
@@ -148,14 +150,14 @@ const privacyEn = `
 <ul>
   <li><strong>CARTO and OpenStreetMap</strong> — map tiles (the map area you view)</li>
   <li><strong>Google Fonts</strong> — fonts</li>
-  <li><strong>Copernicus EFFIS/GWIS</strong> — fire weather index; when you look up the index for a saved place, that place's coordinates are sent</li>
+  <li><strong>Copernicus EFFIS/GWIS</strong> — fire weather index; when you look up the index for a saved or tracked place, that place's coordinates are sent</li>
   <li><strong>Open-Meteo</strong> — wind at a fire's location (the fire's location is sent, not yours)</li>
 </ul>
 <p>Fire and thermal detections (NASA FIRMS) and the weather used for risk scoring (Open-Meteo, MET Norway) are fetched by our server; those requests contain no data about you. Content you send with a "Share" button goes to the app you choose and does not pass through our server.</p>
 
 <h2>Your rights and deleting your data</h2>
 <ul>
-  <li><strong>Location:</strong> Settings → "Delete my location data" in the app deletes your location from our server immediately. Turning notifications off deletes it as well.</li>
+  <li><strong>Location and tracked places:</strong> Settings → "Delete my location data" in the app deletes your location and all your tracked places from our server immediately. You can delete a single place from the list. Turning notifications off deletes your notification location.</li>
   <li><strong>Other data:</strong> to have a report, feedback or email address deleted, or to access or correct your data, write to <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>. Please include the date of the report or feedback so we can find it. We reply within 30 days.</li>
   <li>You can exercise your rights under Turkey's Personal Data Protection Law No. 6698 (KVKK) and, where it applies, the GDPR at the same address.</li>
 </ul>

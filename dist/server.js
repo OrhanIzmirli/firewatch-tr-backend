@@ -52,6 +52,7 @@ const pipelineHealth_1 = __importDefault(require("./routes/pipelineHealth"));
 const lossSummary_1 = __importDefault(require("./routes/lossSummary"));
 const history_1 = __importDefault(require("./routes/history"));
 const legal_1 = __importDefault(require("./routes/legal"));
+const places_1 = __importDefault(require("./routes/places"));
 const security_1 = require("./middleware/security");
 const newsScraperJob_1 = __importStar(require("./jobs/newsScraperJob"));
 const riskCalculatorJob_1 = __importDefault(require("./jobs/riskCalculatorJob"));
@@ -114,6 +115,7 @@ app.use('/api/thermal', thermal_1.default);
 app.use('/api/incidents', incidents_1.default);
 app.use('/api/loss-summary', lossSummary_1.default);
 app.use('/api/history', history_1.default);
+app.use('/api/places', places_1.default);
 // Registered before the /api/health handler so /api/health/pipeline resolves
 // here rather than falling through.
 app.use('/api/health', pipelineHealth_1.default);

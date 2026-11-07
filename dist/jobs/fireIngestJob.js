@@ -11,6 +11,7 @@ const database_1 = __importDefault(require("../config/database"));
 const jobRunRecorder_1 = require("../services/jobRunRecorder");
 const regions_1 = require("../utils/regions");
 const fireClusterJob_1 = __importDefault(require("./fireClusterJob"));
+const placeAlertJob_1 = __importDefault(require("./placeAlertJob"));
 /**
  * Persists raw FIRMS thermal detections into fire_detections.
  *
@@ -302,6 +303,9 @@ class FireIngestJob {
             // Clustering runs in the same tick as ingest so a detection never sits
             // unattached for a whole cron interval.
             await fireClusterJob_1.default.runClustering();
+            // Tracked-place heat alerts read the incidents clustering just wrote.
+            // Never throws; skips itself until migration 014 is applied.
+            await placeAlertJob_1.default.run();
             console.log(`🛰️  Ingest [${stats.products.join(', ') || 'none'}]: fetched ${stats.fetched}, ` +
                 `inserted ${stats.inserted}, duplicates ${stats.duplicates}, ` +
                 `outside bbox ${stats.outsideBbox}, outside border ${stats.outsideBorder}, ` +
