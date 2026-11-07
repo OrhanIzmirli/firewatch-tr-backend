@@ -59,6 +59,37 @@ async function forgetDeadTokens(tokens) {
     }
 }
 class NotificationService {
+    /**
+     * Sends individually-worded messages, 500 per FCM call, and reports each
+     * one's fate in input order. Dead tokens are reported, not cleaned up, so
+     * the caller can clear them wherever it keeps them.
+     */
+    async sendMessages(messages) {
+        const results = [];
+        for (const batch of chunk(messages, FCM_MULTICAST_LIMIT)) {
+            try {
+                const response = await (0, messaging_1.getMessaging)().sendEach(batch.map((m) => ({
+                    token: m.token,
+                    notification: { title: m.title, body: m.body },
+                    data: m.data ?? {},
+                    android: {
+                        priority: 'high',
+                        ttl: m.ttlSeconds !== undefined ? m.ttlSeconds * 1000 : undefined,
+                        notification: { channelId: m.androidChannelId, tag: m.tag },
+                    },
+                })));
+                for (const r of response.responses) {
+                    results.push({ success: r.success, deadToken: !r.success && (0, locationPrivacy_1.isDeadTokenError)(r.error?.code) });
+                }
+            }
+            catch (error) {
+                console.error('❌ sendEach chunk failed:', error.message);
+                for (let i = 0; i < batch.length; i++)
+                    results.push({ success: false, deadToken: false });
+            }
+        }
+        return results;
+    }
     async sendToToken(token, title, body, data) {
         try {
             const message = {
