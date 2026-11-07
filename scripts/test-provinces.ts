@@ -79,8 +79,9 @@ t('backfill rolls back beyond 5% of the expected count', () => {
 
 t('privacy page credits geoBoundaries and OpenStreetMap', () => {
   const legal = fs.readFileSync(path.join(__dirname, '..', 'src', 'routes', 'legal.ts'), 'utf8');
-  assert.match(legal, /geoBoundaries[\s\S]*OpenStreetMap katkıda bulunanlar/);
-  assert.match(legal, /geoBoundaries[\s\S]*OpenStreetMap contributors/);
+  // ODbL: "© OpenStreetMap contributors, ODbL", linked to the copyright page and the licence.
+  assert.match(legal, /copyright">© OpenStreetMap katkıcıları<\/a>, <a href="https:\/\/opendatacommons\.org\/licenses\/odbl\/1-0\/">ODbL<\/a>/);
+  assert.match(legal, /copyright">© OpenStreetMap contributors<\/a>, <a href="https:\/\/opendatacommons\.org\/licenses\/odbl\/1-0\/">ODbL<\/a>/);
 });
 
 console.log(failures === 0 ? '\nall passed' : `\n${failures} failed`);
