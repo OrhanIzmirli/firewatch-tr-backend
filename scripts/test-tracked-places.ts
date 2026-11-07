@@ -234,7 +234,10 @@ b('ingest runs the place alerts after clustering', () => {
 
 b('privacy policy describes tracked places in both languages', () => {
   const legal = src('src/routes/legal.ts');
-  assert.match(legal, /Takip ettiğin yerler: verdiğin ad, yaklaşık 1 km/);
+  assert.match(legal, /Takip ettiğiniz yerler: verdiğiniz ad, yaklaşık 1 km/);
+  assert.match(legal, /Uygulamayı 90 gün açmazsanız ya da cihaz belirteciniz 7 gündür geçersizse tüm yerleriniz silinir/);
+  assert.match(legal, /If you don't open the app for 90 days, or your device token has been invalid for 7 days, all your places are deleted/);
+  assert.doesNotMatch(legal, /ettiğin yer|verdiğin ad|Sen silene/, 'policy addresses the reader formally');
   assert.match(legal, /Your tracked places: the name you give, location rounded to about 1 km/);
   assert.match(legal, /tüm takip ettiğiniz yerleri hemen siler/);
   assert.match(legal, /all your tracked places from our server immediately/);
