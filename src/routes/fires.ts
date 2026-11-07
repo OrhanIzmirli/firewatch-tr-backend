@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import fireController from '../controllers/fireController';
 import pool from '../config/database';
+import { roundStoredCoordinate } from '../utils/locationPrivacy';
 import { rateLimit, requireAdminToken } from '../middleware/security';
 import { regionKeyForRegionName } from '../utils/regions';
 
@@ -281,6 +282,8 @@ router.post('/report', rateLimit('fire-report', 5, 60 * 60_000), async (req: Req
       verified = false;
     }
 
+    // Duplicate check, province lookup and NASA match above use the exact
+    // fix; only the ~1 km rounded position is stored (utils/locationPrivacy.ts).
     const result = await pool.query(
       `INSERT INTO fire_reports
         (title, description, latitude, longitude, reporter_name,
@@ -290,8 +293,8 @@ router.post('/report', rateLimit('fire-report', 5, 60 * 60_000), async (req: Req
       [
         title ?? `${city} yangın bildirimi`,
         description ?? '',
-        lat,
-        lng,
+        roundStoredCoordinate(lat),
+        roundStoredCoordinate(lng),
         reporter_name ?? 'Anonim',
         reporter_phone ?? '',
         'pending',

@@ -60,6 +60,8 @@ const fireClusterJob_1 = __importDefault(require("./jobs/fireClusterJob"));
 const newsVerificationJob_1 = __importDefault(require("./jobs/newsVerificationJob"));
 const newsSightingJob_1 = __importDefault(require("./jobs/newsSightingJob"));
 const burnedAreaJob_1 = __importDefault(require("./jobs/burnedAreaJob"));
+const privacyRetentionJob_1 = __importDefault(require("./jobs/privacyRetentionJob"));
+const locationPrivacy_1 = require("./utils/locationPrivacy");
 const cacheService_1 = __importDefault(require("./services/cacheService"));
 const database_1 = __importDefault(require("./config/database"));
 const newsSourceLogos_1 = require("./utils/newsSourceLogos");
@@ -87,7 +89,13 @@ app.use((0, cors_1.default)({
 app.use((0, security_1.rateLimit)('global', 300, 60000));
 // Default 100kb is too small for base64-encoded fire report photos.
 app.use(express_1.default.json({ limit: '10mb', type: 'application/json' }));
-app.use((0, morgan_1.default)(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+// The access log never carries a position: coordinate query parameters
+// (GET /api/fires/nearest-city?lat=..&lng=..) are written as "redacted".
+// Otherwise this is morgan's 'combined' / 'dev' format with the url token swapped.
+morgan_1.default.token('safe-url', (req) => (0, locationPrivacy_1.redactLocationInUrl)(req.originalUrl || req.url));
+app.use((0, morgan_1.default)(process.env.NODE_ENV === 'production'
+    ? ':remote-addr - :remote-user [:date[clf]] ":method :safe-url HTTP/:http-version" :status :res[content-length] ":referrer" ":user-agent"'
+    : ':method :safe-url :status :response-time ms - :res[content-length]'));
 app.use((0, compression_1.default)());
 // News source logos (utils/newsSourceLogos.ts) and nothing else live in
 // public/. Resolved from __dirname so it works from src/ under ts-node and
@@ -302,6 +310,9 @@ if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
     // axis only. Skips itself until migration 010 is applied and the Earthdata
     // service account is configured.
     burnedAreaJob_1.default.start();
+    // Deletes devices and fire reports older than 90 days and enforces the
+    // ~1 km location rounding (utils/locationPrivacy.ts).
+    privacyRetentionJob_1.default.start();
     console.log('Background jobs started');
 }
 runStartupMigrations();

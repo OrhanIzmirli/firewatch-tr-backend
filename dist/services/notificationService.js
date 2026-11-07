@@ -1,7 +1,13 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.forgetDeadTokens = forgetDeadTokens;
 const app_1 = require("firebase-admin/app");
 const messaging_1 = require("firebase-admin/messaging");
+const database_1 = __importDefault(require("../config/database"));
+const locationPrivacy_1 = require("../utils/locationPrivacy");
 // Firebase initialization - Base64 env variable'dan oku
 try {
     const base64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
@@ -30,6 +36,28 @@ function chunk(items, size) {
         out.push(items.slice(i, i + size));
     return out;
 }
+/**
+ * A token FCM has declared dead will never deliver again, so the location
+ * kept for it has no purpose left: deactivate the row and erase the
+ * location. The row itself goes with the 90-day retention sweep
+ * (jobs/privacyRetentionJob.ts). Best-effort — a failure here must never
+ * fail the send that discovered it.
+ */
+async function forgetDeadTokens(tokens) {
+    if (tokens.length === 0)
+        return 0;
+    try {
+        const result = await database_1.default.query(`UPDATE fcm_tokens
+       SET is_active = false, latitude = NULL, longitude = NULL
+       WHERE token = ANY($1::text[])`, [tokens]);
+        console.log(`🧹 FCM rejected ${tokens.length} dead token(s); ${result.rowCount ?? 0} row(s) deactivated, location erased`);
+        return result.rowCount ?? 0;
+    }
+    catch (error) {
+        console.error('forgetDeadTokens failed:', error.message);
+        return 0;
+    }
+}
 class NotificationService {
     async sendToToken(token, title, body, data) {
         try {
@@ -43,7 +71,10 @@ class NotificationService {
             return true;
         }
         catch (error) {
-            console.error('❌ Error sending message:', error);
+            const code = error?.code;
+            if ((0, locationPrivacy_1.isDeadTokenError)(code))
+                await forgetDeadTokens([token]);
+            console.error('❌ Error sending message:', code ?? error.message);
             return false;
         }
     }
@@ -56,6 +87,7 @@ class NotificationService {
         let successCount = 0;
         let failureCount = 0;
         let failedChunks = 0;
+        const deadTokens = [];
         for (const [index, batch] of chunks.entries()) {
             try {
                 const response = await (0, messaging_1.getMessaging)().sendEachForMulticast({
@@ -65,6 +97,10 @@ class NotificationService {
                 });
                 successCount += response.successCount;
                 failureCount += response.failureCount;
+                response.responses.forEach((r, i) => {
+                    if (!r.success && (0, locationPrivacy_1.isDeadTokenError)(r.error?.code))
+                        deadTokens.push(batch[i]);
+                });
             }
             catch (error) {
                 // One bad chunk must not abort the remaining ones — a partial send
@@ -73,6 +109,7 @@ class NotificationService {
                 console.error(`❌ Multicast chunk ${index + 1}/${chunks.length} failed:`, error.message);
             }
         }
+        await forgetDeadTokens(deadTokens);
         console.log(`✅ Multicast: ${successCount}/${tokens.length} delivered across ` +
             `${chunks.length} chunk(s) — ${failureCount} rejected by FCM, ` +
             `${failedChunks} chunk(s) errored`);

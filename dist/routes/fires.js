@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const fireController_1 = __importDefault(require("../controllers/fireController"));
 const database_1 = __importDefault(require("../config/database"));
+const locationPrivacy_1 = require("../utils/locationPrivacy");
 const security_1 = require("../middleware/security");
 const regions_1 = require("../utils/regions");
 const router = (0, express_1.Router)();
@@ -248,6 +249,8 @@ router.post('/report', (0, security_1.rateLimit)('fire-report', 5, 60 * 60000), 
             // fires tablosunda geometry yoksa doğrulama atla
             verified = false;
         }
+        // Duplicate check, province lookup and NASA match above use the exact
+        // fix; only the ~1 km rounded position is stored (utils/locationPrivacy.ts).
         const result = await database_1.default.query(`INSERT INTO fire_reports
         (title, description, latitude, longitude, reporter_name,
          reporter_phone, status, verified, photo_urls, created_at, updated_at)
@@ -255,8 +258,8 @@ router.post('/report', (0, security_1.rateLimit)('fire-report', 5, 60 * 60000), 
        RETURNING id, created_at`, [
             title ?? `${city} yangın bildirimi`,
             description ?? '',
-            lat,
-            lng,
+            (0, locationPrivacy_1.roundStoredCoordinate)(lat),
+            (0, locationPrivacy_1.roundStoredCoordinate)(lng),
             reporter_name ?? 'Anonim',
             reporter_phone ?? '',
             'pending',

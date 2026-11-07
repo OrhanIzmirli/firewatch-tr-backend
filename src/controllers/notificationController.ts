@@ -3,6 +3,7 @@ import pool from '../config/database';
 import notificationService from '../services/notificationService';
 import { isRegionKey, regionKeyForCoordinates, regionKeyForRegionName } from '../utils/regions';
 import { resolveLocation } from '../services/locationService';
+import { roundStoredCoordinate } from '../utils/locationPrivacy';
 
 type AlertScope = 'all' | 'region' | 'city';
 
@@ -154,8 +155,10 @@ class NotificationController {
           token,
           typeof device_info === 'string' ? device_info.slice(0, 100) : 'FireWatch TR',
           'android',
-          lat,
-          lng,
+          // The exact fix resolved the province above; only the ~1 km
+          // rounded value is kept (utils/locationPrivacy.ts).
+          roundStoredCoordinate(lat),
+          roundStoredCoordinate(lng),
           scope.alertScope,
           regionToStore,
           scope.cityId,
@@ -182,10 +185,8 @@ class NotificationController {
     }
   }
 
-  // Only touches columns confirmed present in every known schema revision
-  // (token, is_active) — subscribeToken above references device_name/
-  // device_type/updated_at, which aren't in schema.sql, implying the live
-  // table was altered out-of-band; avoiding those keeps this safe regardless.
+  // Turning notifications off also erases the stored location: the only
+  // reason the server keeps it is to target alerts at this device.
   async unsubscribeToken(req: Request, res: Response): Promise<void> {
     try {
       const { token } = req.body;
@@ -195,7 +196,12 @@ class NotificationController {
         return;
       }
 
-      await pool.query(`UPDATE fcm_tokens SET is_active = false WHERE token = $1`, [token]);
+      await pool.query(
+        `UPDATE fcm_tokens
+         SET is_active = false, latitude = NULL, longitude = NULL, updated_at = NOW()
+         WHERE token = $1`,
+        [token]
+      );
 
       res.json({
         status: 'success',
@@ -283,13 +289,23 @@ class NotificationController {
       const result = await pool.query(
         `UPDATE fcm_tokens SET
            is_active = $2,
-           latitude = COALESCE($3, latitude),
-           longitude = COALESCE($4, longitude),
+           -- Off erases the location; on keeps it unless a new fix came in.
+           latitude  = CASE WHEN $2 THEN COALESCE($3, latitude)  ELSE NULL END,
+           longitude = CASE WHEN $2 THEN COALESCE($4, longitude) ELSE NULL END,
+           updated_at = NOW(),
            alert_scope = COALESCE($5, alert_scope),
            region_key = CASE WHEN $5 IS NULL THEN region_key ELSE $6 END,
            city_id    = CASE WHEN $5 IS NULL THEN city_id    ELSE $7 END
          WHERE token = $1 RETURNING token, alert_scope, region_key, city_id`,
-        [token, is_active, lat, lng, scope.alertScope, regionToStore, scope.cityId]
+        [
+          token,
+          is_active,
+          roundStoredCoordinate(lat),
+          roundStoredCoordinate(lng),
+          scope.alertScope,
+          regionToStore,
+          scope.cityId,
+        ]
       );
       if (result.rowCount === 0) {
         res.status(404).json({ status: 'error', message: 'Token not registered' });
@@ -313,6 +329,45 @@ class NotificationController {
     } catch (error) {
       console.error('Error in setActiveStatus:', error);
       res.status(500).json({ status: 'error', message: 'Unable to update notification status' });
+    }
+  }
+
+  /**
+   * POST /api/notify/location/delete — the app's "Delete my location data".
+   *
+   * Erases the stored location and nothing else: notifications and the
+   * chosen scope stay as they are. With no location on file the risk job
+   * treats the device as unplaced and includes it in every region's alert
+   * (riskCalculatorJob.getActiveTokensNearRegion) unless it picked a region
+   * or province — the app says so before the user confirms.
+   */
+  async deleteLocation(req: Request, res: Response): Promise<void> {
+    try {
+      const { token } = req.body ?? {};
+      if (typeof token !== 'string' || token.length < 20 || token.length > 4096) {
+        res.status(400).json({ status: 'error', message: 'Token is required' });
+        return;
+      }
+
+      await pool.query(
+        `UPDATE fcm_tokens
+         SET latitude = NULL, longitude = NULL, updated_at = NOW()
+         WHERE token = $1`,
+        [token]
+      );
+
+      // 200 either way: "nothing stored for this token" is the state the
+      // user asked for, and the answer must not reveal whether a token is
+      // registered.
+      res.json({
+        status: 'success',
+        message: 'Location data deleted',
+        timestamp: new Date().toISOString(),
+        data: { location_stored: false },
+      });
+    } catch (error) {
+      console.error('Error in deleteLocation:', error);
+      res.status(500).json({ status: 'error', message: 'Unable to delete location data' });
     }
   }
 

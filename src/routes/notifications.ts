@@ -10,6 +10,9 @@ router.post('/subscribe', rateLimit('notify-subscribe', 10, 60 * 60_000), (req, 
 // POST /api/notify/unsubscribe - Kullanıcı bildirimleri kapattığında token'ı pasifleştir
 router.post('/unsubscribe', rateLimit('notify-unsubscribe', 10, 60 * 60_000), (req, res) => notificationController.unsubscribeToken(req, res));
 
+// POST /api/notify/location/delete - Uygulamadaki "Konum verimi sil": yalnızca saklanan konumu siler
+router.post('/location/delete', rateLimit('notify-location-delete', 10, 60 * 60_000), (req, res) => notificationController.deleteLocation(req, res));
+
 // PATCH /api/notify/subscribe - Konum güncellemeden is_active aç/kapat
 router.patch('/subscribe', rateLimit('notify-subscribe-patch', 20, 60 * 60_000), (req, res) => notificationController.setActiveStatus(req, res));
 

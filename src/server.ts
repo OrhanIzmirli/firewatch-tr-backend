@@ -23,6 +23,8 @@ import fireClusterJob from './jobs/fireClusterJob';
 import newsVerificationJob from './jobs/newsVerificationJob';
 import newsSightingJob from './jobs/newsSightingJob';
 import burnedAreaJob from './jobs/burnedAreaJob';
+import privacyRetentionJob from './jobs/privacyRetentionJob';
+import { redactLocationInUrl } from './utils/locationPrivacy';
 import cacheService from './services/cacheService';
 import pool from './config/database';
 import { STATIC_MOUNT_PATH } from './utils/newsSourceLogos';
@@ -53,7 +55,15 @@ app.use(cors({
 app.use(rateLimit('global', 300, 60_000));
 // Default 100kb is too small for base64-encoded fire report photos.
 app.use(express.json({ limit: '10mb', type: 'application/json' }));
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+// The access log never carries a position: coordinate query parameters
+// (GET /api/fires/nearest-city?lat=..&lng=..) are written as "redacted".
+// Otherwise this is morgan's 'combined' / 'dev' format with the url token swapped.
+morgan.token('safe-url', (req) => redactLocationInUrl((req as express.Request).originalUrl || req.url));
+app.use(morgan(
+  process.env.NODE_ENV === 'production'
+    ? ':remote-addr - :remote-user [:date[clf]] ":method :safe-url HTTP/:http-version" :status :res[content-length] ":referrer" ":user-agent"'
+    : ':method :safe-url :status :response-time ms - :res[content-length]'
+));
 app.use(compression());
 
 // News source logos (utils/newsSourceLogos.ts) and nothing else live in
@@ -283,6 +293,9 @@ if (process.env.DISABLE_BACKGROUND_JOBS !== 'true') {
   // axis only. Skips itself until migration 010 is applied and the Earthdata
   // service account is configured.
   burnedAreaJob.start();
+  // Deletes devices and fire reports older than 90 days and enforces the
+  // ~1 km location rounding (utils/locationPrivacy.ts).
+  privacyRetentionJob.start();
   console.log('Background jobs started');
 }
 
