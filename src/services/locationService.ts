@@ -1,4 +1,5 @@
 import pool from '../config/database';
+import { resolveProvince } from './provinces';
 import { regionKeyForCoordinates, regionKeyForRegionName } from '../utils/regions';
 
 /**
@@ -45,28 +46,17 @@ export async function resolveLocation(
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return EMPTY;
 
   try {
-    const result = await pool.query(
-      `SELECT id, name, region,
-              ST_Distance(
-                location::geography,
-                ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
-              ) / 1000 AS distance_km
-       FROM turkey_cities
-       ORDER BY location <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)
-       LIMIT 1`,
-      [lng, lat]
-    );
-
-    const row = result.rows[0];
+    // The province the point is in (services/provinces.ts).
+    const row = await resolveProvince(pool, lat, lng);
     if (!row) return { ...EMPTY, regionKey: regionKeyForCoordinates(lat, lng) };
 
     return {
-      cityId: Number(row.id),
-      cityName: row.name ?? null,
-      regionName: row.region ?? null,
+      cityId: row.id,
+      cityName: row.name,
+      regionName: row.region,
       regionKey:
         regionKeyForRegionName(row.region) ?? regionKeyForCoordinates(lat, lng),
-      distanceKm: Number(row.distance_km),
+      distanceKm: row.distanceKm,
     };
   } catch (error) {
     console.error('resolveLocation failed:', (error as Error).message);

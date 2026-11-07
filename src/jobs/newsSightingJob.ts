@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import pool from '../config/database';
+import { canonicalProvinceNames, withFormerNames } from '../services/provinces';
 import { recordJobRun } from '../services/jobRunRecorder';
 import {
   assessRelevance,
@@ -209,7 +210,7 @@ class NewsSightingJob {
 
   private async loadCityNames(): Promise<string[]> {
     const result = await pool.query(`SELECT name FROM turkey_cities`);
-    return result.rows.map((row: any) => String(row.name));
+    return withFormerNames(result.rows.map((row: any) => String(row.name)));
   }
 
   /**
@@ -232,7 +233,7 @@ class NewsSightingJob {
     const claim = extractStatusClaim(text);
     if (claim !== null && claim.state !== 'ongoing') return 'status_claim_excluded';
 
-    const provinces = mentionedCities(text, [...cityNames]);
+    const provinces = canonicalProvinceNames(mentionedCities(text, [...cityNames]));
     const mentions = mentionedDistricts(text, districts, provinces);
     const mention = singleDistrict(mentions);
     if (mention === null) {

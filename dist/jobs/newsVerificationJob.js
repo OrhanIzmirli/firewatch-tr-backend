@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const node_cron_1 = __importDefault(require("node-cron"));
 const database_1 = __importDefault(require("../config/database"));
+const provinces_1 = require("../services/provinces");
 const jobRunRecorder_1 = require("../services/jobRunRecorder");
 const officialStatusExtractor_1 = require("../services/officialStatusExtractor");
 /**
@@ -118,6 +119,16 @@ class NewsVerificationJob {
             const map = new Map();
             for (const row of result.rows)
                 map.set(String(row.name), Number(row.id));
+            // News still says "İçel" for Mersin now and then.
+            // Both ways, so it works before and after migration 015's rename.
+            for (const [current, formers] of Object.entries(provinces_1.PROVINCE_FORMER_NAMES)) {
+                const id = map.get(current) ?? formers.map((f) => map.get(f)).find((v) => v !== undefined);
+                if (id === undefined)
+                    continue;
+                map.set(current, id);
+                for (const former of formers)
+                    map.set(former, id);
+            }
             return map;
         }
         catch {
@@ -147,7 +158,8 @@ class NewsVerificationJob {
             });
             return 'no_claim';
         }
-        const named = (0, officialStatusExtractor_1.mentionedCities)(text, [...cities.keys()]);
+        // A former and a current name of one province are one city, not two.
+        const named = (0, provinces_1.canonicalProvinceNames)((0, officialStatusExtractor_1.mentionedCities)(text, [...cities.keys()]));
         if (named.length !== 1) {
             const outcome = named.length === 0 ? 'no_city' : 'multiple_cities';
             await this.saveVerdict(article, publishedAt, {

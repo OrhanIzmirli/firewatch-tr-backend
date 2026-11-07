@@ -30,7 +30,9 @@ interface SeedRow {
  * table the API already keys alerts on.
  */
 const PROVINCE_ALIASES: Record<string, string> = {
+  // Migration 015 renamed turkey_cities 33 to "Mersin"; either name matches.
   mersin: 'İçel',
+  icel: 'Mersin',
 };
 
 /** 'İçel', 'Icel' and 'içel' compare equal; mirrors regions.ts's fold. */
@@ -54,9 +56,12 @@ async function main() {
   const cityIdByFolded = new Map<string, number>();
   for (const c of cities.rows) cityIdByFolded.set(fold(String(c.name)), Number(c.id));
 
+  const provinceIdFor = (name: string) =>
+    cityIdByFolded.get(fold(name)) ?? cityIdByFolded.get(cityKey(name));
+
   const unmatched = new Set<string>();
   for (const r of rows) {
-    if (!cityIdByFolded.has(cityKey(r.province))) unmatched.add(r.province);
+    if (provinceIdFor(r.province) === undefined) unmatched.add(r.province);
   }
   if (unmatched.size > 0) {
     console.error(
@@ -72,7 +77,7 @@ async function main() {
   try {
     await client.query('BEGIN');
     for (const r of rows) {
-      const provinceId = cityIdByFolded.get(cityKey(r.province))!;
+      const provinceId = provinceIdFor(r.province)!;
       const result = await client.query(
         `INSERT INTO turkey_districts (name, province_id, province_name, location, source)
          VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326), $6)
