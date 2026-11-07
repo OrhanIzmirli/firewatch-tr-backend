@@ -23,6 +23,7 @@
     "test:news-source-logos": "ts-node --project tsconfig.scripts.json scripts/test-news-source-logos.ts",
     "test:nearby-fire-count": "ts-node --project tsconfig.scripts.json scripts/test-nearby-fire-count.ts",
     "test:fire-history": "ts-node --project tsconfig.scripts.json scripts/test-fire-history.ts",
+    "test:fire-history-db": "ts-node --project tsconfig.scripts.json scripts/test-fire-history-db.ts",
     "test:wildfire-relevance": "ts-node --project tsconfig.scripts.json scripts/test-wildfire-relevance.ts",
     "test:firms-products": "ts-node --project tsconfig.scripts.json scripts/test-firms-products.ts",
     "test:weather-providers": "ts-node --project tsconfig.scripts.json scripts/test-weather-providers.ts",

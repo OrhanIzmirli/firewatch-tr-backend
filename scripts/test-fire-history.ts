@@ -8,10 +8,14 @@
  * shape with area_ha null and NASA FIRMS as the source.
  */
 import assert from 'node:assert';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   FIRMS_MAP_URL,
   HISTORY_MAX_RANGE_DAYS,
   HISTORY_BUFFER_M,
+  HISTORY_GEOMETRY_DECIMALS,
+  displayProvinceName,
   HISTORY_MIN_DETECTIONS,
   historySql,
   parseHistoryRange,
@@ -74,6 +78,34 @@ b('SQL: 188 m buffer, polygons only, simplified', () => {
   assert.match(sql, /ST_SimplifyPreserveTopology\(/);
 });
 
+b('SQL: city is the nearest district’s own province, city_id only as fallback', () => {
+  const sql = historySql();
+  assert.match(sql, /COALESCE\(d\.province_name, c\.name\) AS city/);
+  assert.match(sql, /SELECT td\.name, td\.province_name FROM turkey_districts td/);
+  assert.ok(!/c\.name AS city/.test(sql));
+});
+b('SQL: footprint coordinates at 4 decimals (~11 m)', () => {
+  assert.strictEqual(HISTORY_GEOMETRY_DECIMALS, 4);
+  assert.match(historySql(), /\),\s*4\s*\) AS geometry/);
+});
+b('province names: İçel is shown as Mersin, others unchanged', () => {
+  assert.strictEqual(displayProvinceName('İçel'), 'Mersin');
+  assert.strictEqual(displayProvinceName('Icel'), 'Mersin');
+  assert.strictEqual(displayProvinceName('Mersin'), 'Mersin');
+  assert.strictEqual(displayProvinceName('Şanlıurfa'), 'Şanlıurfa');
+  assert.strictEqual(displayProvinceName(null), null);
+});
+b('server: compression() is mounted before /api/history', () => {
+  const server = readFileSync(join(__dirname, '..', 'src', 'server.ts'), 'utf8');
+  const compress = server.indexOf('app.use(compression(');
+  const history = server.indexOf("app.use('/api/history'");
+  assert.ok(compress > 0 && history > 0 && compress < history);
+});
+b('history cache key is v2 (city values changed)', () => {
+  const route = readFileSync(join(__dirname, '..', 'src', 'routes', 'history.ts'), 'utf8');
+  assert.match(route, /`history:v2:\$\{range\.from\}:\$\{range\.to\}`/);
+});
+
 const row = {
   id: '3725',
   city: 'Antalya',
@@ -116,6 +148,9 @@ b('feature: NASA FIRMS source, footprint geometry kind', () => {
   assert.strictEqual(p.source_url, FIRMS_MAP_URL);
   assert.strictEqual(p.geometry_kind, 'satellite_heat_detection_footprint');
   assert.deepStrictEqual(p.centroid, [30.71235, 36.98765]);
+});
+b('feature: a fallback "İçel" becomes "Mersin"', () => {
+  assert.strictEqual(toHistoryFeature({ ...row, city: 'İçel', district: null }).properties.city, 'Mersin');
 });
 b('feature: null FRP and missing district stay null', () => {
   const p = toHistoryFeature({ ...row, max_frp_mw: null, district: null }).properties;
