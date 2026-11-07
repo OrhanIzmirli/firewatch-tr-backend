@@ -30,7 +30,7 @@ router.get('/', rateLimit('history', 30, 60_000), async (req: Request, res: Resp
   }
 
   try {
-    const cacheKey = `history:v1:${range.from}:${range.to}`;
+    const cacheKey = `history:v2:${range.from}:${range.to}`;
     const cached = await cacheService.get<unknown>(cacheKey);
     if (cached) {
       res.set('Cache-Control', 'public, max-age=900');

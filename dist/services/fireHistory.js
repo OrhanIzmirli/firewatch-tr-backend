@@ -1,9 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FIRMS_MAP_URL = exports.HISTORY_SOURCE = exports.HISTORY_TIME_ZONE = exports.HISTORY_SIMPLIFY_DEG = exports.HISTORY_BUFFER_M = exports.HISTORY_MAX_RANGE_DAYS = exports.HISTORY_MIN_DETECTIONS = void 0;
+exports.FIRMS_MAP_URL = exports.HISTORY_SOURCE = exports.HISTORY_TIME_ZONE = exports.HISTORY_GEOMETRY_DECIMALS = exports.HISTORY_SIMPLIFY_DEG = exports.HISTORY_BUFFER_M = exports.HISTORY_MAX_RANGE_DAYS = exports.HISTORY_MIN_DETECTIONS = void 0;
 exports.parseIsoDate = parseIsoDate;
 exports.parseHistoryRange = parseHistoryRange;
 exports.historySql = historySql;
+exports.displayProvinceName = displayProvinceName;
 exports.toHistoryFeature = toHistoryFeature;
 exports.toHistoryCollection = toHistoryCollection;
 const heatSource_1 = require("./heatSource");
@@ -22,6 +23,12 @@ const heatSource_1 = require("./heatSource");
  *             "N football pitches" comparison it cannot support.
  *   district  the district whose centre is nearest the incident centroid,
  *             flagged as such; near a border it can be the neighbour.
+ *   city      the province that district belongs to (turkey_districts
+ *             .province_name), so city/district is always a real pair.
+ *             It is NOT fire_incidents.city_id: that is the nearest
+ *             province *centre*, which disagreed with the district for
+ *             28% of incidents (e.g. "Diyarbakır / Siverek"). city_id is
+ *             only the fallback when no district row exists at all.
  *   source    NASA FIRMS (VIIRS / MODIS active fire), not EFFIS. No
  *             official record exists for these incidents.
  *
@@ -34,14 +41,22 @@ exports.HISTORY_MIN_DETECTIONS = 5;
 /**
  * The app's period presets reach back to June 1 of last year (~520 days) and
  * three years from today (up to 1,097 days inclusive). 1,100 covers both.
- * Payload grows with the data: about 0.8 MB gzipped per 3 months of fire
- * season at today's inclusion rule.
+ * Payload grows with the data: about 0.45 MB gzipped (2.15 MB raw) for the
+ * four months of 2026 fire season at today's inclusion rule.
  */
 exports.HISTORY_MAX_RANGE_DAYS = 1100;
 /** Half a VIIRS I-band pixel (375 m), metres. */
 exports.HISTORY_BUFFER_M = 188;
 /** Simplification tolerance in degrees (~55 m at Türkiye's latitude). */
 exports.HISTORY_SIMPLIFY_DEG = 0.0005;
+/**
+ * Decimal places of the footprint coordinates: 4 ≈ 11 m, well under the
+ * 55 m simplification and the 188 m buffer, so the drawn shape does not
+ * change visibly. Geometry is ~75% of the payload; 5 → 4 decimals cut the
+ * "Bu yaz" response (2026-06-01..09-30) from 543 KB to 434 KB gzipped.
+ * Rounding only drops digits: every ring keeps its vertex count.
+ */
+exports.HISTORY_GEOMETRY_DECIMALS = 4;
 exports.HISTORY_TIME_ZONE = 'Europe/Istanbul';
 exports.HISTORY_SOURCE = {
     provider: 'NASA FIRMS',
@@ -87,7 +102,7 @@ function historySql() {
              ($2::date + 1)::timestamp AT TIME ZONE '${exports.HISTORY_TIME_ZONE}' AS hi
     )
     SELECT i.id,
-           c.name AS city,
+           COALESCE(d.province_name, c.name) AS city,
            d.name AS district,
            to_char(i.first_detected_at AT TIME ZONE '${exports.HISTORY_TIME_ZONE}', 'YYYY-MM-DD') AS date_start,
            to_char(i.last_detected_at AT TIME ZONE '${exports.HISTORY_TIME_ZONE}', 'YYYY-MM-DD') AS date_end,
@@ -103,13 +118,13 @@ function historySql() {
                  ST_Buffer(i.footprint::geography, ${exports.HISTORY_BUFFER_M}, 'quad_segs=2')::geometry,
                  ${exports.HISTORY_SIMPLIFY_DEG}
                ), 3),
-             5
+             ${exports.HISTORY_GEOMETRY_DECIMALS}
            ) AS geometry
       FROM fire_incidents i
       CROSS JOIN bounds b
       LEFT JOIN turkey_cities c ON c.id = i.city_id
       LEFT JOIN LATERAL (
-        SELECT td.name FROM turkey_districts td
+        SELECT td.name, td.province_name FROM turkey_districts td
          ORDER BY td.location <-> i.centroid
          LIMIT 1
       ) d ON true
@@ -125,6 +140,22 @@ function historySql() {
  * confirmed on 2026-11-06, and a wrong link is worse than a general one.
  */
 exports.FIRMS_MAP_URL = 'https://firms.modaps.eosdis.nasa.gov/map/';
+/**
+ * turkey_cities keeps Mersin under its former official name "İçel" (see
+ * scripts/seed-turkey-districts.ts). People know it as Mersin, and the
+ * district seed already says Mersin; the city_id fallback must too.
+ */
+const PROVINCE_DISPLAY_NAMES = {
+    'İçel': 'Mersin',
+    'Icel': 'Mersin',
+};
+/** The province name as shown in the app ("İçel" → "Mersin"). */
+function displayProvinceName(name) {
+    if (name === null)
+        return null;
+    const trimmed = name.trim();
+    return PROVINCE_DISPLAY_NAMES[trimmed] ?? trimmed;
+}
 const round1 = (n) => Math.round(n * 10) / 10;
 const round5 = (n) => Math.round(n * 1e5) / 1e5;
 /** One GeoJSON Feature in the app contract's shape. */
@@ -135,7 +166,7 @@ function toHistoryFeature(row) {
         id: Number(row.id),
         geometry: row.geometry ? JSON.parse(row.geometry) : null,
         properties: {
-            city: row.city,
+            city: displayProvinceName(row.city),
             district: row.district,
             district_basis: row.district ? 'nearest_district_center' : null,
             date_start: row.date_start,
