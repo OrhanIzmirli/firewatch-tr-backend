@@ -109,6 +109,7 @@ b('alert text: place, distance, "not a confirmed fire", 112 — both languages',
 
 const pair = (over: Partial<any>): any => ({
   place_id: 'p1', install_id: 'd1', incident_id: '100', place_name: 'Ev', distance_m: 9000,
+  incident_lat: 38.5, incident_lng: 27.2,
   fcm_token: 'tok-d1-xxxxxxxxxxxxxxxx', locale: 'tr', recent_delivered: 0, ...over,
 });
 
@@ -149,7 +150,7 @@ b('push message: places channel, per-incident tag, 6 h TTL, deep-link data', () 
   assert.strictEqual(m.androidChannelId, 'firewatch_places');
   assert.strictEqual(m.tag, 'incident-777');
   assert.strictEqual(m.ttlSeconds, 21600);
-  assert.deepStrictEqual(m.data, { type: 'place_heat', place_id: 'p9', incident_id: '777' });
+  assert.deepStrictEqual(m.data, { type: 'place_heat', place_id: 'p9', incident_id: '777', lat: '38.5', lng: '27.2' });
 });
 
 const sql = newHeatPairsSql();

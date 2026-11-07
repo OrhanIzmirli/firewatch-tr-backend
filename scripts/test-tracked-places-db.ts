@@ -127,6 +127,7 @@ const north = (lat: number, km: number) => lat + km / 111.32;
       assert.strictEqual(row.fcm_token, 'token-device-one-xxxxxxxx');
       assert.ok(Math.abs(Number(row.distance_m) - 8000) < 150, `distance ${row.distance_m}`);
       assert.strictEqual(row.recent_delivered, 0);
+      assert.ok(Math.abs(row.incident_lat - north(38.42, 8)) < 1e-3 && Math.abs(row.incident_lng - 27.14) < 1e-9);
     });
 
     await b('the same pair never comes back (one alert per incident)', async () => {

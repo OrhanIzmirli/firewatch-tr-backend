@@ -48,6 +48,9 @@ interface NewPair {
   incident_id: string;
   place_name: string;
   distance_m: number;
+  /** Incident centroid (satellite data, not the user's), for the map deep link. */
+  incident_lat: number;
+  incident_lng: number;
   fcm_token: string | null;
   locale: Locale;
   recent_delivered: number;
@@ -80,6 +83,8 @@ export function newHeatPairsSql(): string {
     SELECT ins.place_id, ins.install_id, ins.ref_key AS incident_id,
            p.name AS place_name,
            ST_Distance(p.geom, i.centroid::geography) AS distance_m,
+           round(ST_Y(i.centroid)::numeric, 4)::float AS incident_lat,
+           round(ST_X(i.centroid)::numeric, 4)::float AS incident_lng,
            d.fcm_token, d.locale,
            (SELECT count(*)::int FROM place_notifications n
              WHERE n.install_id = ins.install_id AND n.delivered
@@ -144,6 +149,8 @@ export function buildPushMessage(push: DevicePush): PushMessage {
       type: 'place_heat',
       place_id: push.nearest.place_id,
       incident_id: String(push.nearest.incident_id),
+      lat: String(push.nearest.incident_lat),
+      lng: String(push.nearest.incident_lng),
     },
     androidChannelId: PLACES_ANDROID_CHANNEL,
     // Same incident → same tag, so a resend can never stack two banners.

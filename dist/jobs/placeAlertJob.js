@@ -71,6 +71,8 @@ function newHeatPairsSql() {
     SELECT ins.place_id, ins.install_id, ins.ref_key AS incident_id,
            p.name AS place_name,
            ST_Distance(p.geom, i.centroid::geography) AS distance_m,
+           round(ST_Y(i.centroid)::numeric, 4)::float AS incident_lat,
+           round(ST_X(i.centroid)::numeric, 4)::float AS incident_lng,
            d.fcm_token, d.locale,
            (SELECT count(*)::int FROM place_notifications n
              WHERE n.install_id = ins.install_id AND n.delivered
@@ -126,6 +128,8 @@ function buildPushMessage(push) {
             type: 'place_heat',
             place_id: push.nearest.place_id,
             incident_id: String(push.nearest.incident_id),
+            lat: String(push.nearest.incident_lat),
+            lng: String(push.nearest.incident_lng),
         },
         androidChannelId: trackedPlaces_1.PLACES_ANDROID_CHANNEL,
         // Same incident → same tag, so a resend can never stack two banners.
