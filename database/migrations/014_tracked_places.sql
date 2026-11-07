@@ -65,22 +65,39 @@ CREATE INDEX IF NOT EXISTS idx_tracked_places_install
 CREATE INDEX IF NOT EXISTS idx_tracked_places_geom
   ON tracked_places USING GIST (geom);
 
--- One row per (place, incident) ever considered for an alert, delivered or
--- not: the primary key is what makes "one alert per incident" hold even when
--- a run is retried. kind leaves room for 1.3.0's risk/news alerts.
+-- One row per (place, incident) ever considered for an alert: the primary
+-- key is what makes "one alert per incident" hold even when a run is
+-- retried. kind leaves room for 1.3.0's risk/news alerts.
+--
+-- status:
+--   new           just recorded, not yet handled (only inside one run)
+--   sent          went out in a push (push_id, pushed_at set)
+--   held          over the device's cap (3 pushes / 6 h); waits for the
+--                 window to end, then goes out in one summary push
+--   summarized    went out in that summary (push_id, pushed_at set)
+--   undeliverable the device had no live FCM token; never sent
+-- The cap counts pushes (distinct push_id), not rows: one push can carry
+-- several new detections.
 CREATE TABLE IF NOT EXISTS place_notifications (
   place_id   UUID NOT NULL REFERENCES tracked_places (id) ON DELETE CASCADE,
   kind       TEXT NOT NULL CHECK (kind IN ('heat')),
   ref_key    TEXT NOT NULL,
   install_id UUID NOT NULL,
-  delivered  BOOLEAN NOT NULL DEFAULT FALSE,
+  status     TEXT NOT NULL DEFAULT 'new'
+               CHECK (status IN ('new', 'sent', 'held', 'summarized', 'undeliverable')),
+  push_id    UUID,
+  pushed_at  TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (place_id, kind, ref_key)
+  PRIMARY KEY (place_id, kind, ref_key),
+  CHECK ((status IN ('sent', 'summarized')) = (push_id IS NOT NULL AND pushed_at IS NOT NULL))
 );
 
--- The per-device rate cap counts delivered rows in the last few hours.
-CREATE INDEX IF NOT EXISTS idx_place_notifications_device_recent
-  ON place_notifications (install_id, created_at DESC) WHERE delivered;
+-- The per-device cap counts this device's pushes in the last few hours.
+CREATE INDEX IF NOT EXISTS idx_place_notifications_device_pushes
+  ON place_notifications (install_id, pushed_at DESC) WHERE push_id IS NOT NULL;
+-- Held detections waiting for their summary.
+CREATE INDEX IF NOT EXISTS idx_place_notifications_held
+  ON place_notifications (install_id) WHERE status = 'held';
 CREATE INDEX IF NOT EXISTS idx_place_notifications_created
   ON place_notifications (created_at);
 

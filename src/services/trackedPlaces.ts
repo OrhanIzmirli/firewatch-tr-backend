@@ -158,6 +158,27 @@ export function buildHeatAlertText(
   };
 }
 
+/**
+ * The one push sent when a device's cap window ends with detections held
+ * back: how many, same caveats. Tapping it opens the tracked-places list.
+ */
+export function buildHeatSummaryText(locale: Locale, count: number): HeatAlertText {
+  if (locale === 'en') {
+    return {
+      title: `🛰️ ${count} new detection${count === 1 ? '' : 's'} near your places`,
+      body:
+        `Satellites detected ${count} more heat source${count === 1 ? '' : 's'} near the places you track. ` +
+        'These are not confirmed fires. If you see a fire, call 112.',
+    };
+  }
+  return {
+    title: `🛰️ Takip ettiğin yerlerin yakınında ${count} yeni tespit`,
+    body:
+      `Uydular, takip ettiğin yerlerin yakınında ${count} ısı kaynağı daha tespit etti. ` +
+      'Bunlar doğrulanmış yangın değildir. Yangın görürsen 112\'yi ara.',
+  };
+}
+
 let tablesAvailable: Promise<boolean> | null = null;
 
 /**

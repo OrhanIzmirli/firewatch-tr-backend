@@ -15,6 +15,7 @@ import {
   HEAT_ALERT_DEVICE_CAP,
   MAX_PLACES_PER_DEVICE,
   buildHeatAlertText,
+  buildHeatSummaryText,
   hashInstallSecret,
   normalizePlaceName,
   parseInstallSecret,
@@ -29,7 +30,7 @@ import {
 // runs a query.
 process.env.DATABASE_URL = 'postgres://nobody@127.0.0.1:1/none';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { buildPushMessage, newHeatPairsSql, planDevicePushes } = require('../src/jobs/placeAlertJob') as typeof import('../src/jobs/placeAlertJob');
+const { buildPushMessage, buildSummaryMessage, dueSummariesSql, newHeatPairsSql, planDevicePushes } = require('../src/jobs/placeAlertJob') as typeof import('../src/jobs/placeAlertJob');
 
 let failures = 0;
 const b = (name: string, fn: () => void) => {
@@ -110,7 +111,7 @@ b('alert text: place, distance, "not a confirmed fire", 112 — both languages',
 const pair = (over: Partial<any>): any => ({
   place_id: 'p1', install_id: 'd1', incident_id: '100', place_name: 'Ev', distance_m: 9000,
   incident_lat: 38.5, incident_lng: 27.2,
-  fcm_token: 'tok-d1-xxxxxxxxxxxxxxxx', locale: 'tr', recent_delivered: 0, ...over,
+  fcm_token: 'tok-d1-xxxxxxxxxxxxxxxx', locale: 'tr', recent_pushes: 0, ...over,
 });
 
 b('one push per device, naming the nearest place/incident', () => {
@@ -134,14 +135,36 @@ b('two places seeing the same incident are one fire, not "+1"', () => {
   assert.strictEqual(pushes[0].extra, 0);
 });
 
-b('device cap and missing token suppress the push', () => {
-  const { pushes, capped } = planDevicePushes([
-    pair({ install_id: 'capped', recent_delivered: HEAT_ALERT_DEVICE_CAP }),
+b('over the cap is held for the summary, never dropped; no token is undeliverable', () => {
+  const plan = planDevicePushes([
+    pair({ install_id: 'capped', place_id: 'c1', recent_pushes: HEAT_ALERT_DEVICE_CAP }),
+    pair({ install_id: 'capped', place_id: 'c2', recent_pushes: HEAT_ALERT_DEVICE_CAP }),
     pair({ install_id: 'no-token', fcm_token: null }),
-    pair({ install_id: 'ok', recent_delivered: HEAT_ALERT_DEVICE_CAP - 1 }),
+    pair({ install_id: 'ok', recent_pushes: HEAT_ALERT_DEVICE_CAP - 1 }),
   ]);
-  assert.deepStrictEqual(pushes.map((p) => p.installId), ['ok']);
-  assert.strictEqual(capped, 1);
+  assert.deepStrictEqual(plan.pushes.map((p) => p.installId), ['ok']);
+  assert.deepStrictEqual(plan.held.map((p) => p.place_id), ['c1', 'c2']);
+  assert.deepStrictEqual(plan.undeliverable.map((p) => p.install_id), ['no-token']);
+});
+
+b('summary text: count, not confirmed, 112 — both languages; opens the list', () => {
+  const tr = buildHeatSummaryText('tr', 4);
+  assert.match(tr.title, /Takip ettiğin yerlerin yakınında 4 yeni tespit/);
+  assert.match(tr.body, /doğrulanmış yangın değildir/);
+  assert.match(tr.body, /112/);
+  assert.match(buildHeatSummaryText('en', 1).title, /1 new detection near your places/);
+  assert.match(buildHeatSummaryText('en', 3).title, /3 new detections near your places/);
+  const m = buildSummaryMessage({ install_id: 'd', fcm_token: 'tok-xxxxxxxxxxxxxxxxxxxx', locale: 'tr', held_detections: 4 });
+  assert.deepStrictEqual(m.data, { type: 'place_heat_summary', count: '4' });
+  assert.strictEqual(m.androidChannelId, 'firewatch_places');
+  assert.strictEqual(m.tag, 'places-summary');
+});
+
+b('summary SQL: held rows of devices whose window has fewer than 3 pushes', () => {
+  const due = dueSummariesSql();
+  assert.match(due, /WHERE n\.status = 'held'/);
+  assert.match(due, /count\(DISTINCT x\.push_id\)::int[\s\S]*pushed_at > NOW\(\) - make_interval\(hours => 6\)\) < 3/);
+  assert.match(due, /count\(DISTINCT n\.ref_key\)::int AS held_detections/);
 });
 
 b('push message: places channel, per-incident tag, 6 h TTL, deep-link data', () => {
@@ -161,6 +184,7 @@ b('alert SQL: radius, 12 h, nominal/high only, no heat sources, one row per pair
   assert.match(sql, /AND NOT COALESCE\(\(i\.distinct_days_seen >= 7/);
   assert.match(sql, /WHERE p\.notify_heat/);
   assert.match(sql, /ON CONFLICT \(place_id, kind, ref_key\) DO NOTHING\s+RETURNING/);
+  assert.match(sql, /count\(DISTINCT x\.push_id\)::int/, 'the cap counts pushes, not rows');
 });
 
 const m014 = src('database/migrations/014_tracked_places.sql');
@@ -174,6 +198,7 @@ b('migration 014: additive, ~1 km columns, cascade, checks', () => {
   assert.match(m014, /CHECK \(radius_m IN \(5000, 10000, 25000\)\)/);
   assert.match(m014, /secret_hash\s+BYTEA NOT NULL CHECK \(octet_length\(secret_hash\) = 32\)/);
   assert.match(m014, /PRIMARY KEY \(place_id, kind, ref_key\)/);
+  assert.match(m014, /CHECK \(status IN \('new', 'sent', 'held', 'summarized', 'undeliverable'\)\)/);
   assert.match(m014, /GENERATED ALWAYS AS/);
   assert.match(m014, /^BEGIN;$/m);
   assert.match(m014, /^COMMIT;$/m);

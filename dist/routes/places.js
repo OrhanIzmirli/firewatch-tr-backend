@@ -76,7 +76,7 @@ function serializePlace(row) {
     };
 }
 const PLACE_COLUMNS = `p.id, p.name, p.latitude, p.longitude, p.radius_m, p.notify_heat, p.created_at,
-  (SELECT max(n.created_at) FROM place_notifications n WHERE n.place_id = p.id AND n.delivered) AS last_alert_at`;
+  (SELECT max(n.pushed_at) FROM place_notifications n WHERE n.place_id = p.id AND n.push_id IS NOT NULL) AS last_alert_at`;
 /**
  * Point-in-Turkey on the same gate the ingest uses (1.5 km over land
  * borders, 5 km along the coast). Without country_borders the bbox check in

@@ -14,6 +14,7 @@ exports.normalizePlaceName = normalizePlaceName;
 exports.isWithinTurkeyBbox = isWithinTurkeyBbox;
 exports.parsePlaceInput = parsePlaceInput;
 exports.buildHeatAlertText = buildHeatAlertText;
+exports.buildHeatSummaryText = buildHeatSummaryText;
 exports.trackedPlacesAvailable = trackedPlacesAvailable;
 exports.resetTrackedPlacesCache = resetTrackedPlacesCache;
 const crypto_1 = __importDefault(require("crypto"));
@@ -136,6 +137,24 @@ function buildHeatAlertText(locale, placeName, distanceM, extra) {
         title: `🛰️ ${placeName} yakınında ısı tespiti`,
         body: `Uydu, "${placeName}" konumuna ${distance} uzaklıkta bir ısı kaynağı tespit etti${more}. ` +
             'Bu doğrulanmış bir yangın değildir. Yangın görürsen 112\'yi ara.',
+    };
+}
+/**
+ * The one push sent when a device's cap window ends with detections held
+ * back: how many, same caveats. Tapping it opens the tracked-places list.
+ */
+function buildHeatSummaryText(locale, count) {
+    if (locale === 'en') {
+        return {
+            title: `🛰️ ${count} new detection${count === 1 ? '' : 's'} near your places`,
+            body: `Satellites detected ${count} more heat source${count === 1 ? '' : 's'} near the places you track. ` +
+                'These are not confirmed fires. If you see a fire, call 112.',
+        };
+    }
+    return {
+        title: `🛰️ Takip ettiğin yerlerin yakınında ${count} yeni tespit`,
+        body: `Uydular, takip ettiğin yerlerin yakınında ${count} ısı kaynağı daha tespit etti. ` +
+            'Bunlar doğrulanmış yangın değildir. Yangın görürsen 112\'yi ara.',
     };
 }
 let tablesAvailable = null;
