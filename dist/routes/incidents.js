@@ -283,7 +283,8 @@ router.get('/', (0, security_1.rateLimit)('incidents', 60, 60000), async (req, r
         // v2: the payload gained news_reported. Keyed separately so a v1 entry
         // v3: heat_source added, and exclude_persistent is part of the key.
         // cached before the deploy cannot be served without it.
-        const cacheKey = 'incidents:v3:' +
+        // v4: provinces reassigned from polygons (migration 015 backfill).
+        const cacheKey = 'incidents:v4:' +
             JSON.stringify({
                 days,
                 limit,

@@ -4,6 +4,7 @@ import pool from '../config/database';
 import { roundStoredCoordinate } from '../utils/locationPrivacy';
 import { rateLimit, requireAdminToken } from '../middleware/security';
 import { regionKeyForRegionName } from '../utils/regions';
+import { resolveProvince, resolveProvinces } from '../services/provinces';
 
 const router = Router();
 
@@ -37,24 +38,16 @@ router.get('/nearest-city', async (req: Request, res: Response) => {
       return;
     }
 
-    const result = await pool.query(
-      `SELECT id, name, region,
-        ST_Distance(
-          location::geography,
-          ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
-        ) / 1000 AS distance_km
-       FROM turkey_cities
-       ORDER BY location <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)
-       LIMIT 1`,
-      [lng, lat]
-    );
+    // The province the point is in (services/provinces.ts), not the one
+    // whose centre is nearest.
+    const province = await resolveProvince(pool, lat, lng);
 
-    if (result.rows.length === 0) {
+    if (province === null) {
       res.json({ status: 'success', data: { outsideTurkey: false, city: 'Türkiye', region: 'Türkiye' } });
       return;
     }
 
-    const { id, name, region, distance_km } = result.rows[0];
+    const { id, name, region, distanceKm: distance_km } = province;
     res.json({
       status: 'success',
       data: {
@@ -108,30 +101,16 @@ router.post(
 
       const insideIdx = parsed.map((_, i) => i).filter((i) => results[i] === null);
       if (insideIdx.length > 0) {
-        const lats = insideIdx.map((i) => parsed[i].lat);
-        const lngs = insideIdx.map((i) => parsed[i].lng);
-        const query = await pool.query(
-          `SELECT pts.idx, c.name, c.region, c.distance_km
-           FROM unnest($1::float8[], $2::float8[]) WITH ORDINALITY AS pts(lat, lng, idx)
-           CROSS JOIN LATERAL (
-             SELECT name, region,
-                    ST_Distance(location::geography,
-                                ST_SetSRID(ST_MakePoint(pts.lng, pts.lat), 4326)::geography) / 1000 AS distance_km
-             FROM turkey_cities
-             ORDER BY location <-> ST_SetSRID(ST_MakePoint(pts.lng, pts.lat), 4326)
-             LIMIT 1
-           ) c`,
-          [lats, lngs]
-        );
-        for (const row of query.rows) {
-          const originalIndex = insideIdx[Number(row.idx) - 1];
-          results[originalIndex] = {
+        const provinces = await resolveProvinces(pool, insideIdx.map((i) => parsed[i]));
+        provinces.forEach((province, k) => {
+          if (province === null) return;
+          results[insideIdx[k]] = {
             outsideTurkey: false,
-            city: row.name,
-            region: row.region,
-            distance_km: Math.round(row.distance_km),
+            city: province.name,
+            region: province.region,
+            distance_km: Math.round(province.distanceKm),
           };
-        }
+        });
         // An inside coord the query didn't answer (empty table) gets the
         // same generic label as the single endpoint.
         for (const i of insideIdx) {
@@ -253,13 +232,9 @@ router.post('/report', rateLimit('fire-report', 5, 60 * 60_000), async (req: Req
     }
 
     // En yakın şehri bul
-    const cityResult = await pool.query(
-      `SELECT name, region FROM turkey_cities
-       ORDER BY location <-> ST_SetSRID(ST_MakePoint($1, $2), 4326) LIMIT 1`,
-      [lng, lat]
-    );
-    const city = cityResult.rows[0]?.name ?? 'Bilinmiyor';
-    const region = cityResult.rows[0]?.region ?? 'Türkiye';
+    const province = await resolveProvince(pool, lat, lng);
+    const city = province?.name ?? 'Bilinmiyor';
+    const region = province?.region ?? 'Türkiye';
 
     // NASA ile doğrulama — 10km içinde termal nokta var mı?
     // fires tablosunda PostGIS geometry varsa kullan, yoksa basit hesap

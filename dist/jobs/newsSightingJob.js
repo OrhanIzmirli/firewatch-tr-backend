@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const node_cron_1 = __importDefault(require("node-cron"));
 const database_1 = __importDefault(require("../config/database"));
+const provinces_1 = require("../services/provinces");
 const jobRunRecorder_1 = require("../services/jobRunRecorder");
 const officialStatusExtractor_1 = require("../services/officialStatusExtractor");
 const placeMention_1 = require("../services/placeMention");
@@ -156,7 +157,7 @@ class NewsSightingJob {
     }
     async loadCityNames() {
         const result = await database_1.default.query(`SELECT name FROM turkey_cities`);
-        return result.rows.map((row) => String(row.name));
+        return (0, provinces_1.withFormerNames)(result.rows.map((row) => String(row.name)));
     }
     /**
      * Runs one article through the gates in order and returns where it
@@ -173,7 +174,7 @@ class NewsSightingJob {
         const claim = (0, officialStatusExtractor_1.extractStatusClaim)(text);
         if (claim !== null && claim.state !== 'ongoing')
             return 'status_claim_excluded';
-        const provinces = (0, officialStatusExtractor_1.mentionedCities)(text, [...cityNames]);
+        const provinces = (0, provinces_1.canonicalProvinceNames)((0, officialStatusExtractor_1.mentionedCities)(text, [...cityNames]));
         const mentions = (0, placeMention_1.mentionedDistricts)(text, districts, provinces);
         const mention = (0, placeMention_1.singleDistrict)(mentions);
         if (mention === null) {

@@ -101,9 +101,14 @@ b('server: compression() is mounted before /api/history', () => {
   const history = server.indexOf("app.use('/api/history'");
   assert.ok(compress > 0 && history > 0 && compress < history);
 });
-b('history cache key is v2 (city values changed)', () => {
+b('history cache key is v3 and separates polygon from fallback answers', () => {
   const route = readFileSync(join(__dirname, '..', 'src', 'routes', 'history.ts'), 'utf8');
-  assert.match(route, /`history:v2:\$\{range\.from\}:\$\{range\.to\}`/);
+  assert.match(route, /`history:v3:\$\{usePolygons \? 'p' : 'c'\}:\$\{range\.from\}:\$\{range\.to\}`/);
+});
+b('SQL with polygons (015): the province of the centre, and a district of that province', () => {
+  const sql = historySql(true);
+  assert.match(sql, /WHERE tc\.id = province_for_point\(i\.centroid\)/);
+  assert.match(sql, /WHERE td2\.province_id = tc\.id/);
 });
 
 const row = {

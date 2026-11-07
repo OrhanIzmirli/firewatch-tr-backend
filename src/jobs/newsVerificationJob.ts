@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import pool from '../config/database';
+import { canonicalProvinceNames, PROVINCE_FORMER_NAMES } from '../services/provinces';
 import { recordJobRun } from '../services/jobRunRecorder';
 import {
   assessRelevance,
@@ -144,6 +145,14 @@ class NewsVerificationJob {
       const result = await pool.query(`SELECT id, name FROM turkey_cities`);
       const map = new Map<string, number>();
       for (const row of result.rows) map.set(String(row.name), Number(row.id));
+      // News still says "İçel" for Mersin now and then.
+      // Both ways, so it works before and after migration 015's rename.
+      for (const [current, formers] of Object.entries(PROVINCE_FORMER_NAMES)) {
+        const id = map.get(current) ?? formers.map((f) => map.get(f)).find((v) => v !== undefined);
+        if (id === undefined) continue;
+        map.set(current, id);
+        for (const former of formers) map.set(former, id);
+      }
       return map;
     } catch {
       return new Map();
@@ -179,7 +188,8 @@ class NewsVerificationJob {
       return 'no_claim';
     }
 
-    const named = mentionedCities(text, [...cities.keys()]);
+    // A former and a current name of one province are one city, not two.
+    const named = canonicalProvinceNames(mentionedCities(text, [...cities.keys()]));
     if (named.length !== 1) {
       const outcome = named.length === 0 ? 'no_city' : 'multiple_cities';
       await this.saveVerdict(article, publishedAt, {

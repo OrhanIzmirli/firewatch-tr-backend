@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const database_1 = __importDefault(require("../config/database"));
+const provinces_1 = require("../services/provinces");
 const cacheService_1 = __importDefault(require("../services/cacheService"));
 const security_1 = require("../middleware/security");
 const fireHistory_1 = require("../services/fireHistory");
@@ -25,7 +26,9 @@ router.get('/', (0, security_1.rateLimit)('history', 30, 60000), async (req, res
         return;
     }
     try {
-        const cacheKey = `history:v2:${range.from}:${range.to}`;
+        // v3: provinces from the province polygons (migration 015).
+        const usePolygons = await (0, provinces_1.provincePolygonsAvailable)(database_1.default);
+        const cacheKey = `history:v3:${usePolygons ? 'p' : 'c'}:${range.from}:${range.to}`;
         const cached = await cacheService_1.default.get(cacheKey);
         if (cached) {
             res.set('Cache-Control', 'public, max-age=900');
@@ -34,7 +37,7 @@ router.get('/', (0, security_1.rateLimit)('history', 30, 60000), async (req, res
             return;
         }
         const [rows, coverage] = await Promise.all([
-            database_1.default.query((0, fireHistory_1.historySql)(), [range.from, range.to, fireHistory_1.HISTORY_MIN_DETECTIONS]),
+            database_1.default.query((0, fireHistory_1.historySql)(usePolygons), [range.from, range.to, fireHistory_1.HISTORY_MIN_DETECTIONS]),
             database_1.default.query(`SELECT to_char(min(first_detected_at) AT TIME ZONE '${fireHistory_1.HISTORY_TIME_ZONE}', 'YYYY-MM-DD') AS d
            FROM fire_incidents`),
         ]);

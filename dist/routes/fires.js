@@ -9,6 +9,7 @@ const database_1 = __importDefault(require("../config/database"));
 const locationPrivacy_1 = require("../utils/locationPrivacy");
 const security_1 = require("../middleware/security");
 const regions_1 = require("../utils/regions");
+const provinces_1 = require("../services/provinces");
 const router = (0, express_1.Router)();
 // GET /api/fires - Get all fires
 router.get('/', (req, res) => fireController_1.default.getAllFires(req, res));
@@ -35,19 +36,14 @@ router.get('/nearest-city', async (req, res) => {
             res.json({ status: 'success', data: { outsideTurkey: true, city: null, region: null, distance_km: null } });
             return;
         }
-        const result = await database_1.default.query(`SELECT id, name, region,
-        ST_Distance(
-          location::geography,
-          ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
-        ) / 1000 AS distance_km
-       FROM turkey_cities
-       ORDER BY location <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)
-       LIMIT 1`, [lng, lat]);
-        if (result.rows.length === 0) {
+        // The province the point is in (services/provinces.ts), not the one
+        // whose centre is nearest.
+        const province = await (0, provinces_1.resolveProvince)(database_1.default, lat, lng);
+        if (province === null) {
             res.json({ status: 'success', data: { outsideTurkey: false, city: 'Türkiye', region: 'Türkiye' } });
             return;
         }
-        const { id, name, region, distance_km } = result.rows[0];
+        const { id, name, region, distanceKm: distance_km } = province;
         res.json({
             status: 'success',
             data: {
@@ -94,27 +90,17 @@ router.post('/nearest-city/batch', (0, security_1.rateLimit)('nearest-city-batch
             : { outsideTurkey: true, city: null, region: null, distance_km: null });
         const insideIdx = parsed.map((_, i) => i).filter((i) => results[i] === null);
         if (insideIdx.length > 0) {
-            const lats = insideIdx.map((i) => parsed[i].lat);
-            const lngs = insideIdx.map((i) => parsed[i].lng);
-            const query = await database_1.default.query(`SELECT pts.idx, c.name, c.region, c.distance_km
-           FROM unnest($1::float8[], $2::float8[]) WITH ORDINALITY AS pts(lat, lng, idx)
-           CROSS JOIN LATERAL (
-             SELECT name, region,
-                    ST_Distance(location::geography,
-                                ST_SetSRID(ST_MakePoint(pts.lng, pts.lat), 4326)::geography) / 1000 AS distance_km
-             FROM turkey_cities
-             ORDER BY location <-> ST_SetSRID(ST_MakePoint(pts.lng, pts.lat), 4326)
-             LIMIT 1
-           ) c`, [lats, lngs]);
-            for (const row of query.rows) {
-                const originalIndex = insideIdx[Number(row.idx) - 1];
-                results[originalIndex] = {
+            const provinces = await (0, provinces_1.resolveProvinces)(database_1.default, insideIdx.map((i) => parsed[i]));
+            provinces.forEach((province, k) => {
+                if (province === null)
+                    return;
+                results[insideIdx[k]] = {
                     outsideTurkey: false,
-                    city: row.name,
-                    region: row.region,
-                    distance_km: Math.round(row.distance_km),
+                    city: province.name,
+                    region: province.region,
+                    distance_km: Math.round(province.distanceKm),
                 };
-            }
+            });
             // An inside coord the query didn't answer (empty table) gets the
             // same generic label as the single endpoint.
             for (const i of insideIdx) {
@@ -227,10 +213,9 @@ router.post('/report', (0, security_1.rateLimit)('fire-report', 5, 60 * 60000), 
             return;
         }
         // En yakın şehri bul
-        const cityResult = await database_1.default.query(`SELECT name, region FROM turkey_cities
-       ORDER BY location <-> ST_SetSRID(ST_MakePoint($1, $2), 4326) LIMIT 1`, [lng, lat]);
-        const city = cityResult.rows[0]?.name ?? 'Bilinmiyor';
-        const region = cityResult.rows[0]?.region ?? 'Türkiye';
+        const province = await (0, provinces_1.resolveProvince)(database_1.default, lat, lng);
+        const city = province?.name ?? 'Bilinmiyor';
+        const region = province?.region ?? 'Türkiye';
         // NASA ile doğrulama — 10km içinde termal nokta var mı?
         // fires tablosunda PostGIS geometry varsa kullan, yoksa basit hesap
         let verified = false;

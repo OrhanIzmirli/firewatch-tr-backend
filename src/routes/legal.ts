@@ -91,6 +91,7 @@ const privacyTr = `
   <li><strong>Open-Meteo</strong> — bir yangının bulunduğu noktadaki rüzgâr (sizin konumunuz değil, yangının konumu gönderilir)</li>
 </ul>
 <p>Yangın ve termal tespit verileri (NASA FIRMS) ile risk hesabındaki hava durumu (Open-Meteo, MET Norway) sunucumuz tarafından çekilir; bu isteklerde sizinle ilgili veri yoktur. "Paylaş" düğmesiyle gönderdiğiniz içerik seçtiğiniz uygulamaya gider ve sunucumuzdan geçmez.</p>
+<p><strong>Veri kaynakları ve atıflar:</strong> İl sınırları (haritadaki "Geçmiş yıllar" katmanı ve tespitlerin hangi ile atandığı) <a href="https://www.geoboundaries.org/">geoBoundaries</a> (gbOpen, TUR ADM1) üzerinden OpenStreetMap verisinden türetilmiştir — © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap katkıda bulunanlar</a>, ODbL. Uydu tespitleri NASA FIRMS; hava verisi Open-Meteo ve MET Norway. Bu veriler cihazınızdan bilgi içermez.</p>
 
 <h2>Haklarınız ve verilerinizi silme</h2>
 <ul>
@@ -156,6 +157,7 @@ const privacyEn = `
   <li><strong>Open-Meteo</strong> — wind at a fire's location (the fire's location is sent, not yours)</li>
 </ul>
 <p>Fire and thermal detections (NASA FIRMS) and the weather used for risk scoring (Open-Meteo, MET Norway) are fetched by our server; those requests contain no data about you. Content you send with a "Share" button goes to the app you choose and does not pass through our server.</p>
+<p><strong>Data sources and attribution:</strong> Province boundaries (the map's "Past years" layer and the province a detection is assigned to) are derived from OpenStreetMap data via <a href="https://www.geoboundaries.org/">geoBoundaries</a> (gbOpen, TUR ADM1) — © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, ODbL. Satellite detections: NASA FIRMS; weather: Open-Meteo and MET Norway. None of this contains information from your device.</p>
 
 <h2>Your rights and deleting your data</h2>
 <ul>

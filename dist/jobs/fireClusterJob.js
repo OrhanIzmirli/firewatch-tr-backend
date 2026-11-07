@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const database_1 = __importDefault(require("../config/database"));
+const provinces_1 = require("../services/provinces");
 const jobRunRecorder_1 = require("../services/jobRunRecorder");
 const heatSource_1 = require("../services/heatSource");
 /**
@@ -328,6 +329,11 @@ class FireClusterJob {
     }
     async createIncident(client, cluster) {
         const persistence = await this.hasPersistenceColumns();
+        // Province of the incident's own centre (services/provinces.ts), not
+        // the most common nearest-centre label of its detections.
+        const polygons = await (0, provinces_1.provincePolygonsAvailable)(client);
+        const cityExpr = polygons ? `COALESCE(province_for_point(ST_GeomFromText($5, 4326)), $9)` : '$9';
+        const regionExpr = polygons ? `COALESCE(province_region_key(${cityExpr}), $10)` : '$10';
         const extraColumns = persistence
             ? ', seen_days, distinct_days_seen, frp_sum, frp_sum_sq, frp_sample_count'
             : '';
@@ -358,7 +364,7 @@ class FireClusterJob {
        ) VALUES (
          $1, $2, $3, $4::timestamptz[], COALESCE(${passCountSql('$4::timestamptz[]')}, 0),
          ST_GeomFromText($5, 4326), ST_Multi(ST_GeomFromText($6, 4326)),
-         $7, $8, $9, $10,
+         $7, $8, ${cityExpr}, ${regionExpr},
          CASE WHEN $2::timestamptz > NOW() - INTERVAL '${RECENT_DETECTION_HOURS} hours'
               THEN 'detected_recently' ELSE 'no_recent_detection' END,
          GREATEST(EXTRACT(EPOCH FROM (NOW() - $2::timestamptz)) / 3600.0, 0)${extraValues}
@@ -376,6 +382,17 @@ class FireClusterJob {
      */
     async extendIncident(client, incidentId, cluster) {
         const persistence = await this.hasPersistenceColumns();
+        // The province follows the incident's centre as it grows. It used to be
+        // fixed at the first assignment (COALESCE(city_id, ...)), so an incident
+        // first seen across a border kept the wrong province for good.
+        const polygons = await (0, provinces_1.provincePolygonsAvailable)(client);
+        const newCentroid = `ST_Centroid(ST_Union(footprint, ST_GeomFromText($6, 4326)))`;
+        const citySet = polygons
+            ? `COALESCE(province_for_point(${newCentroid}), city_id, $9)`
+            : `COALESCE(city_id, $9)`;
+        const regionSet = polygons
+            ? `COALESCE(province_region_key(${citySet}), region_key, $10)`
+            : `COALESCE(region_key, $10)`;
         // Days fold as a SET UNION, not an addition. The incident match rule
         // (72 h, 2 km) deliberately extends the same incident run after run, so
         // an additive counter would climb every time the job re-saw the same day.
@@ -428,8 +445,8 @@ class FireClusterJob {
              WHEN peak_confidence_tier = 'nominal' OR $8 = 'nominal' THEN 'nominal'
              ELSE COALESCE(peak_confidence_tier, $8)
            END,
-         city_id    = COALESCE(city_id, $9),
-         region_key = COALESCE(region_key, $10),
+         city_id    = ${citySet},
+         region_key = ${regionSet},
          updated_at = NOW()${persistenceSet}
        FROM (
          SELECT ARRAY(

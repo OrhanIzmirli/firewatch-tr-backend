@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import pool from '../config/database';
+import { provincePolygonsAvailable } from '../services/provinces';
 import cacheService from '../services/cacheService';
 import { rateLimit } from '../middleware/security';
 import {
@@ -30,7 +31,9 @@ router.get('/', rateLimit('history', 30, 60_000), async (req: Request, res: Resp
   }
 
   try {
-    const cacheKey = `history:v2:${range.from}:${range.to}`;
+    // v3: provinces from the province polygons (migration 015).
+    const usePolygons = await provincePolygonsAvailable(pool);
+    const cacheKey = `history:v3:${usePolygons ? 'p' : 'c'}:${range.from}:${range.to}`;
     const cached = await cacheService.get<unknown>(cacheKey);
     if (cached) {
       res.set('Cache-Control', 'public, max-age=900');
@@ -40,7 +43,7 @@ router.get('/', rateLimit('history', 30, 60_000), async (req: Request, res: Resp
     }
 
     const [rows, coverage] = await Promise.all([
-      pool.query(historySql(), [range.from, range.to, HISTORY_MIN_DETECTIONS]),
+      pool.query(historySql(usePolygons), [range.from, range.to, HISTORY_MIN_DETECTIONS]),
       pool.query(
         `SELECT to_char(min(first_detected_at) AT TIME ZONE '${HISTORY_TIME_ZONE}', 'YYYY-MM-DD') AS d
            FROM fire_incidents`

@@ -95,7 +95,29 @@ function parseHistoryRange(query) {
  * Incidents overlapping [from 00:00, to+1 00:00) Istanbul time — the ending
  * day is inclusive. $1 = from, $2 = to, $3 = min detections.
  */
-function historySql() {
+function historySql(usePolygons = false) {
+    // With migration 015: the province the centre is in, and the nearest
+    // district centre among THAT province's districts, so the pair can never
+    // disagree. Before it: PR #2's rule (the nearest district and its own
+    // province).
+    const province = usePolygons ? `province_for_point(i.centroid)` : null;
+    const districtJoin = province
+        ? `LEFT JOIN LATERAL (
+        SELECT td.name, tc.name AS province_name
+          FROM turkey_cities tc
+          LEFT JOIN LATERAL (
+            SELECT td2.name FROM turkey_districts td2
+             WHERE td2.province_id = tc.id
+             ORDER BY td2.location <-> i.centroid
+             LIMIT 1
+          ) td ON true
+         WHERE tc.id = ${province}
+      ) d ON true`
+        : `LEFT JOIN LATERAL (
+        SELECT td.name, td.province_name FROM turkey_districts td
+         ORDER BY td.location <-> i.centroid
+         LIMIT 1
+      ) d ON true`;
     return `
     WITH bounds AS (
       SELECT ($1::date)::timestamp AT TIME ZONE '${exports.HISTORY_TIME_ZONE}' AS lo,
@@ -123,11 +145,7 @@ function historySql() {
       FROM fire_incidents i
       CROSS JOIN bounds b
       LEFT JOIN turkey_cities c ON c.id = i.city_id
-      LEFT JOIN LATERAL (
-        SELECT td.name, td.province_name FROM turkey_districts td
-         ORDER BY td.location <-> i.centroid
-         LIMIT 1
-      ) d ON true
+      ${districtJoin}
      WHERE i.first_detected_at < b.hi
        AND i.last_detected_at >= b.lo
        AND i.detection_count >= $3

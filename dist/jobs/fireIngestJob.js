@@ -8,6 +8,7 @@ exports.confidenceTier = confidenceTier;
 const node_cron_1 = __importDefault(require("node-cron"));
 const axios_1 = __importDefault(require("axios"));
 const database_1 = __importDefault(require("../config/database"));
+const provinces_1 = require("../services/provinces");
 const jobRunRecorder_1 = require("../services/jobRunRecorder");
 const regions_1 = require("../utils/regions");
 const fireClusterJob_1 = __importDefault(require("./fireClusterJob"));
@@ -507,6 +508,7 @@ class FireIngestJob {
         // code and applying migration 003, so the gate is only built into the
         // query once the table is known to be there.
         const hasBorder = await this.borderAvailable();
+        const usePolygons = await (0, provinces_1.provincePolygonsAvailable)(database_1.default);
         const borderSelect = hasBorder
             ? `ST_Contains((SELECT geom_gate FROM country_borders WHERE iso_a3 = 'TUR' LIMIT 1), p.geom)`
             : `NULL::boolean`;
@@ -522,11 +524,12 @@ class FireIngestJob {
               c.dist_km
        FROM pts p
        LEFT JOIN LATERAL (
+         -- The province the point is in (services/provinces.ts); the
+         -- distance is to that province's centre.
          SELECT tc.id,
                 ST_Distance(tc.location::geography, p.geom::geography) / 1000 AS dist_km
          FROM turkey_cities tc
-         ORDER BY tc.location <-> p.geom
-         LIMIT 1
+         WHERE tc.id = ${(0, provinces_1.provinceIdSql)('p.geom', usePolygons)}
        ) c ON true
        ORDER BY p.idx`, [lats, lngs]);
         return result.rows.map((row) => ({
