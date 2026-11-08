@@ -149,7 +149,7 @@ b('over the cap is held for the summary, never dropped; no token is undeliverabl
 
 b('summary text: count, not confirmed, 112 — both languages; opens the list', () => {
   const tr = buildHeatSummaryText('tr', 4);
-  assert.match(tr.title, /Takip ettiğin yerlerin yakınında 4 yeni tespit/);
+  assert.match(tr.title, /Yerlerinin yakınında 4 yeni tespit/);
   assert.match(tr.body, /doğrulanmış yangın değildir/);
   assert.match(tr.body, /112/);
   assert.match(buildHeatSummaryText('en', 1).title, /1 new detection near your places/);
@@ -207,9 +207,9 @@ b('migration 014: additive, ~1 km columns, cascade, checks', () => {
 const routes = src('src/routes/places.ts');
 b('routes: every route but registration needs the device secret; no coordinates in URLs', () => {
   const lines = routes.split('\n').filter((l) => /^router\.(get|post|patch|delete)\(/.test(l));
-  assert.strictEqual(lines.length, 7);
+  assert.strictEqual(lines.length, 8);
   for (const l of lines) {
-    if (l.includes("router.post('/devices'")) continue;
+    if (l.includes("router.post('/devices'") || l.includes("router.post('/search'")) continue;
     assert.match(l, /requireDevice/, l);
   }
   assert.doesNotMatch(routes, /req\.query/);
@@ -234,13 +234,13 @@ b('ingest runs the place alerts after clustering', () => {
 
 b('privacy policy describes tracked places in both languages', () => {
   const legal = src('src/routes/legal.ts');
-  assert.match(legal, /Takip ettiğiniz yerler: verdiğiniz ad, yaklaşık 1 km/);
+  assert.match(legal, /Yerlerim: verdiğiniz ad, yaklaşık 1 km/);
   assert.match(legal, /Uygulamayı 90 gün açmazsanız ya da cihaz belirteciniz 7 gündür geçersizse tüm yerleriniz silinir/);
   assert.match(legal, /If you don't open the app for 90 days, or your device token has been invalid for 7 days, all your places are deleted/);
   assert.doesNotMatch(legal, /ettiğin yer|verdiğin ad|Sen silene/, 'policy addresses the reader formally');
-  assert.match(legal, /Your tracked places: the name you give, location rounded to about 1 km/);
-  assert.match(legal, /tüm takip ettiğiniz yerleri hemen siler/);
-  assert.match(legal, /all your tracked places from our server immediately/);
+  assert.match(legal, /My Places: the name you give, location rounded to about 1 km/);
+  assert.match(legal, /Yerlerim'deki tüm yerleri hemen siler/);
+  assert.match(legal, /all your places from our server immediately/);
 });
 
 if (failures > 0) { console.log(`\n${failures} failure(s)`); process.exit(1); }

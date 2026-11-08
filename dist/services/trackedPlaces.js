@@ -13,8 +13,10 @@ exports.parseFcmToken = parseFcmToken;
 exports.normalizePlaceName = normalizePlaceName;
 exports.isWithinTurkeyBbox = isWithinTurkeyBbox;
 exports.parsePlaceInput = parsePlaceInput;
+exports.parsePlacePatch = parsePlacePatch;
 exports.buildHeatAlertText = buildHeatAlertText;
 exports.buildHeatSummaryText = buildHeatSummaryText;
+exports.buildRiskAlertText = buildRiskAlertText;
 exports.trackedPlacesAvailable = trackedPlacesAvailable;
 exports.resetTrackedPlacesCache = resetTrackedPlacesCache;
 const crypto_1 = __importDefault(require("crypto"));
@@ -111,7 +113,35 @@ function parsePlaceInput(body) {
     const notify = body?.notify_heat;
     if (notify !== undefined && typeof notify !== 'boolean')
         return 'notify_heat must be a boolean';
-    return { name, latitude, longitude, radiusM: radiusKm * 1000, notifyHeat: notify ?? true };
+    const risk = body?.notify_risk;
+    if (risk !== undefined && typeof risk !== 'boolean')
+        return 'notify_risk must be a boolean';
+    return { name, latitude, longitude, radiusM: radiusKm * 1000, notifyHeat: notify ?? true, notifyRisk: risk ?? true };
+}
+/** Validates PATCH /api/places/:id. A place's position cannot be changed. */
+function parsePlacePatch(body) {
+    const patch = {};
+    if (body?.name !== undefined) {
+        const name = normalizePlaceName(body.name);
+        if (name === null)
+            return `name must be 1-${exports.PLACE_NAME_MAX} characters`;
+        patch.name = name;
+    }
+    if (body?.radius_km !== undefined) {
+        const radiusKm = Number(body.radius_km);
+        if (!exports.PLACE_RADII_KM.includes(radiusKm)) {
+            return `radius_km must be one of ${exports.PLACE_RADII_KM.join(', ')}`;
+        }
+        patch.radiusM = radiusKm * 1000;
+    }
+    for (const [field, key] of [['notify_heat', 'notifyHeat'], ['notify_risk', 'notifyRisk']]) {
+        if (body?.[field] !== undefined) {
+            if (typeof body[field] !== 'boolean')
+                return `${field} must be a boolean`;
+            patch[key] = body[field];
+        }
+    }
+    return Object.keys(patch).length === 0 ? 'nothing to update' : patch;
 }
 function formatKm(distanceM, locale) {
     const km = Math.max(1, Math.round(distanceM / 1000));
@@ -152,9 +182,35 @@ function buildHeatSummaryText(locale, count) {
         };
     }
     return {
-        title: `🛰️ Takip ettiğin yerlerin yakınında ${count} yeni tespit`,
-        body: `Uydular, takip ettiğin yerlerin yakınında ${count} ısı kaynağı daha tespit etti. ` +
+        title: `🛰️ Yerlerinin yakınında ${count} yeni tespit`,
+        body: `Uydular, Yerlerim'deki yerlerin yakınında ${count} ısı kaynağı daha tespit etti. ` +
             'Bunlar doğrulanmış yangın değildir. Yangın görürsen 112\'yi ara.',
+    };
+}
+const RISK_CLASS_LABELS = {
+    tr: { 3: 'Yüksek', 4: 'Çok yüksek', 5: 'Aşırı' },
+    en: { 3: 'High', 4: 'Very high', 5: 'Extreme' },
+};
+/**
+ * The daily fire-danger alert for a place. It is a weather-based forecast,
+ * so it must not read like a detection. `extra` is how many more of this
+ * device's places reached High or above in the same check.
+ */
+function buildRiskAlertText(locale, placeName, fwiClass, extra) {
+    const label = RISK_CLASS_LABELS[locale][fwiClass] ?? RISK_CLASS_LABELS[locale][3];
+    if (locale === 'en') {
+        const more = extra > 0 ? ` (+${extra} more of your places)` : '';
+        return {
+            title: `⚠️ ${placeName}: fire danger ${label}`,
+            body: `Today's fire weather danger for "${placeName}" is ${label}${more}. ` +
+                'This is a weather forecast, not a detected fire. Do not light fires outdoors.',
+        };
+    }
+    const more = extra > 0 ? ` (yerlerinden +${extra} tanesi daha)` : '';
+    return {
+        title: `⚠️ ${placeName}: yangın tehlikesi ${label}`,
+        body: `"${placeName}" için bugünkü yangın hava tehlikesi ${label} düzeyinde${more}. ` +
+            'Bu bir hava tahminidir, tespit edilmiş yangın değildir. Açık alanda ateş yakmayın.',
     };
 }
 let tablesAvailable = null;
