@@ -68,6 +68,7 @@ const privacyTr = `
 </ul>
 
 <h2>Yalnızca cihazınızda kalan veriler</h2>
+<p>Doğa sekmesindeki görev yanıtlarınız, seriniz, ders ve test sonuçlarınız, rozetleriniz ve hatırlatma tercihiniz de yalnızca telefonunuzda saklanır; bize gönderilmez.</p>
 <p>Dil ve bildirim tercihleri, haritadaki il/ilçe kısayollarınız, izleme listeniz ve uygulama içi uyarı kutunuz telefonunuzda saklanır; bize gönderilmez. Uygulamayı kaldırdığınızda silinir.</p>
 
 <h2>Verileri kimlerle paylaşıyoruz</h2>
@@ -135,6 +136,7 @@ const privacyEn = `
 </ul>
 
 <h2>Data that stays on your device</h2>
+<p>Your Nature tab task answers, streak, lesson and quiz results, badges and reminder setting are also stored only on your phone and are never sent to us.</p>
 <p>Language and notification preferences, your province/district map shortcuts, your watchlist and the in-app alert inbox are stored on your phone and never sent to us. They are removed when you uninstall the app.</p>
 
 <h2>Who we share data with</h2>
