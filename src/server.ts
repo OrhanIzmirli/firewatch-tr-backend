@@ -15,6 +15,7 @@ import pipelineHealthRoutes from './routes/pipelineHealth';
 import lossSummaryRoutes from './routes/lossSummary';
 import historyRoutes from './routes/history';
 import legalRoutes from './routes/legal';
+import natureRoutes from './routes/nature';
 import { pointRiskRouter } from './routes/pointRisk';
 import { defaultPointRiskDeps } from './services/pointRisk';
 import placesRoutes from './routes/places';
@@ -84,6 +85,7 @@ app.use(
 
 app.use('/api/fires', fireRoutes);
 app.use('/api/news', newsRoutes);
+app.use('/api/nature', natureRoutes);
 app.use('/api/notify', notificationRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/thermal', thermalRoutes);

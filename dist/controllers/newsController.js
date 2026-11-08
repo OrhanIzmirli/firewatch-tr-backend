@@ -15,7 +15,7 @@ class NewsController {
             const limitNum = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 20;
             const offsetNum = Number.isFinite(parsedOffset) ? Math.max(parsedOffset, 0) : 0;
             // v2: the feed is filtered on read since the wildfire gate; v1 entries held unfiltered pages.
-            const cacheKey = `news:v2:${category || 'all'}:${limitNum}:${offsetNum}`;
+            const cacheKey = `news:v3:${category || 'all'}:${limitNum}:${offsetNum}`;
             const cached = await cacheService_1.default.get(cacheKey);
             if (cached) {
                 res.json({
@@ -52,7 +52,7 @@ class NewsController {
                 res.status(400).json({ status: 'error', message: 'Invalid id' });
                 return;
             }
-            const cacheKey = `news:${newsId}`;
+            const cacheKey = `news:v3:${newsId}`;
             const cached = await cacheService_1.default.get(cacheKey);
             if (cached) {
                 res.json({

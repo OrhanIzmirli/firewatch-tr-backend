@@ -1,6 +1,7 @@
 import type { Pool } from 'pg';
 import { MatchArticle, isForestFireStory, isStoryAboutProvince, withinDayWindow } from './incidentNewsMatch';
 import { withFormerNames } from './provinces';
+import { REMOVED_NEWS_SOURCES } from '../config/newsSources';
 
 export interface RelatedArticle {
   id: number;
@@ -23,9 +24,10 @@ export async function relatedNews(
       `SELECT id, title, summary, source, source_url, COALESCE(published_at, created_at) AS at
          FROM news
         WHERE COALESCE(published_at, created_at) BETWEEN $1::timestamptz - interval '1 day' AND $2::timestamptz + interval '1 day'
+          AND source <> ALL($3::text[])
         ORDER BY at DESC
         LIMIT 400`,
-      [from, to]
+      [from, to, REMOVED_NEWS_SOURCES]
     ),
     db.query(`SELECT name FROM turkey_cities`),
   ]);

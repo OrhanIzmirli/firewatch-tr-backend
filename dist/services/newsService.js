@@ -5,8 +5,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const database_1 = __importDefault(require("../config/database"));
 const turkishText_1 = require("../utils/turkishText");
-const newsSourceLogos_1 = require("../utils/newsSourceLogos");
 const newsRelevance_1 = require("../utils/newsRelevance");
+const publicNews_1 = require("../utils/publicNews");
+const newsSources_1 = require("../config/newsSources");
 // Jaccard similarity over word tokens — catches near-duplicate titles that
 // differ only by a repeated/dropped word or minor punctuation (the same
 // story re-published with a slightly edited headline, or an RSS glitch
@@ -45,7 +46,8 @@ class NewsService {
         try {
             const candidates = await withTimeout(database_1.default.query(`SELECT id, title, summary FROM news
             WHERE ($1::text IS NULL OR category = $1)
-            ORDER BY published_at DESC NULLS LAST, id DESC`, [category ?? null]), 'Query timeout after 8s');
+              AND source <> ALL($2::text[])
+            ORDER BY published_at DESC NULLS LAST, id DESC`, [category ?? null, newsSources_1.REMOVED_NEWS_SOURCES]), 'Query timeout after 8s');
             const ids = (0, newsRelevance_1.relevantPageIds)(candidates.rows, limit, offset);
             if (ids.length === 0)
                 return [];
@@ -54,7 +56,7 @@ class NewsService {
             return ids
                 .map((id) => byId.get(id))
                 .filter((r) => r !== undefined)
-                .map(newsSourceLogos_1.withSourceLogo);
+                .map(publicNews_1.toPublicNews);
         }
         catch (error) {
             console.error('❌ Error fetching news:', error);
@@ -65,10 +67,10 @@ class NewsService {
         try {
             console.log('📰 getNewsById:', id);
             const result = await Promise.race([
-                database_1.default.query('SELECT * FROM news WHERE id = $1', [id]),
+                database_1.default.query('SELECT * FROM news WHERE id = $1 AND source <> ALL($2::text[])', [id, newsSources_1.REMOVED_NEWS_SOURCES]),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout after 8s')), 8000)),
             ]);
-            return result.rows[0] ? (0, newsSourceLogos_1.withSourceLogo)(result.rows[0]) : null;
+            return result.rows[0] ? (0, publicNews_1.toPublicNews)(result.rows[0]) : null;
         }
         catch (error) {
             console.error('❌ Error fetching news by id:', error);
@@ -139,7 +141,7 @@ class NewsService {
     /** Number of news items in the feed: same relevance filter as getAllNews. */
     async getNewsCount(category) {
         try {
-            const result = await withTimeout(database_1.default.query('SELECT title, summary FROM news WHERE ($1::text IS NULL OR category = $1)', [category ?? null]), 'Count timeout after 8s');
+            const result = await withTimeout(database_1.default.query('SELECT title, summary FROM news WHERE ($1::text IS NULL OR category = $1) AND source <> ALL($2::text[])', [category ?? null, newsSources_1.REMOVED_NEWS_SOURCES]), 'Count timeout after 8s');
             return result.rows.filter(newsRelevance_1.isInFiresFeed).length;
         }
         catch (error) {

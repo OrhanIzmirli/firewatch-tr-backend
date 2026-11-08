@@ -76,6 +76,18 @@ const TURKEY_RE = [
   { w: 'sınır', re: new RegExp(`(^|[^${WORD_CHAR}])sınır(?![ls])`) },
 ];
 
+const PROVINCE_RE = compile(PROVINCES);
+const DISPLAY: Record<string, string> = { afyon: 'afyonkarahisar', 'hakkâri': 'hakkari' };
+
+/** The province a headline names, in its usual spelling, or null. */
+export function provinceInTitle(title: string): string | null {
+  const text = turkishToLower(title);
+  const hit = PROVINCE_RE.find(({ re }) => re.test(text));
+  if (!hit) return null;
+  const w = DISPLAY[hit.w] ?? hit.w;
+  return (w[0] === 'i' ? 'İ' : w[0] === 'ı' ? 'I' : w[0].toUpperCase()) + w.slice(1);
+}
+
 export type GeographyVerdict =
   | { turkey: true; basis: 'no_foreign_place' | 'neighbour_reaching_turkey'; matched: string[] }
   | { turkey: false; basis: 'far_country' | 'neighbour_only'; matched: string[] };

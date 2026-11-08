@@ -52,6 +52,7 @@ const pipelineHealth_1 = __importDefault(require("./routes/pipelineHealth"));
 const lossSummary_1 = __importDefault(require("./routes/lossSummary"));
 const history_1 = __importDefault(require("./routes/history"));
 const legal_1 = __importDefault(require("./routes/legal"));
+const nature_1 = __importDefault(require("./routes/nature"));
 const pointRisk_1 = require("./routes/pointRisk");
 const pointRisk_2 = require("./services/pointRisk");
 const places_1 = __importDefault(require("./routes/places"));
@@ -111,6 +112,7 @@ app.use(newsSourceLogos_1.STATIC_MOUNT_PATH, express_1.default.static(path_1.def
 }));
 app.use('/api/fires', fires_1.default);
 app.use('/api/news', news_1.default);
+app.use('/api/nature', nature_1.default);
 app.use('/api/notify', notifications_1.default);
 app.use('/api/feedback', feedback_1.default);
 app.use('/api/thermal', thermal_1.default);
