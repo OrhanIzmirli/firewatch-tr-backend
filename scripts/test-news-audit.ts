@@ -75,6 +75,11 @@ assert.equal(stories.length, 1, 'different districts and a late item are separat
 assert.deepEqual(stories[0].items.map((i) => i.id), [1, 2]);
 assert.deepEqual(stories[0].stages, ['started', 'controlled']);
 
+assert.equal(provinceInTitle("Kumluca'daki orman yangınına Bursa'dan destek"), null, 'help from Bursa is not a fire in Bursa');
+assert.equal(provinceInTitle("Adana, Antalya ve Mersin'de orman yangınları"), null, 'several provinces have no single picture');
+const kinds = buildStories([n(1, "Bursa'da orman yangını çıktı", 7), n(2, "Bursa'da anız yangını çıktı", 7), n(3, "Bursa'da orman yangını söndürüldü", 8)]);
+assert.deepEqual(kinds[0].items.map((i) => i.id), [1, 3], 'a stubble fire is a different event');
+
 // Thumbnails
 assert.equal(pickFullest([Buffer.alloc(1052), null]), null, 'blank GIBS image is rejected');
 const big = Buffer.alloc(MIN_IMAGE_BYTES + 5);

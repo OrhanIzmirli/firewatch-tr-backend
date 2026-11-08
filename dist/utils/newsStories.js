@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.stageOf = stageOf;
 exports.placesIn = placesIn;
+exports.fireKind = fireKind;
 exports.buildStories = buildStories;
 const newsGeography_1 = require("./newsGeography");
 const turkishText_1 = require("./turkishText");
@@ -30,6 +31,15 @@ function placesIn(title, province) {
     return out;
 }
 const disagree = (a, b) => a.size > 0 && b.size > 0 && ![...a].some((p) => b.has(p));
+/** A forest fire and a stubble fire in one province are two events. */
+function fireKind(title) {
+    const t = (0, turkishText_1.turkishToLower)(title);
+    if (/orman/.test(t))
+        return 'forest';
+    if (/otluk|anız|tarla|ot yangın|çöp/.test(t))
+        return 'field';
+    return null;
+}
 /**
  * Groups headlines about one fire: same province, no gap over three days,
  * and no two different districts named. It would rather miss a link than
@@ -43,14 +53,16 @@ function buildStories(news) {
             continue;
         const at = n.published_at.getTime();
         const places = placesIn(n.title, province);
-        const group = open.find((g) => g.province === province && at - g.last <= MAX_GAP_MS && !disagree(g.places, places));
+        const kind = fireKind(n.title);
+        const group = open.find((g) => g.province === province && at - g.last <= MAX_GAP_MS && !disagree(g.places, places) && (!g.kind || !kind || g.kind === kind));
         if (group) {
             group.items.push(n);
             group.last = at;
             places.forEach((p) => group.places.add(p));
+            group.kind = group.kind ?? kind;
         }
         else {
-            open.push({ province, last: at, places, items: [n] });
+            open.push({ province, last: at, places, kind, items: [n] });
         }
     }
     const order = ['started', 'controlled', 'out', 'restoration'];
