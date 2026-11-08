@@ -18,6 +18,7 @@ import legalRoutes from './routes/legal';
 import natureRoutes from './routes/nature';
 import { pointRiskRouter } from './routes/pointRisk';
 import { defaultPointRiskDeps } from './services/pointRisk';
+import { markStaleRisk } from './services/riskScore';
 import placesRoutes from './routes/places';
 import { rateLimit, requireAdminToken as secureAdminToken, securityHeaders } from './middleware/security';
 import newsScraperJob, { checkRelevance } from './jobs/newsScraperJob';
@@ -246,7 +247,7 @@ app.get('/api/risk/summary', async (req, res) => {
     // nearby_fire_count: same region, last 24 h, fixed heat sources excluded;
     // null for every region when the satellite pipeline is stale.
     const counts = await loadNearbyFireCounts(pool);
-    const data = attachNearbyFireCounts(result.rows, counts);
+    const data = markStaleRisk(attachNearbyFireCounts(result.rows, counts));
 
     await cacheService.set(cacheKey, data, 300); // calculator runs every 3h, 5 min cache is safe
     res.json({ status: 'success', data });

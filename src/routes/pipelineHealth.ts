@@ -1,3 +1,4 @@
+import { weatherSource } from '../services/weatherSource';
 import { Router, Request, Response } from 'express';
 import pool from '../config/database';
 import { rateLimit } from '../middleware/security';
@@ -132,7 +133,7 @@ router.get(
       // returning 200 with a sad message nobody parses.
       res.status(ok ? 200 : 503);
       res.set('Cache-Control', 'no-store');
-      res.json({ status: ok ? 'ok' : 'degraded', jobs });
+      res.json({ status: ok ? 'ok' : 'degraded', jobs, weather: await weatherSource.usage() });
     } catch (error) {
       if ((error as { code?: string }).code === '42P01') {
         // Migration 006 not applied yet. Say so plainly instead of implying

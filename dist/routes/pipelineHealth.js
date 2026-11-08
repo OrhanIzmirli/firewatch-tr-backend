@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const weatherSource_1 = require("../services/weatherSource");
 const express_1 = require("express");
 const database_1 = __importDefault(require("../config/database"));
 const security_1 = require("../middleware/security");
@@ -117,7 +118,7 @@ router.get('/pipeline', (0, security_1.rateLimit)('pipeline_health', 60, 60000),
         // returning 200 with a sad message nobody parses.
         res.status(ok ? 200 : 503);
         res.set('Cache-Control', 'no-store');
-        res.json({ status: ok ? 'ok' : 'degraded', jobs });
+        res.json({ status: ok ? 'ok' : 'degraded', jobs, weather: await weatherSource_1.weatherSource.usage() });
     }
     catch (error) {
         if (error.code === '42P01') {

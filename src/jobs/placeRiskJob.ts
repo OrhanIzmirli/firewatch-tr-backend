@@ -3,6 +3,7 @@ import pool from '../config/database';
 import { recordJobRun } from '../services/jobRunRecorder';
 import notificationService, { forgetDeadTokens, PushMessage, PushResult } from '../services/notificationService';
 import { computePointRisk, defaultPointRiskDeps, roundToPointGrid } from '../services/pointRisk';
+import { weatherSource } from '../services/weatherSource';
 import { RISK_HIGH_INDEX, riskLevelIndex } from '../services/riskScore';
 import {
   HEAT_ALERT_TTL_SECONDS,
@@ -121,13 +122,24 @@ export async function runPlaceRiskAlerts(
   send: Sender,
   sample: Sampler,
   now: Date = new Date(),
-  opts: { forgetFcmTokens?: boolean } = {}
+  opts: { forgetFcmTokens?: boolean; prepare?: (points: { lat: number; lng: number }[]) => Promise<unknown> } = {}
 ): Promise<PlaceRiskStats> {
   const stats: PlaceRiskStats = { skipped: false, checked: 0, pushesSent: 0, failed: 0, sampleErrors: 0 };
   const { date, hour } = turkeyClock(now);
   if (hour < RISK_CHECK_FIRST_HOUR || hour > RISK_CHECK_LAST_HOUR) return { ...stats, skipped: true };
 
   const { rows } = await db.query(dueRiskPlacesSql(), [now, RISK_CHECK_INTERVAL_HOURS]);
+
+  // One weather request for every due point, so the loop below reads the cache.
+  if (opts.prepare) {
+    const unique = new Map<string, { lat: number; lng: number }>();
+    for (const row of rows as RiskRow[]) {
+      const lat = roundToPointGrid(Number(row.latitude));
+      const lng = roundToPointGrid(Number(row.longitude));
+      if (unique.size < RISK_CHECK_MAX_POINTS) unique.set(`${lat},${lng}`, { lat, lng });
+    }
+    await opts.prepare([...unique.values()]).catch(() => undefined);
+  }
 
   // The score is computed on a coarse grid, so neighbours share one reading.
   const samples = new Map<string, PlaceRiskReading | 'error'>();
@@ -203,11 +215,11 @@ class PlaceRiskJob {
     const empty: PlaceRiskStats = { skipped: true, checked: 0, pushesSent: 0, failed: 0, sampleErrors: 0 };
     if (!(await trackedPlacesAvailable(pool))) return empty;
     try {
-      const deps = defaultPointRiskDeps(pool);
+      const deps = defaultPointRiskDeps(pool, 'places');
       const stats = await runPlaceRiskAlerts(pool, (m) => notificationService.sendMessages(m), async (lat, lng) => {
         const risk = await computePointRisk(lat, lng, deps);
         return { level: riskLevelIndex(risk.risk_level), score: risk.general_risk_score };
-      });
+      }, new Date(), { prepare: (points) => weatherSource.readMany(points, 'places') });
       if (!stats.skipped && (stats.checked > 0 || stats.sampleErrors > 0)) {
         await recordJobRun('place_risk', startedAt, 'ok', { ...stats });
       }

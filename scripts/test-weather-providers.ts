@@ -20,7 +20,18 @@ import {
   isRetryable,
   parseMetNorway,
   parseOpenMeteo,
+  fetchWeatherBatch,
+  openMeteoLimitOf,
+  parseOpenMeteoBatch,
 } from '../src/services/weatherProviders';
+import {
+  OPEN_METEO_DAILY_BUDGET,
+  WEATHER_CACHE_SECONDS,
+  WeatherStore,
+  createWeatherSource,
+  weatherCellKey,
+} from '../src/services/weatherSource';
+import { markStaleRisk } from '../src/services/riskScore';
 
 let failures = 0;
 const t = async (name: string, fn: () => void | Promise<void>) => {
@@ -153,6 +164,120 @@ const noSleep = { now: NOW, sleep: async () => undefined };
   await t('an unparseable MET body counts as a MET failure', async () => {
     const { http } = stub({ [OPEN_METEO_URL]: [http429, http429], [MET_NORWAY_URL]: [{ properties: {} }] });
     await assert.rejects(() => fetchWeatherWithFallback(38.42, 27.14, http, noSleep), /met.no: missing timeseries/);
+  });
+
+  const httpDaily = { response: { status: 429, data: { error: true, reason: 'Daily API request limit exceeded. Please try again tomorrow.' } }, message: 'Request failed with status code 429' };
+  const memoryStore = () => {
+    const values = new Map<string, unknown>();
+    const ttls = new Map<string, number | undefined>();
+    const store: WeatherStore = {
+      async get<T>(key: string) { return (values.has(key) ? values.get(key) : null) as T | null; },
+      async set<T>(key: string, value: T, ttl?: number) { values.set(key, value); ttls.set(key, ttl); return true; },
+      async increment(key, by) { const total = Number(values.get(key) ?? 0) + by; values.set(key, total); return total; },
+    };
+    return { store, values, ttls };
+  };
+  const source = (http: WeatherHttp, store: WeatherStore) =>
+    createWeatherSource({ store, http, now: () => NOW, sleep: async () => undefined, log: () => undefined });
+  const openMeteoFor = (n: number) => Array.from({ length: n }, () => OPEN_METEO_BODY);
+  const SEVEN = [[38.42, 27.14], [36.9, 30.7], [40.18, 29.07], [41.28, 36.33], [39.93, 32.86], [39.9, 41.27], [37.07, 37.38]].map(([lat, lng]) => ({ lat, lng }));
+
+  await t('several points go in one Open-Meteo request', async () => {
+    const { http, calls } = stub({ [OPEN_METEO_URL]: [openMeteoFor(2)] });
+    const b = await fetchWeatherBatch([{ lat: 38.4, lng: 27.1 }, { lat: 36.9, lng: 30.7 }], http, noSleep);
+    assert.strictEqual(calls.length, 1);
+    assert.strictEqual(calls[0].config.params?.latitude, '38.4,36.9');
+    assert.strictEqual(calls[0].config.params?.longitude, '27.1,30.7');
+    assert.ok(b.readings.every((r) => r?.provider === 'open-meteo'));
+  });
+  await t('a batch answer with the wrong number of locations is rejected', () => {
+    assert.throws(() => parseOpenMeteoBatch(openMeteoFor(1), 2), /expected 2 locations/);
+  });
+  await t('the kind of 429 is read from the reason', () => {
+    assert.strictEqual(openMeteoLimitOf(httpDaily), 'day');
+    assert.strictEqual(openMeteoLimitOf({ response: { status: 429, data: { reason: 'Hourly API request limit exceeded.' } } }), 'hour');
+    assert.strictEqual(openMeteoLimitOf(http429), 'minute');
+    assert.strictEqual(openMeteoLimitOf(http400), null);
+  });
+  await t('a daily 429 is not retried and MET answers', async () => {
+    const { http, calls } = stub({ [OPEN_METEO_URL]: [httpDaily], [MET_NORWAY_URL]: [MET_BODY] });
+    const r = await fetchWeatherWithFallback(38.42, 27.14, http, noSleep);
+    assert.strictEqual(r.provider, 'met.no');
+    assert.deepStrictEqual(calls.map((c) => c.url), [OPEN_METEO_URL, MET_NORWAY_URL]);
+  });
+  await t('seven regions cost one HTTP request', async () => {
+    const { http, calls } = stub({ [OPEN_METEO_URL]: [openMeteoFor(7)] });
+    const r = await source(http, memoryStore().store).readMany(SEVEN, 'regions');
+    assert.strictEqual(r.size, 7);
+    assert.strictEqual(calls.length, 1);
+  });
+  await t('points in the same 0.1 degree cell share one reading for an hour', async () => {
+    const m = memoryStore();
+    const { http, calls } = stub({ [OPEN_METEO_URL]: [OPEN_METEO_BODY] });
+    const s = source(http, m.store);
+    await s.read(38.41, 27.14, 'point');
+    await s.read(38.44, 27.12, 'places');
+    assert.strictEqual(calls.length, 1, 'the second caller used the cache');
+    assert.strictEqual(calls[0].config.params?.latitude, '38.4');
+    assert.strictEqual(m.ttls.get(`weather:v2:${weatherCellKey(38.41, 27.14)}`), WEATHER_CACHE_SECONDS);
+  });
+  await t('a restart reads the shared cache instead of calling again', async () => {
+    const m = memoryStore();
+    const first = stub({ [OPEN_METEO_URL]: [openMeteoFor(7)] });
+    await source(first.http, m.store).readMany(SEVEN, 'regions');
+    const second = stub({});
+    const r = await source(second.http, m.store).readMany(SEVEN, 'regions');
+    assert.strictEqual(r.size, 7);
+    assert.strictEqual(second.calls.length, 0);
+  });
+  await t('forced 429: MET Norway answers and Open-Meteo is left alone afterwards', async () => {
+    const m = memoryStore();
+    const { http, calls } = stub({ [OPEN_METEO_URL]: [httpDaily], [MET_NORWAY_URL]: [MET_BODY, MET_BODY] });
+    const s = source(http, m.store);
+    const first = await s.read(38.4, 27.1, 'regions');
+    assert.strictEqual(first.provider, 'met.no');
+    assert.deepStrictEqual(first.weather, { temperature: 9, humidity: 80, windSpeed: 7, windDirection: 'NW' });
+    const second = await s.read(36.9, 30.7, 'point');
+    assert.strictEqual(second.provider, 'met.no');
+    assert.strictEqual(calls.filter((c) => c.url === OPEN_METEO_URL).length, 1);
+    assert.strictEqual((await s.usage()).open_meteo_429, 1);
+  });
+  await t('the daily budget stops Open-Meteo at 30% of its limit', async () => {
+    const m = memoryStore();
+    assert.strictEqual(OPEN_METEO_DAILY_BUDGET, 3000);
+    await m.store.increment('weather:usage:2026-11-06:open-meteo', OPEN_METEO_DAILY_BUDGET, 1);
+    const { http, calls } = stub({ [MET_NORWAY_URL]: [MET_BODY] });
+    const r = await source(http, m.store).read(38.4, 27.1, 'point');
+    assert.strictEqual(r.provider, 'met.no');
+    assert.deepStrictEqual(calls.map((c) => c.url), [MET_NORWAY_URL]);
+  });
+  await t('usage is counted per location and per caller', async () => {
+    const { http } = stub({ [OPEN_METEO_URL]: [openMeteoFor(7)] });
+    const s = source(http, memoryStore().store);
+    await s.readMany(SEVEN, 'regions');
+    const u = await s.usage();
+    assert.strictEqual(u.open_meteo_calls, 7);
+    assert.strictEqual(u.by_caller.regions, 7);
+    assert.strictEqual(u.open_meteo_limit_share_pct, 0.1);
+  });
+  await t('both providers down: no reading, nothing cached, nothing invented', async () => {
+    const m = memoryStore();
+    const { http } = stub({ [OPEN_METEO_URL]: [httpDaily], [MET_NORWAY_URL]: [{ response: { status: 503 } }, { response: { status: 503 } }, { response: { status: 503 } }] });
+    const s = source(http, m.store);
+    const r = await s.readMany([{ lat: 38.4, lng: 27.1 }, { lat: 36.9, lng: 30.7 }], 'regions');
+    assert.strictEqual(r.size, 0);
+    assert.ok(![...m.values.keys()].some((k) => k.startsWith('weather:v2:')));
+    await assert.rejects(() => s.read(38.4, 27.1, 'point'), /unavailable/);
+  });
+  await t('one point failing at MET does not lose the others', async () => {
+    const { http } = stub({ [OPEN_METEO_URL]: [httpDaily], [MET_NORWAY_URL]: [{ response: { status: 503 } }, MET_BODY] });
+    const r = await source(http, memoryStore().store).readMany([{ lat: 38.4, lng: 27.1 }, { lat: 36.9, lng: 30.7 }], 'regions');
+    assert.deepStrictEqual([...r.keys()], [weatherCellKey(36.9, 30.7)]);
+  });
+  await t('a score older than two runs is marked stale', () => {
+    const at = (hours: number) => new Date(NOW.getTime() - hours * 3600_000).toISOString();
+    const rows = markStaleRisk([{ created_at: at(5.9) }, { created_at: at(6.1) }, { created_at: 'x' }], NOW);
+    assert.deepStrictEqual(rows.map((r) => r.is_stale), [false, true, true]);
   });
 
   console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILED`);

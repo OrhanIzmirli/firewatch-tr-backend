@@ -7,7 +7,7 @@ const node_cron_1 = __importDefault(require("node-cron"));
 const database_1 = __importDefault(require("../config/database"));
 const cacheService_1 = __importDefault(require("../services/cacheService"));
 const nearbyFireCount_1 = require("../services/nearbyFireCount");
-const weatherProviders_1 = require("../services/weatherProviders");
+const weatherSource_1 = require("../services/weatherSource");
 const notificationService_1 = __importDefault(require("../services/notificationService"));
 const alertText_1 = require("../services/alertText");
 const regions_1 = require("../utils/regions");
@@ -21,7 +21,6 @@ const REGIONS = [
     { name: 'Dogu Anadolu', display: 'Doğu Anadolu', lat: 39.9, lng: 41.27 },
     { name: 'Guneydogu Anadolu', display: 'Güneydoğu Anadolu', lat: 37.07, lng: 37.38 },
 ];
-const CACHE_TTL = 300; // 5 dakika
 const RISK_ALERT_THRESHOLD = 70;
 const RISK_ALERT_TTL_SECONDS = 6 * 60 * 60;
 const CRITICAL_FIRE_THRESHOLD = 5;
@@ -46,9 +45,15 @@ class RiskCalculatorJob {
             console.error('Risk calculator skipped: fire counts unavailable (ingest/cluster stale or unreadable)');
             return;
         }
+        // All regions in one request. A region with no reading gets no row, so
+        // the published score ages and is marked stale instead of being invented.
+        const readings = await weatherSource_1.weatherSource.readMany(REGIONS, 'regions');
         for (const region of REGIONS) {
             try {
-                const weather = await this.fetchWeather(region.lat, region.lng);
+                const reading = readings.get((0, weatherSource_1.weatherCellKey)(region.lat, region.lng));
+                if (!reading)
+                    throw new Error('weather unavailable from every provider');
+                const weather = reading.weather;
                 const fireStats = this.fireStatsFor(region, fireStatsByRegion);
                 const risk = (0, riskScore_1.calculateRisk)(weather, fireStats.incidents);
                 await database_1.default.query(`INSERT INTO risk_data
@@ -78,23 +83,6 @@ class RiskCalculatorJob {
         }
         await cacheService_1.default.delete('risk:summary');
         console.log('Risk calculator completed');
-    }
-    async fetchWeather(lat, lng) {
-        const cacheKey = `weather:${lat}:${lng}`;
-        const cached = await cacheService_1.default.get(cacheKey);
-        if (cached) {
-            console.log(`Cache HIT: ${cacheKey}`);
-            return cached;
-        }
-        // Open-Meteo first, MET Norway when it is rate-limited or down
-        // (services/weatherProviders.ts). A fallback answer is logged so the
-        // 429 streaks stay visible even though the row still gets written.
-        const reading = await (0, weatherProviders_1.fetchWeatherWithFallback)(lat, lng);
-        if (reading.notes.length > 0) {
-            console.warn(`Weather ${lat},${lng} from ${reading.provider} after: ${reading.notes.join('; ')}`);
-        }
-        await cacheService_1.default.set(cacheKey, reading.weather, CACHE_TTL);
-        return reading.weather;
     }
     fireStatsFor(region, stats) {
         const key = (0, regions_1.regionKeyForRegionName)(region.name) ?? (0, regions_1.regionKeyForCoordinates)(region.lat, region.lng);

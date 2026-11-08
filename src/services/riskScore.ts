@@ -80,3 +80,15 @@ export function calculateRisk(weather: WeatherData, fireCount: number): RiskResu
 
   return { score, level: riskLevelForScore(score), drynessIndex, vegetationPressure };
 }
+
+/** The calculator runs every 3 hours, so this is two missed runs. */
+export const RISK_STALE_AFTER_HOURS = 6;
+
+/** Marks rows whose score is too old to be read as the current risk. */
+export function markStaleRisk<T extends { created_at: Date | string }>(rows: T[], now: Date = new Date()): (T & { is_stale: boolean })[] {
+  const limit = RISK_STALE_AFTER_HOURS * 60 * 60 * 1000;
+  return rows.map((row) => {
+    const at = new Date(row.created_at).getTime();
+    return { ...row, is_stale: Number.isNaN(at) || now.getTime() - at > limit };
+  });
+}

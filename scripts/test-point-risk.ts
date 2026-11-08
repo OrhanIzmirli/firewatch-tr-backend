@@ -181,6 +181,22 @@ function deps(over: Partial<import('../src/services/pointRisk').PointRiskDeps> =
     assert.ok(!/Günlük tehlike bildirimi/.test(legal));
   });
 
+  await b('saved places ask for their weather once, one point per cell', async () => {
+    const job = require('../src/jobs/placeRiskJob') as typeof import('../src/jobs/placeRiskJob');
+    const rows = [
+      { place_id: 1, install_id: 'a', latitude: 38.41, longitude: 27.14, last_class: 1, last_notified_on: null, fcm_token: null },
+      { place_id: 2, install_id: 'b', latitude: 38.44, longitude: 27.12, last_class: 1, last_notified_on: null, fcm_token: null },
+      { place_id: 3, install_id: 'c', latitude: 36.9, longitude: 30.7, last_class: 1, last_notified_on: null, fcm_token: null },
+    ];
+    const db = { query: async (sql: string) => (/SELECT/i.test(sql) ? { rows } : { rows: [] }) };
+    const asked: { lat: number; lng: number }[][] = [];
+    await job.runPlaceRiskAlerts(db as any, (async () => []) as any, async () => ({ level: 1, score: 20 }), new Date('2026-07-03T09:00:00Z'), {
+      forgetFcmTokens: false,
+      prepare: async (points) => { asked.push(points); },
+    });
+    assert.deepStrictEqual(asked, [[{ lat: 38.4, lng: 27.1 }, { lat: 36.9, lng: 30.7 }]]);
+  });
+
   console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILED`);
   process.exitCode = failures === 0 ? 0 : 1;
 })();

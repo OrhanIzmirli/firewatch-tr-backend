@@ -46,6 +46,7 @@ const database_1 = __importDefault(require("../config/database"));
 const jobRunRecorder_1 = require("../services/jobRunRecorder");
 const notificationService_1 = __importStar(require("../services/notificationService"));
 const pointRisk_1 = require("../services/pointRisk");
+const weatherSource_1 = require("../services/weatherSource");
 const riskScore_1 = require("../services/riskScore");
 const trackedPlaces_1 = require("../services/trackedPlaces");
 /**
@@ -115,6 +116,17 @@ async function runPlaceRiskAlerts(db, send, sample, now = new Date(), opts = {})
     if (hour < exports.RISK_CHECK_FIRST_HOUR || hour > exports.RISK_CHECK_LAST_HOUR)
         return { ...stats, skipped: true };
     const { rows } = await db.query(dueRiskPlacesSql(), [now, exports.RISK_CHECK_INTERVAL_HOURS]);
+    // One weather request for every due point, so the loop below reads the cache.
+    if (opts.prepare) {
+        const unique = new Map();
+        for (const row of rows) {
+            const lat = (0, pointRisk_1.roundToPointGrid)(Number(row.latitude));
+            const lng = (0, pointRisk_1.roundToPointGrid)(Number(row.longitude));
+            if (unique.size < exports.RISK_CHECK_MAX_POINTS)
+                unique.set(`${lat},${lng}`, { lat, lng });
+        }
+        await opts.prepare([...unique.values()]).catch(() => undefined);
+    }
     // The score is computed on a coarse grid, so neighbours share one reading.
     const samples = new Map();
     const candidates = new Map();
@@ -192,11 +204,11 @@ class PlaceRiskJob {
         if (!(await (0, trackedPlaces_1.trackedPlacesAvailable)(database_1.default)))
             return empty;
         try {
-            const deps = (0, pointRisk_1.defaultPointRiskDeps)(database_1.default);
+            const deps = (0, pointRisk_1.defaultPointRiskDeps)(database_1.default, 'places');
             const stats = await runPlaceRiskAlerts(database_1.default, (m) => notificationService_1.default.sendMessages(m), async (lat, lng) => {
                 const risk = await (0, pointRisk_1.computePointRisk)(lat, lng, deps);
                 return { level: (0, riskScore_1.riskLevelIndex)(risk.risk_level), score: risk.general_risk_score };
-            });
+            }, new Date(), { prepare: (points) => weatherSource_1.weatherSource.readMany(points, 'places') });
             if (!stats.skipped && (stats.checked > 0 || stats.sampleErrors > 0)) {
                 await (0, jobRunRecorder_1.recordJobRun)('place_risk', startedAt, 'ok', { ...stats });
             }
