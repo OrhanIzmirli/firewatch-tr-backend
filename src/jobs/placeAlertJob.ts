@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import pool from '../config/database';
 import { recordJobRun } from '../services/jobRunRecorder';
 import { heatSourceSqlCondition } from '../services/heatSource';
+import { naturalOrConfirmedSql } from '../services/landCover';
 import notificationService, { forgetDeadTokens, PushMessage, PushResult } from '../services/notificationService';
 import {
   HEAT_ALERT_CAP_WINDOW_HOURS,
@@ -103,6 +104,7 @@ export function newHeatPairsSql(): string {
         AND i.last_detected_at > NOW() - make_interval(hours => ${HEAT_ALERT_MAX_AGE_HOURS})
         AND i.peak_confidence_tier IN (${tiers})
         AND NOT COALESCE((${heatSourceSqlCondition('i')}), false)
+        AND ${naturalOrConfirmedSql('i')}
     ),
     inserted AS (
       INSERT INTO place_notifications (place_id, kind, ref_key, install_id, status)

@@ -12,6 +12,7 @@ const provinces_1 = require("../services/provinces");
 const jobRunRecorder_1 = require("../services/jobRunRecorder");
 const regions_1 = require("../utils/regions");
 const fireClusterJob_1 = __importDefault(require("./fireClusterJob"));
+const incidentEvidenceJob_1 = __importDefault(require("./incidentEvidenceJob"));
 const placeAlertJob_1 = __importDefault(require("./placeAlertJob"));
 const placeRiskJob_1 = __importDefault(require("./placeRiskJob"));
 /**
@@ -305,6 +306,8 @@ class FireIngestJob {
             // Clustering runs in the same tick as ingest so a detection never sits
             // unattached for a whole cron interval.
             await fireClusterJob_1.default.runClustering();
+            // Before the alerts, so they know the ground and any news match.
+            await incidentEvidenceJob_1.default.run();
             // Tracked-place heat alerts read the incidents clustering just wrote.
             // Never throws; skips itself until migration 014 is applied.
             await placeAlertJob_1.default.run();

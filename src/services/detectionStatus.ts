@@ -1,5 +1,6 @@
 import type { Pool } from 'pg';
 import { heatSourceSqlCondition } from './heatSource';
+import { naturalOrConfirmedSql } from './landCover';
 import { NEARBY_FIRE_PIPELINE_JOBS, isPipelineFresh } from './nearbyFireCount';
 
 /**
@@ -73,14 +74,17 @@ export async function loadPipelineState(db: Pick<Pool, 'query'>): Promise<Pipeli
 export interface DetectionStatus {
   last_update_at: string | null;
   pipeline_fresh: boolean;
-  /** Multi-pass events in 24 h. Null when the pipeline is stale: unknown, never zero. */
+  /** Strong on natural ground or confirmed by news, in 24 h. Null when stale: unknown, never zero. */
   strong_detections_24h: number | null;
+  /** Strong on farmland, built-up or bare ground, in 24 h. Null when stale. */
+  strong_other_24h: number | null;
   latest_detection: { detected_at: string; city: string | null } | null;
 }
 
 export function detectionSummarySql(): string {
-  return `SELECT count(*) FILTER (WHERE i.last_detected_at > now() - interval '24 hours')::int AS n,
-                 max(i.last_detected_at) AS latest
+  return `SELECT count(*) FILTER (WHERE i.last_detected_at > now() - interval '24 hours' AND ${naturalOrConfirmedSql('i')})::int AS n,
+                 count(*) FILTER (WHERE i.last_detected_at > now() - interval '24 hours' AND NOT ${naturalOrConfirmedSql('i')})::int AS other,
+                 max(i.last_detected_at) FILTER (WHERE ${naturalOrConfirmedSql('i')}) AS latest
             FROM fire_incidents i
            WHERE ${STRONG_SQL('i')}
              AND NOT COALESCE((${heatSourceSqlCondition('i')}), false)`;
@@ -92,6 +96,7 @@ export function latestDetectionCitySql(): string {
             LEFT JOIN turkey_cities c ON c.id = i.city_id
            WHERE i.last_detected_at = $1
              AND ${STRONG_SQL('i')}
+             AND ${naturalOrConfirmedSql('i')}
              AND NOT COALESCE((${heatSourceSqlCondition('i')}), false)
            LIMIT 1`;
 }
@@ -107,6 +112,7 @@ export async function loadDetectionStatus(db: Pick<Pool, 'query'>): Promise<Dete
     last_update_at: pipeline.lastUpdateAt?.toISOString() ?? null,
     pipeline_fresh: pipeline.fresh,
     strong_detections_24h: pipeline.fresh ? Number(summary.rows[0].n) : null,
+    strong_other_24h: pipeline.fresh ? Number(summary.rows[0].other ?? 0) : null,
     latest_detection: latest ? { detected_at: latest.toISOString(), city } : null,
   };
 }

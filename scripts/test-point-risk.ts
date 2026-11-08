@@ -111,7 +111,7 @@ function deps(over: Partial<import('../src/services/pointRisk').PointRiskDeps> =
     const lastOk = jobAgeHours === null ? null : new Date(now.getTime() - jobAgeHours * 3_600_000);
     return { query: async (sql: string) => {
       if (/job_runs/.test(sql)) return { rows: [{ job: 'ingest', db_now: now, last_ok: lastOk }, { job: 'cluster', db_now: now, last_ok: lastOk }] };
-      if (/count\(\*\)/.test(sql)) return { rows: [{ n, latest }] };
+      if (/count\(\*\)/.test(sql)) return { rows: [{ n, other: 4, latest }] };
       return { rows: [{ city }] };
     } } as any;
   };

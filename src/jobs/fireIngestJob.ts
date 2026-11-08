@@ -5,6 +5,7 @@ import { provinceIdSql, provincePolygonsAvailable } from '../services/provinces'
 import { recordJobRun } from '../services/jobRunRecorder';
 import { regionKeyForCoordinates, regionKeyForRegionName } from '../utils/regions';
 import fireClusterJob from './fireClusterJob';
+import incidentEvidenceJob from './incidentEvidenceJob';
 import placeAlertJob from './placeAlertJob';
 import placeRiskJob from './placeRiskJob';
 
@@ -369,6 +370,8 @@ class FireIngestJob {
       // Clustering runs in the same tick as ingest so a detection never sits
       // unattached for a whole cron interval.
       await fireClusterJob.runClustering();
+      // Before the alerts, so they know the ground and any news match.
+      await incidentEvidenceJob.run();
       // Tracked-place heat alerts read the incidents clustering just wrote.
       // Never throws; skips itself until migration 014 is applied.
       await placeAlertJob.run();
