@@ -3,14 +3,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.relatedNews = relatedNews;
 const incidentNewsMatch_1 = require("./incidentNewsMatch");
 const provinces_1 = require("./provinces");
+const newsSources_1 = require("../config/newsSources");
 /** Same story and province gates as "confirmed by news", newest first. */
 async function relatedNews(db, city, from, to, limit) {
     const [news, cities] = await Promise.all([
         db.query(`SELECT id, title, summary, source, source_url, COALESCE(published_at, created_at) AS at
          FROM news
         WHERE COALESCE(published_at, created_at) BETWEEN $1::timestamptz - interval '1 day' AND $2::timestamptz + interval '1 day'
+          AND source <> ALL($3::text[])
         ORDER BY at DESC
-        LIMIT 400`, [from, to]),
+        LIMIT 400`, [from, to, newsSources_1.REMOVED_NEWS_SOURCES]),
         db.query(`SELECT name FROM turkey_cities`),
     ]);
     const cityNames = (0, provinces_1.withFormerNames)(cities.rows.map((r) => String(r.name)));

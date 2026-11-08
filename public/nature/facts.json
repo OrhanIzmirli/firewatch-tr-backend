@@ -1,0 +1,1289 @@
+[
+ {
+  "id": "plants-001",
+  "tr": "Kızılçamın kabuğu çok kalındır. Bu sayede yerdeki otları yakan yangınlardan az zarar görür.",
+  "en": "Turkish red pine has very thick bark. Thanks to it, fires that burn along the ground hurt the tree only a little.",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Orman Genel Müdürlüğü (OGM)",
+  "source_url": "https://www.ogm.gov.tr/tr/yararli-bilgiler/haftanin-agaci/kizilcam"
+ },
+ {
+  "id": "plants-002",
+  "tr": "Bir karaçam dalına yakından bak: iğne yaprakları hep ikişer ikişer çıkar!",
+  "en": "Look closely at a black pine branch: its needles always grow in pairs!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Orman Genel Müdürlüğü (OGM)",
+  "source_url": "https://www.ogm.gov.tr/tr/yararli-bilgiler/haftanin-agaci/karacam"
+ },
+ {
+  "id": "plants-003",
+  "tr": "Karaçam kozalağı çok sabırlıdır. İkinci yılın sonbaharında olgunlaşır, ancak üçüncü yılda açılır.",
+  "en": "Black pine cones are very patient. They ripen in the autumn of their second year and only open in the third.",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Orman Genel Müdürlüğü (OGM)",
+  "source_url": "https://www.ogm.gov.tr/tr/yararli-bilgiler/haftanin-agaci/karacam"
+ },
+ {
+  "id": "plants-004",
+  "tr": "Kayın ağacının kabuğu yaşlanınca bile çatlamaz. Ömrü boyunca pürüzsüz kalır!",
+  "en": "A beech tree's bark does not crack even as it ages. It stays smooth its whole life!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Orman Genel Müdürlüğü (OGM)",
+  "source_url": "https://www.ogm.gov.tr/tr/yararli-bilgiler/haftanin-agaci/kayin"
+ },
+ {
+  "id": "plants-005",
+  "tr": "Titrek kavağın adı boşuna değil. Yaprak sapları yassı olduğu için hafif bir rüzgârda bile yaprakları titrer.",
+  "en": "The trembling poplar earned its name. Its leaf stalks are flat, so its leaves shake even in a light breeze.",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Orman Genel Müdürlüğü (OGM)",
+  "source_url": "https://www.ogm.gov.tr/tr/yararli-bilgiler/haftanin-agaci/titrek-kavak"
+ },
+ {
+  "id": "plants-006",
+  "tr": "Saplı meşenin palamutları çiçek açtığı yılın ekim ayında olgunlaşır. Yani sonbaharda ağacın altına bakmanın tam zamanı!",
+  "en": "The acorns of the pedunculate oak ripen in October of the same year. So autumn is the perfect time to look under the tree!",
+  "category": "plants",
+  "season": "autumn",
+  "source_name": "Orman Genel Müdürlüğü (OGM)",
+  "source_url": "https://www.ogm.gov.tr/tr/yararli-bilgiler/haftanin-agaci/sapli-mese"
+ },
+ {
+  "id": "plants-007",
+  "tr": "Ağaç halkaları eski havayı anlatır. Geniş halka genelde o yıl şartların iyi olduğunu, dar halka kuraklık ya da hastalık olabileceğini gösterir.",
+  "en": "Tree rings tell old weather stories. A wide ring usually means a good year, while a narrow ring can mean drought or disease.",
+  "category": "plants",
+  "season": "all",
+  "source_name": "NOAA National Ocean Service",
+  "source_url": "https://oceanservice.noaa.gov/education/dyw-tree-detective.html"
+ },
+ {
+  "id": "plants-008",
+  "tr": "Bir ağacın en yaşlı halkaları ortadadır. Kabuğun hemen altındaki halka ise bu yıl oluşmuştur!",
+  "en": "A tree's oldest rings are in the middle. The ring right under the bark is from this year!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "NOAA National Ocean Service",
+  "source_url": "https://oceanservice.noaa.gov/education/dyw-tree-detective.html"
+ },
+ {
+  "id": "plants-009",
+  "tr": "Her halkada iki renk vardır: ilkbaharda oluşan açık kısım ve büyüme mevsiminin sonunda oluşan koyu kısım. İkisini ayrı sayarsan ağacı iki kat yaşlı sanırsın!",
+  "en": "Each ring has two colors: a light part from spring and a dark part from the end of the growing season. Count both and you will think the tree is twice as old!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "US National Park Service, Aztec Ruins",
+  "source_url": "https://www.nps.gov/azru/learn/nature/dendrochronology.htm"
+ },
+ {
+  "id": "plants-010",
+  "tr": "Eski bir binanın tavanındaki kirişin en dış halkası, o ağacın hangi yıl kesildiğini söyler. Bilim insanları binaların yaşını böyle bulur!",
+  "en": "The outermost ring of an old roof beam tells the year its tree was cut. That is how scientists find out how old a building is!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "US National Park Service, Aztec Ruins",
+  "source_url": "https://www.nps.gov/azru/learn/nature/dendrochronology.htm"
+ },
+ {
+  "id": "plants-011",
+  "tr": "Ağaçlar yaprak dökmeden önce yapraklardaki son besinleri geri alır. Besinleri dallarına ve gövdesine taşıyıp saklar!",
+  "en": "Before a tree drops its leaves, it takes back the last food in them. It moves that food into its branches and trunk!",
+  "category": "plants",
+  "season": "autumn",
+  "source_name": "US National Park Service",
+  "source_url": "https://www.nps.gov/articles/why-do-leaves-change-in-the-fall.htm"
+ },
+ {
+  "id": "plants-012",
+  "tr": "Yangından sonra yeniden filizlenen bazı çalılar eskisinden daha çok meyve verir. Yanık toprak bile sürpriz yapabilir!",
+  "en": "Some shrubs that sprout again after a fire grow even more fruit than before. Even burned ground can surprise you!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "US National Park Service, Glacier National Park",
+  "source_url": "https://www.nps.gov/glac/learn/nature/fire-ecology.htm"
+ },
+ {
+  "id": "plants-013",
+  "tr": "Bazı çamların kozalakları reçineyle mühürlüdür. Bu mührün erimesi için en az 45 derece sıcaklık gerekir, tohumlar da ancak o zaman çıkar!",
+  "en": "Some pine cones are sealed shut with sticky resin. It takes at least 45 degrees of heat to melt the seal and let the seeds out!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "US National Park Service, Yellowstone",
+  "source_url": "https://www.nps.gov/yell/learn/nature/ecological-consequences-of-fire.htm"
+ },
+ {
+  "id": "plants-014",
+  "tr": "Yangında otların üstü yansa da kökleri toprağın altında çoğu zaman sağlam kalır. Bazı yerlerde nem gelince otlar günler içinde yeniden yeşerir!",
+  "en": "A fire can burn the top of the grass, but the roots underground usually stay safe. In some places, grass turns green again within days once moisture comes!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "US National Park Service, Yellowstone",
+  "source_url": "https://www.nps.gov/yell/learn/nature/ecological-consequences-of-fire.htm"
+ },
+ {
+  "id": "plants-015",
+  "tr": "Amerika'daki titrek kavaklar toprağın altında köklerini paylaşır. Yangından sonra bu köklerden yeni filizler çıkar!",
+  "en": "Aspen trees in America share their roots underground. After a fire, new shoots grow up from those roots!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "US National Park Service, Yellowstone",
+  "source_url": "https://www.nps.gov/yell/learn/nature/ecological-consequences-of-fire.htm"
+ },
+ {
+  "id": "plants-016",
+  "tr": "Meşenin üstü yangında ölse bile iş bitmez. Kütüğünden ve köklerinden bol bol yeni filiz verebilir!",
+  "en": "Even when fire kills the top of an oak, it is not the end. The oak can send up many new shoots from its stump and roots!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "US National Park Service, Sky Island Fire Ecology",
+  "source_url": "https://www.nps.gov/articles/sky-island-fire-ecology.htm"
+ },
+ {
+  "id": "plants-017",
+  "tr": "Bir tohum uyanınca dışarı önce kök çıkar. Kök onu toprağa tutturur ve su içer, filiz sonra gelir!",
+  "en": "When a seed wakes up, the root comes out first. It holds the seed in the ground and drinks water, and the shoot comes after!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Woodland Trust",
+  "source_url": "https://www.woodlandtrust.org.uk/blog/2019/06/tree-lifecycle/"
+ },
+ {
+  "id": "plants-018",
+  "tr": "Birleşik Krallık'taki meşe ağaçları 2.300'den fazla canlı türüne yaşam alanı olabilir. Bir meşe koca bir mahalle gibidir!",
+  "en": "Oak trees in the UK can support more than 2,300 different kinds of living things. An oak is like a whole neighborhood!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Woodland Trust",
+  "source_url": "https://www.woodlandtrust.org.uk/trees-woods-and-wildlife/british-trees/a-z-of-british-trees/english-oak/"
+ },
+ {
+  "id": "plants-019",
+  "tr": "Meşe palamutları sonbaharda yere düşer ama hemen filizlenmez. Filiz vermek için ertesi ilkbaharı bekler!",
+  "en": "Acorns fall to the ground in autumn, but they do not sprout right away. They wait until the next spring!",
+  "category": "plants",
+  "season": "autumn",
+  "source_name": "Woodland Trust",
+  "source_url": "https://www.woodlandtrust.org.uk/trees-woods-and-wildlife/british-trees/a-z-of-british-trees/english-oak/"
+ },
+ {
+  "id": "plants-020",
+  "tr": "Kestane ağacının kabuğuna iyi bak: çatlaklar gövdenin çevresinde sarmal gibi dönerek yukarı çıkar!",
+  "en": "Take a good look at a sweet chestnut's bark: the cracks wind around the trunk in a spiral as they go up!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Woodland Trust",
+  "source_url": "https://www.woodlandtrust.org.uk/trees-woods-and-wildlife/british-trees/a-z-of-british-trees/sweet-chestnut/"
+ },
+ {
+  "id": "plants-021",
+  "tr": "Fındık ağacında hem erkek hem dişi çiçek vardır. Yine de fındık vermek için başka bir fındık ağacının çiçek tozu gerekir!",
+  "en": "A hazel tree has both male and female flowers. Even so, it needs pollen from another hazel tree to make nuts!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Woodland Trust",
+  "source_url": "https://www.woodlandtrust.org.uk/trees-woods-and-wildlife/british-trees/a-z-of-british-trees/hazel/"
+ },
+ {
+  "id": "plants-022",
+  "tr": "Ölü bir ağaç bile boşa gitmez. Böcekleri besler, kuşlara ve yarasalara kovuklarında ev olur!",
+  "en": "Even a dead tree is not wasted. It feeds insects and gives birds and bats a home in its hollows!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Woodland Trust",
+  "source_url": "https://www.woodlandtrust.org.uk/blog/2019/06/tree-lifecycle/"
+ },
+ {
+  "id": "plants-023",
+  "tr": "Meşe ağacı acele etmez. Palamut vermeye genelde 40 yaşında başlar!",
+  "en": "An oak tree is never in a hurry. It usually starts making acorns when it is about 40 years old!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Forestry England",
+  "source_url": "https://www.forestryengland.uk/tree-species/english-oak"
+ },
+ {
+  "id": "plants-024",
+  "tr": "Bir meşe ağacı 1000 yıla kadar yaşayabilir. Senin büyük büyük dedelerinden bile yaşlı olabilir!",
+  "en": "An oak tree can live for up to 1,000 years. It could be older than your great-great-grandparents!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Forestry England",
+  "source_url": "https://www.forestryengland.uk/tree-species/english-oak"
+ },
+ {
+  "id": "plants-025",
+  "tr": "Kayın ağacının yaprakları o kadar sıktır ki altına çok az ışık ulaşır. Bu yüzden kayın ormanının içi serin ve loştur.",
+  "en": "Beech leaves grow so thickly that very little light gets through. That is why a beech wood feels cool and shady.",
+  "category": "plants",
+  "season": "summer",
+  "source_name": "Forestry England",
+  "source_url": "https://www.forestryengland.uk/tree-species/beech"
+ },
+ {
+  "id": "plants-026",
+  "tr": "Dişbudak tohumlarının kanatları vardır. Düşerken pervane gibi döndükleri için onlara helikopter denir!",
+  "en": "Ash tree seeds have wings. They spin as they fall, so people call them helicopters!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Forestry England",
+  "source_url": "https://www.forestryengland.uk/tree-species/ash"
+ },
+ {
+  "id": "plants-027",
+  "tr": "Huş ağacı boş arazilere ilk gelen ağaçlardan biridir. Yeni ormanlar çoğu zaman onunla başlar!",
+  "en": "The silver birch is often one of the first trees to grow on open land. New woods often begin with it!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Forestry England",
+  "source_url": "https://www.forestryengland.uk/tree-species/silver-birch"
+ },
+ {
+  "id": "plants-028",
+  "tr": "Huş ağacının minicik kanatlı binlerce tohumu rüzgârla uçar ve yeni yerlere ulaşır!",
+  "en": "A birch tree's thousands of tiny winged seeds fly on the wind and reach new places!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Forestry England",
+  "source_url": "https://www.forestryengland.uk/tree-species/silver-birch"
+ },
+ {
+  "id": "plants-029",
+  "tr": "Güney ve batı Türkiye'deki ormanların neredeyse dörtte biri kızılçamdır!",
+  "en": "Almost a quarter of the forests in southern and western Türkiye are Turkish red pine!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "EUFORGEN",
+  "source_url": "https://www.euforgen.org/species/pinus-brutia"
+ },
+ {
+  "id": "plants-030",
+  "tr": "Fıstık çamının yaprakları yukarıdadır, alt dalları yoktur, kabuğu da kalındır. Bu yüzden ateşten başka ağaçlara göre daha az etkilenir.",
+  "en": "A stone pine keeps its leaves high up, has no low branches and has thick bark. That is why fire harms it less than other trees.",
+  "category": "plants",
+  "season": "all",
+  "source_name": "EUFORGEN",
+  "source_url": "https://www.euforgen.org/species/pinus-pinea"
+ },
+ {
+  "id": "plants-031",
+  "tr": "Sedir ağacı yüksek dağları sever. 1000 ile 3000 metre yükseklikte yetişir!",
+  "en": "The cedar tree loves high mountains. It grows between 1,000 and 3,000 meters up!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "EUFORGEN",
+  "source_url": "https://www.euforgen.org/species/cedrus-libani"
+ },
+ {
+  "id": "plants-032",
+  "tr": "Sedir odununun güzel kokusu yıllarca kaybolmaz. Eskiden gemi ve tapınak yapımında da kullanılmıştır!",
+  "en": "The lovely smell of cedar wood lasts for years. Long ago, people also used it to build ships and temples!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "EUFORGEN",
+  "source_url": "https://www.euforgen.org/species/cedrus-libani"
+ },
+ {
+  "id": "plants-033",
+  "tr": "Şişe mantarları bir ağacın kabuğundan yapılır! Mantar meşesinin kabuğu 9-12 yılda bir soyulur, ağaç zarar görmez ve kabuk yeniden oluşur.",
+  "en": "Bottle corks come from tree bark! A cork oak's bark is peeled every 9 to 12 years, the tree is not harmed, and the bark grows back.",
+  "category": "plants",
+  "season": "all",
+  "source_name": "EUFORGEN",
+  "source_url": "https://www.euforgen.org/species/quercus-suber"
+ },
+ {
+  "id": "plants-034",
+  "tr": "Mantar meşesinin kabuğu kalın bir battaniye gibidir. Ağacı orman yangınlarından korur!",
+  "en": "A cork oak's bark is like a thick blanket. It protects the tree from wildfires!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "EUFORGEN",
+  "source_url": "https://www.euforgen.org/species/quercus-suber"
+ },
+ {
+  "id": "plants-035",
+  "tr": "Karadeniz dağlarında yetişen Kafkas göknarı 60 metreye kadar uzayabilir!",
+  "en": "The Caucasian fir that grows in the Black Sea mountains can reach up to 60 meters tall!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "EUFORGEN",
+  "source_url": "https://www.euforgen.org/species/abies-nordmanniana"
+ },
+ {
+  "id": "plants-036",
+  "tr": "Kestane ağacı kesilse bile kütüğünden yeniden filiz verebilir!",
+  "en": "Even if a chestnut tree is cut down, it can sprout again from its stump!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "EUFORGEN",
+  "source_url": "https://www.euforgen.org/species/castanea-sativa"
+ },
+ {
+  "id": "plants-037",
+  "tr": "Kızılçam kozalağının oluşması 3 yıl sürer. Olgunlaştıktan sonra da birkaç yıl daha dalda kalır!",
+  "en": "A Turkish red pine cone takes 3 years to form. Even after it is ripe, it stays on the branch for several more years!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "FAO, Forest Genetic Resources Information No. 3",
+  "source_url": "https://www.fao.org/4/e8705e/E8705E07.htm"
+ },
+ {
+  "id": "plants-038",
+  "tr": "Türkiye'nin Akdeniz kıyısında, alçak yerlerdeki yanmış alanlarda kızılçam fidanları çoğu zaman kendiliğinden bolca çıkar.",
+  "en": "On low ground along Türkiye's Mediterranean coast, young Turkish red pines often spring up by themselves in large numbers on burned land.",
+  "category": "plants",
+  "season": "all",
+  "source_name": "FAO, Forest Genetic Resources Information No. 3",
+  "source_url": "https://www.fao.org/4/e8705e/E8705E07.htm"
+ },
+ {
+  "id": "plants-039",
+  "tr": "Büyük bir meşe ağacı bir yılda yapraklarından 151.000 litre su salabilir!",
+  "en": "A large oak tree can release 151,000 liters of water from its leaves in one year!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "US Geological Survey",
+  "source_url": "https://www.usgs.gov/water-science-school/science/evapotranspiration-and-water-cycle"
+ },
+ {
+  "id": "plants-040",
+  "tr": "Ağaçlar havayı iki yolla serinletir: gölge yaparak ve yapraklarından su salarak. Suyun buharlaşması havadaki sıcaklığı kullanır!",
+  "en": "Trees cool the air in two ways: by making shade and by letting water out of their leaves. Evaporating that water uses up heat from the air!",
+  "category": "plants",
+  "season": "summer",
+  "source_name": "US Environmental Protection Agency",
+  "source_url": "https://www.epa.gov/heatislands/benefits-trees-and-vegetation"
+ },
+ {
+  "id": "plants-041",
+  "tr": "Şehirdeki koruluklar, yeşil olmayan yerlerden ortalama 1,6 derece daha serindir. 308 araştırma bunu gösteriyor!",
+  "en": "City forests are on average 1.6 degrees cooler than city areas with no green. A review of 308 studies found this!",
+  "category": "plants",
+  "season": "summer",
+  "source_name": "US Environmental Protection Agency",
+  "source_url": "https://www.epa.gov/heatislands/benefits-trees-and-vegetation"
+ },
+ {
+  "id": "plants-042",
+  "tr": "Sonbaharın sarı ve turuncu renkleri aslında yaprakta hep vardır. Yazın yeşil renk onları saklar!",
+  "en": "The yellow and orange of autumn are in the leaf all along. In summer, the green color hides them!",
+  "category": "plants",
+  "season": "autumn",
+  "source_name": "Penn State Extension",
+  "source_url": "https://extension.psu.edu/the-science-behind-autumn-leaf-color"
+ },
+ {
+  "id": "plants-043",
+  "tr": "Yapraklardaki kırmızılar sarılardan farklıdır. Kırmızı renklerin çoğu sonbaharda yeni üretilir!",
+  "en": "The reds in leaves are different from the yellows. Most autumn reds are made fresh in autumn!",
+  "category": "plants",
+  "season": "autumn",
+  "source_name": "Penn State Extension",
+  "source_url": "https://extension.psu.edu/the-science-behind-autumn-leaf-color"
+ },
+ {
+  "id": "plants-044",
+  "tr": "Zeytin yapraklarının alt yüzü tüylüdür. Bu minik tüyler suyun yapraktan daha yavaş kaçmasını sağlar, kurak yerler için harika!",
+  "en": "The undersides of olive leaves are hairy. Those tiny hairs slow down water escaping from the leaf, which is great in dry places!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "University of California Master Gardeners of Marin",
+  "source_url": "https://ucanr.edu/site/uc-marin-master-gardeners/document/olive"
+ },
+ {
+  "id": "plants-045",
+  "tr": "Zeytin fidanı sabır ister. Genelde dördüncü ya da beşinci yılına kadar ilk meyvesini verir!",
+  "en": "An olive tree takes patience. It usually bears its first fruit by its fourth or fifth year!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "University of California Master Gardeners of Marin",
+  "source_url": "https://ucanr.edu/site/uc-marin-master-gardeners/document/olive"
+ },
+ {
+  "id": "plants-046",
+  "tr": "Ağaçtan yeni toplanan zeytin yenmez! Sofraya gelmeden önce işlenmesi ya da yağı için sıkılması gerekir.",
+  "en": "Olives fresh from the tree cannot be eaten! They must be cured first or pressed for oil.",
+  "category": "plants",
+  "season": "all",
+  "source_name": "University of California Master Gardeners of Napa",
+  "source_url": "https://ucanr.edu/blog/napa-master-gardener-column/article/growing-olive-trees-napa-county"
+ },
+ {
+  "id": "plants-047",
+  "tr": "Ağaç kökleri sandığından çok daha uzağa gider. Yan kökler çoğu zaman dalların gölgesinden iki üç kat öteye uzanır!",
+  "en": "Tree roots go much farther than you might think. Side roots often reach two to three times as wide as the branches!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "University of California Statewide IPM Program",
+  "source_url": "https://ipm.ucanr.edu/home-and-landscape/provide-for-roots/"
+ },
+ {
+  "id": "plants-048",
+  "tr": "Ağaç kökleri çok derine iner sanılır ama köklerin yaklaşık yüzde 90'ı toprağın üstteki 60 santimindedir!",
+  "en": "You might picture tree roots going very deep, but about 90 percent of them are in the top 60 centimeters of soil!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Royal Horticultural Society",
+  "source_url": "https://www.rhs.org.uk/advice/understanding-plants/how-plants-grow"
+ },
+ {
+  "id": "plants-049",
+  "tr": "Bir ağacın gövdesinin ortası aslında ölüdür! Ama o ölü odun, ağacı dimdik tutan sağlam bir direk gibidir.",
+  "en": "The middle of a tree's trunk is actually dead! But that dead wood is a strong pillar that holds the tree up.",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Arbor Day Foundation",
+  "source_url": "https://www.arborday.org/tree-guide/anatomy-tree"
+ },
+ {
+  "id": "plants-050",
+  "tr": "Ağaç, kabuğun hemen altındaki ince bir katmanla kalınlaşır. Bu katman her yıl hem yeni odun hem yeni kabuk yapar!",
+  "en": "A tree gets thicker thanks to a thin layer just under the bark. Every year this layer makes both new wood and new bark!",
+  "category": "plants",
+  "season": "all",
+  "source_name": "Arbor Day Foundation",
+  "source_url": "https://www.arborday.org/tree-guide/anatomy-tree"
+ },
+ {
+  "id": "animals-001",
+  "tr": "Kızıl sincaplar sonbaharda tohum ve fındıkları toprağa gömer. Kışın yiyecek azalınca bu sakladıklarını yer!",
+  "en": "In autumn, red squirrels bury seeds and nuts in the ground. They eat them in winter, when food is hard to find!",
+  "category": "animals",
+  "season": "autumn",
+  "source_name": "Woodland Trust",
+  "source_url": "https://www.woodlandtrust.org.uk/trees-woods-and-wildlife/animals/mammals/red-squirrel/"
+ },
+ {
+  "id": "animals-002",
+  "tr": "Kızıl sincabın boyu 25 santimetreden kısadır. Ama 2 metreden daha uzağa atlayabilir!",
+  "en": "A red squirrel's body is less than 25 centimetres long. But it can jump more than 2 metres!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "Woodland Trust",
+  "source_url": "https://www.woodlandtrust.org.uk/trees-woods-and-wildlife/animals/mammals/red-squirrel/"
+ },
+ {
+  "id": "animals-003",
+  "tr": "Bir porsuğun yediklerinin yaklaşık yüzde 80'i solucandır. Bir gecede yüzlerce solucan yiyebilir!",
+  "en": "About 80 percent of what a badger eats is earthworms. It can eat hundreds of them in one night!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "Woodland Trust",
+  "source_url": "https://www.woodlandtrust.org.uk/trees-woods-and-wildlife/animals/mammals/badger/"
+ },
+ {
+  "id": "animals-004",
+  "tr": "Porsuklar yataklarını temiz tutar. Eski otları dışarı atar, bu da onları pire ve bitten korumaya yardım eder!",
+  "en": "Badgers keep their beds clean. They drag old grass outside, which helps protect them from fleas and lice!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "Woodland Trust",
+  "source_url": "https://www.woodlandtrust.org.uk/trees-woods-and-wildlife/animals/mammals/badger/"
+ },
+ {
+  "id": "animals-005",
+  "tr": "Kirpiler kışı düşmüş yapraklardan yaptıkları yuvada uyuyarak geçirir. Kuru yapraklar onlara kış yatağı olur!",
+  "en": "Hedgehogs sleep through the winter in a nest made of fallen leaves. Dry leaves become their winter bed!",
+  "category": "animals",
+  "season": "winter",
+  "source_name": "Woodland Trust",
+  "source_url": "https://www.woodlandtrust.org.uk/trees-woods-and-wildlife/animals/mammals/hedgehog/"
+ },
+ {
+  "id": "animals-006",
+  "tr": "Alakargalar meşe palamutlarını saklar ama hepsini bulamaz. Unutulan palamutların bazısı meşe ağacı olur!",
+  "en": "Jays hide acorns but cannot find them all. Some of the forgotten acorns grow into oak trees!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "Woodland Trust",
+  "source_url": "https://www.woodlandtrust.org.uk/trees-woods-and-wildlife/animals/birds/jay/"
+ },
+ {
+  "id": "animals-007",
+  "tr": "Sinek mantarı, ağaçların köklerine besin taşıyarak onlara yardım eder. Ama çok zehirlidir, sakın ağzına alma!",
+  "en": "The fly agaric mushroom helps trees by moving food into their roots. But it is very poisonous, so never eat it!",
+  "category": "soil",
+  "season": "all",
+  "source_name": "Woodland Trust",
+  "source_url": "https://www.woodlandtrust.org.uk/trees-woods-and-wildlife/fungi-and-lichens/fly-agaric/"
+ },
+ {
+  "id": "animals-008",
+  "tr": "Her kurdun uluması farklıdır. Diğer kurtlar bu sesi 10 kilometreden daha uzaktan duyabilir!",
+  "en": "Every wolf has its own howl. Other wolves can hear it from more than 10 kilometres away!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "Smithsonian's National Zoo",
+  "source_url": "https://nationalzoo.si.edu/animals/gray-wolf"
+ },
+ {
+  "id": "animals-009",
+  "tr": "Kurt yavruları doğduğunda hem görmez hem de duymaz. Üç haftalık olunca inden çıkmaya başlar!",
+  "en": "Wolf pups are born unable to see or hear. At about three weeks old, they start to leave the den!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "Smithsonian's National Zoo",
+  "source_url": "https://nationalzoo.si.edu/animals/gray-wolf"
+ },
+ {
+  "id": "animals-010",
+  "tr": "Leylekler sıcak havanın gücüyle süzülür. Denizin üstünde bu hava olmadığı için karadan dolaşıp İstanbul Boğazı gibi dar yerlerden geçerler!",
+  "en": "Storks glide on rising warm air. There is none over the sea, so they go around by land and cross at narrow places like the Bosporus!",
+  "category": "animals",
+  "season": "autumn",
+  "source_name": "BirdLife International",
+  "source_url": "https://www.birdlife.org/news/2024/03/13/migratory-bird-of-the-month-white-stork/"
+ },
+ {
+  "id": "animals-011",
+  "tr": "Eskiden insanlar kuşların kışın nereye gittiğini bilmezdi. Kimileri onların göl dibinde uyuduğunu, hatta Ay'a uçtuğunu sanırdı!",
+  "en": "Long ago, people did not know where birds went in winter. Some thought they slept at the bottom of lakes or even flew to the Moon!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "Audubon",
+  "source_url": "https://www.audubon.org/news/what-gruesome-stork-taught-us-about-bird-migration"
+ },
+ {
+  "id": "animals-012",
+  "tr": "Peçeli baykuşun tüylerinin kenarı tarak gibidir. Bu tüyler havayı yumuşakça geçirir, kanat sesini azaltır!",
+  "en": "The edges of a barn owl's feathers are shaped like a comb. They guide the air smoothly and quiet the sound of its wings!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "Audubon",
+  "source_url": "https://www.audubon.org/news/how-do-barn-owls-fly-so-silently"
+ },
+ {
+  "id": "animals-013",
+  "tr": "Orman toprağının tek bir metrekaresinde, böcek ve solucan gibi 1000'den fazla çeşit küçük hayvan yaşayabilir!",
+  "en": "Just one square metre of forest soil can be home to more than 1,000 kinds of small animals, like insects and worms!",
+  "category": "soil",
+  "season": "all",
+  "source_name": "FAO",
+  "source_url": "https://www.fao.org/soils-portal/soil-biodiversity/facts-and-figures/en/"
+ },
+ {
+  "id": "animals-014",
+  "tr": "Toprağın altındaki canlılar dev olabilir! Bir bal mantarı topluluğu yaklaşık 9 kilometrekarelik bir yere yayılmış.",
+  "en": "Living things under the ground can be giants! One honey fungus has spread across about 9 square kilometres.",
+  "category": "soil",
+  "season": "all",
+  "source_name": "FAO",
+  "source_url": "https://www.fao.org/soils-portal/soil-biodiversity/facts-and-figures/en/"
+ },
+ {
+  "id": "animals-015",
+  "tr": "Dünyada yetiştirilen ürünlerin yaklaşık yüzde 35'i, çiçek tozu taşıyan arı, kuş ve yarasalardan etkilenir!",
+  "en": "About 35 percent of the world's crops are affected by bees, birds, bats and other animals that carry pollen!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "FAO",
+  "source_url": "https://www.fao.org/pollination/en/"
+ },
+ {
+  "id": "animals-016",
+  "tr": "Orman toprağı sünger gibidir. Yağmur suyunu başka yerlerdeki topraklardan daha uzun süre içinde tutar!",
+  "en": "Forest soil works like a sponge. It holds rainwater longer than soil in other places!",
+  "category": "water",
+  "season": "all",
+  "source_name": "FAO",
+  "source_url": "https://www.fao.org/sustainable-forest-management-toolbox/modules/forest-and-water/en"
+ },
+ {
+  "id": "animals-017",
+  "tr": "Dünyada içilen suyun büyük bir bölümü ormanlık yerlerden gelir. Musluğundaki suyun yolu bir ormandan geçmiş olabilir!",
+  "en": "A large part of the world's drinking water comes from forest areas. The water in your tap may have passed through a forest!",
+  "category": "water",
+  "season": "all",
+  "source_name": "FAO",
+  "source_url": "https://www.fao.org/sustainable-forest-management-toolbox/modules/forest-and-water/en"
+ },
+ {
+  "id": "animals-018",
+  "tr": "Bir su bardağı toprakta, Dünya'daki insan sayısı kadar bakteri olabilir! Hepsi gözle göremeyeceğin kadar küçüktür.",
+  "en": "One cup of soil may hold as many bacteria as there are people on Earth! They are all too small for you to see.",
+  "category": "soil",
+  "season": "all",
+  "source_name": "USDA Agricultural Research Service",
+  "source_url": "https://www.ars.usda.gov/plains-area/sidney-mt/northern-plains-agricultural-research-laboratory/nparl-docs/just-for-kids/soils-organisms/"
+ },
+ {
+  "id": "animals-019",
+  "tr": "Solucanlar alttaki toprağı yukarı taşır. Çalıştıkları yerde toprağın üstteki 15 santimetresini 10-20 yılda alt üst edebilirler!",
+  "en": "Earthworms carry deep soil up to the top. Where they are busy, they can turn over the top 15 centimetres of soil in 10 to 20 years!",
+  "category": "soil",
+  "season": "all",
+  "source_name": "USDA Agricultural Research Service",
+  "source_url": "https://www.ars.usda.gov/plains-area/sidney-mt/northern-plains-agricultural-research-laboratory/nparl-docs/just-for-kids/soils-organisms/"
+ },
+ {
+  "id": "animals-020",
+  "tr": "Çam gibi iğne yapraklı ağaçların ormanında, bir çay kaşığı toprakta kilometrelerce uzunlukta mantar ipliği olabilir!",
+  "en": "In a forest of needle-leaved trees like pines, one teaspoon of soil can hold many kilometres of fungus threads!",
+  "category": "soil",
+  "season": "all",
+  "source_name": "USDA Agricultural Research Service",
+  "source_url": "https://www.ars.usda.gov/plains-area/sidney-mt/northern-plains-agricultural-research-laboratory/nparl-docs/just-for-kids/soils-organisms/"
+ },
+ {
+  "id": "animals-021",
+  "tr": "Doğduğunda vücudunun yaklaşık yüzde 78'i suydu. Yetişkinlerde bu oran en fazla yüzde 60 civarındadır!",
+  "en": "When you were born, about 78 percent of your body was water. In grown-ups, it is up to about 60 percent!",
+  "category": "water",
+  "season": "all",
+  "source_name": "USGS Water Science School",
+  "source_url": "https://www.usgs.gov/special-topics/water-science-school/science/water-you-water-and-human-body"
+ },
+ {
+  "id": "animals-022",
+  "tr": "Dünyadaki tatlı suyun yüzde 68'inden fazlası buz halindedir. İçebildiğimiz suyun çoğu donmuş bekliyor!",
+  "en": "More than 68 percent of the Earth's fresh water is locked up as ice. Most of the water we could drink is frozen!",
+  "category": "water",
+  "season": "all",
+  "source_name": "USGS Water Science School",
+  "source_url": "https://www.usgs.gov/special-topics/water-science-school/science/how-much-water-there-earth"
+ },
+ {
+  "id": "animals-023",
+  "tr": "Tek bir yağmur damlası oluşması için milyonlarca minik bulut damlacığı gerekir!",
+  "en": "It takes millions of tiny cloud droplets to make just one raindrop!",
+  "category": "water",
+  "season": "all",
+  "source_name": "USGS Water Science School",
+  "source_url": "https://www.usgs.gov/special-topics/water-science-school/science/precipitation-and-water-cycle"
+ },
+ {
+  "id": "animals-024",
+  "tr": "Bulutlardaki minik su damlaları, toz, tuz ya da duman gibi daha da minik tanelerin üstünde oluşur. Her damla minicik bir taneyle başlar!",
+  "en": "Tiny water drops in clouds form on even tinier bits of dust, salt or smoke. Each drop starts with a tiny speck!",
+  "category": "water",
+  "season": "all",
+  "source_name": "USGS Water Science School",
+  "source_url": "https://www.usgs.gov/special-topics/water-science-school/science/precipitation-and-water-cycle"
+ },
+ {
+  "id": "animals-025",
+  "tr": "Yer altı suyu nehir gibi akmaz. Toprağın ve kayaların arasındaki boşluklardan yavaş yavaş ilerler!",
+  "en": "Water under the ground does not flow like a river. It moves slowly through the gaps in soil and rock!",
+  "category": "water",
+  "season": "all",
+  "source_name": "USGS Water Science School",
+  "source_url": "https://www.usgs.gov/special-topics/water-science-school/science/groundwater-what-groundwater"
+ },
+ {
+  "id": "animals-026",
+  "tr": "Bazı yer altı suları sadece birkaç saatliktir. Bazıları ise binlerce yıldır toprağın altındadır!",
+  "en": "Some water under the ground is only a few hours old. Other water has been down there for thousands of years!",
+  "category": "water",
+  "season": "all",
+  "source_name": "USGS Water Science School",
+  "source_url": "https://www.usgs.gov/special-topics/water-science-school/science/groundwater-what-groundwater"
+ },
+ {
+  "id": "animals-027",
+  "tr": "Yarasalar bir gecede kendi ağırlıklarının yarısı kadar böcek yiyebilir. Böcekler dikkat etsin!",
+  "en": "Bats can eat half their own weight in insects in one night. Bugs had better watch out!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "US National Park Service",
+  "source_url": "https://www.nps.gov/subjects/bats/benefits-of-bats.htm"
+ },
+ {
+  "id": "animals-028",
+  "tr": "Yavrularını sütle besleyen hayvanlar arasında gerçekten uçabilen tek grup yarasalardır!",
+  "en": "Among all the animals that feed their babies milk, bats are the only ones that can truly fly!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "US National Park Service",
+  "source_url": "https://www.nps.gov/grba/learn/nature/bats.htm"
+ },
+ {
+  "id": "animals-029",
+  "tr": "Çiçekli bitkilerin yüzde 75'inden fazlası arılara, kelebeklere, kuşlara, yarasalara ve benzeri hayvanlara ihtiyaç duyar!",
+  "en": "More than 75 percent of flowering plants need bees, butterflies, birds, bats and other animals like them!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "US National Park Service",
+  "source_url": "https://www.nps.gov/subjects/pollinators/index.htm"
+ },
+ {
+  "id": "animals-030",
+  "tr": "Anne kahverengi ayı kış boyunca inde uyur. Yavruları ise bu sırada süt emip büyür!",
+  "en": "A mother brown bear sleeps in her den all winter. Meanwhile, her cubs drink milk and grow!",
+  "category": "animals",
+  "season": "winter",
+  "source_name": "US National Park Service",
+  "source_url": "https://www.nps.gov/subjects/bears/brown-bears.htm"
+ },
+ {
+  "id": "animals-031",
+  "tr": "Kış uykusunda ayıların vücut sıcaklığı, nabzı ve nefesi yavaşlar. Yaz ve sonbaharda biriktirdikleri yağla idare ederler!",
+  "en": "During their winter sleep, a bear's body gets cooler and its heart and breathing slow down. It lives on fat stored in summer and autumn!",
+  "category": "animals",
+  "season": "winter",
+  "source_name": "US National Park Service",
+  "source_url": "https://www.nps.gov/articles/bears-winter.htm"
+ },
+ {
+  "id": "animals-032",
+  "tr": "Kocaman kahverengi ayılar doğduklarında ortalama 450 gram gelir. Yani yarım kilodan bile hafiftirler!",
+  "en": "Big brown bears weigh only about 450 grams when they are born. That is less than half a kilo!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "US National Park Service",
+  "source_url": "https://www.nps.gov/katm/learn/photosmultimedia/brown-bear-frequently-asked-questions.htm"
+ },
+ {
+  "id": "animals-033",
+  "tr": "Kovanda yavru yapabilen tek dişi kraliçe arıdır. Günde 2.000'den fazla yumurta bırakabilir!",
+  "en": "The queen is the only female in the hive that can have babies. She can lay more than 2,000 eggs a day!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "US National Park Service",
+  "source_url": "https://www.nps.gov/foma/learn/nature/honeybees.htm"
+ },
+ {
+  "id": "animals-034",
+  "tr": "Geyik böceğinin yavruları yıllarca çürüyen odunla beslenir. Yetişkin olunca ise sadece birkaç hafta yaşar!",
+  "en": "Young stag beetles spend years eating rotting wood. Once they grow up, they live for only a few weeks!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "Natural History Museum, London",
+  "source_url": "https://www.nhm.ac.uk/discover/stag-beetles.html"
+ },
+ {
+  "id": "animals-035",
+  "tr": "Çiçek özü yaklaşık yüzde 70 sudur. Arılar kanatlarıyla saatlerce yelleyip bu suyu yüzde 18'e indirir ve bal olur!",
+  "en": "Flower nectar is about 70 percent water. Bees fan it with their wings for hours until only about 18 percent is left, and it becomes honey!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "Natural History Museum, London",
+  "source_url": "https://www.nhm.ac.uk/discover/what-is-honey.html"
+ },
+ {
+  "id": "animals-036",
+  "tr": "Bal kolay kolay bozulmaz. 2004'te 5.000 yıllık bal bulundu!",
+  "en": "Honey is very hard to spoil. In 2004, honey that was 5,000 years old was found!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "Natural History Museum, London",
+  "source_url": "https://www.nhm.ac.uk/discover/what-is-honey.html"
+ },
+ {
+  "id": "animals-037",
+  "tr": "İngiltere'deki kırlangıçlar kışın Namibya ya da Güney Afrika'ya uçar. Bu uzun yolculuk yaklaşık altı hafta sürer!",
+  "en": "Swallows from the UK fly to Namibia or South Africa for winter. The long trip takes about six weeks!",
+  "category": "animals",
+  "season": "autumn",
+  "source_name": "Natural History Museum, London",
+  "source_url": "https://www.nhm.ac.uk/discover/where-do-animals-go-in-winter.html"
+ },
+ {
+  "id": "animals-038",
+  "tr": "Fındık faresi kışın yerdeki yuvasında yaklaşık beş ay uyur. Uyanıkken ise hep ağaçların üstünde yaşar!",
+  "en": "The hazel dormouse sleeps for about five months in a nest on the ground. When it is awake, it lives up in the trees!",
+  "category": "animals",
+  "season": "winter",
+  "source_name": "People's Trust for Endangered Species",
+  "source_url": "https://ptes.org/campaigns/dormice/about-hazel-dormice/"
+ },
+ {
+  "id": "animals-039",
+  "tr": "Ebabiller hayatlarının neredeyse tamamını havada geçirir. Uçarken yer, uyur, yıkanır ve yere neredeyse hiç inmezler!",
+  "en": "Swifts spend almost their whole lives in the air. They eat, sleep and wash while flying, and rarely touch the ground!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "RSPB",
+  "source_url": "https://www.rspb.org.uk/birds-and-wildlife/swift"
+ },
+ {
+  "id": "animals-040",
+  "tr": "Ebabiller kışı Afrika'da geçirir. Bunun için yılda iki kez 9.600 kilometreden uzun yol uçarlar!",
+  "en": "Swifts spend the winter in Africa. They make a trip of more than 9,600 kilometres, twice a year!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "RSPB",
+  "source_url": "https://www.rspb.org.uk/birds-and-wildlife/swift"
+ },
+ {
+  "id": "animals-041",
+  "tr": "Guguk kuşu kendi yuvasını yapmaz. Dişisi başka bir kuşun yuvasından bir yumurta alır, yerine kendi yumurtasını bırakır!",
+  "en": "Cuckoos do not build their own nests. The female takes one egg from another bird's nest and leaves her own in its place!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "RSPB",
+  "source_url": "https://www.rspb.org.uk/birds-and-wildlife/cuckoo"
+ },
+ {
+  "id": "animals-042",
+  "tr": "Büyük benekli ağaçkakan yuvasını ağaç gövdesine kendisi oyar. Çıkardığı davul sesi bir saniye kadar sürer ama uzaktan duyulur!",
+  "en": "The great spotted woodpecker digs its own nest hole in a tree trunk. Its drumming lasts about a second, but you can hear it from far away!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "RSPB",
+  "source_url": "https://www.rspb.org.uk/birds-and-wildlife/great-spotted-woodpecker"
+ },
+ {
+  "id": "animals-043",
+  "tr": "Yalıçapkını suyun berrak ya da yavaş aktığı yerleri çok sever. Çünkü böyle yerlerde balıkları kolayca görür!",
+  "en": "Kingfishers love places where water is clear or slow. There, they can easily spot fish!",
+  "category": "water",
+  "season": "all",
+  "source_name": "RSPB",
+  "source_url": "https://www.rspb.org.uk/birds-and-wildlife/kingfisher"
+ },
+ {
+  "id": "animals-044",
+  "tr": "Ağaçların yaprak ve dalları yağmuru yere düşmeden yavaşlatır. Böylece şiddetli yağmur toprağı kolayca sürükleyemez!",
+  "en": "Tree leaves and branches slow the rain before it reaches the ground. That helps stop heavy rain from washing the soil away!",
+  "category": "water",
+  "season": "all",
+  "source_name": "USDA Forest Service",
+  "source_url": "https://research.fs.usda.gov/srs/articles/forests-faucets-where-does-your-drinking-water-come"
+ },
+ {
+  "id": "animals-045",
+  "tr": "Yağmur suyu orman toprağından geçerken kendiliğinden süzülür. Ağaç kökleri de çamurun dereye karışmasını önler!",
+  "en": "Rainwater gets filtered naturally as it moves through forest soil. Tree roots also keep mud out of streams!",
+  "category": "water",
+  "season": "all",
+  "source_name": "USDA Forest Service",
+  "source_url": "https://research.fs.usda.gov/srs/articles/forests-faucets-where-does-your-drinking-water-come"
+ },
+ {
+  "id": "animals-046",
+  "tr": "Ağaçlı bir dere, kıyısındaki ağaçları yok olmuş bir dereden birkaç derece daha serin olabilir. Bu, balıklar için çok önemlidir!",
+  "en": "A stream with trees can be a few degrees cooler than one that has lost its trees. That matters a lot to fish!",
+  "category": "water",
+  "season": "all",
+  "source_name": "US Fish & Wildlife Service",
+  "source_url": "https://www.fws.gov/story/quiet-love-affair-between-fish-and-trees"
+ },
+ {
+  "id": "animals-047",
+  "tr": "Dereye düşen yaprakları küçük böcek yavruları yer. Sonra o böcek yavrularını da alabalıklar kapar!",
+  "en": "Tiny young insects eat leaves that fall into streams. Then trout snap up those young insects!",
+  "category": "water",
+  "season": "all",
+  "source_name": "US Fish & Wildlife Service",
+  "source_url": "https://www.fws.gov/story/quiet-love-affair-between-fish-and-trees"
+ },
+ {
+  "id": "animals-048",
+  "tr": "Bazı kelebek ve güveler yumurtalarını yere düşmüş yaprakların arasına bırakır. Yaprak yığını onlar için bir yuvadır!",
+  "en": "Some butterflies and moths lay their eggs among fallen leaves. A pile of leaves is a home for them!",
+  "category": "animals",
+  "season": "autumn",
+  "source_name": "US Fish & Wildlife Service",
+  "source_url": "https://www.fws.gov/story/2019-10/leaf-ing-space-wildlife"
+ },
+ {
+  "id": "animals-049",
+  "tr": "Bal arıları dans ederek arkadaşlarına çiçeklerin yönünü ve uzaklığını anlatır. Dansın yönünü de Güneş'e göre ayarlarlar!",
+  "en": "Honey bees dance to tell their sisters which way the flowers are and how far. They set the dance by the Sun!",
+  "category": "animals",
+  "season": "all",
+  "source_name": "Ask A Biologist, Arizona State University",
+  "source_url": "https://askabiologist.asu.edu/honey-bee-communication"
+ },
+ {
+  "id": "animals-050",
+  "tr": "Kış gelince bombus arılarından sadece yeni kraliçeler kalır. Onlar da baharı kış uykusunda bekler!",
+  "en": "When winter comes, only the new bumblebee queens are left. They sleep through winter until spring!",
+  "category": "animals",
+  "season": "winter",
+  "source_name": "Bumblebee Conservation Trust",
+  "source_url": "https://www.bumblebeeconservation.org/learn-about-bumblebees/beginners/about-bumblebees/"
+ },
+ {
+  "id": "fire-001",
+  "tr": "Türkiye'de orman yangınlarının çok büyük bölümü insan yüzünden çıkıyor. Yani dikkat edersek pek çoğunu önleyebiliriz!",
+  "en": "Most forest fires in Türkiye are caused by people. That means being careful can prevent many of them!",
+  "category": "turkey",
+  "season": "all",
+  "source_name": "OGM (General Directorate of Forestry)",
+  "source_url": "https://www.ogm.gov.tr/tr/haberler/orman-yanginlarina-karsi-bilinclendirme-seferberligi-milyonlara-ulasti"
+ },
+ {
+  "id": "fire-003",
+  "tr": "Ormanda ya da tarlada en küçük bir duman bile görürsen yaklaşma, hemen 112'yi ara. Küçücük bir duman bile haber vermeye değer!",
+  "en": "If you see even the smallest smoke in a forest or field, stay away and call 112 right away. Even a tiny bit of smoke is worth reporting!",
+  "category": "safety",
+  "season": "all",
+  "source_name": "OGM (General Directorate of Forestry)",
+  "source_url": "https://www.ogm.gov.tr/tr/haberler/hasat-mevsiminde-orman-yangini-alarmi"
+ },
+ {
+  "id": "fire-004",
+  "tr": "Tarlada başlayan bir yangın rüzgârla ormana sıçrayabilir. Bu yüzden tarlalarda da çok dikkatli olmak gerekir.",
+  "en": "A fire that starts in a field can jump to a forest with the wind. That is why we must be very careful in fields too.",
+  "category": "turkey",
+  "season": "summer",
+  "source_name": "OGM (General Directorate of Forestry)",
+  "source_url": "https://www.ogm.gov.tr/tr/haberler/hasat-mevsiminde-orman-yangini-alarmi"
+ },
+ {
+  "id": "fire-005",
+  "tr": "Kızılçam, Türkiye'de en geniş alana yayılan iğne yapraklı ağaç. Deniz seviyesinden 1300 metreye kadar orman oluşturabiliyor!",
+  "en": "The Turkish red pine is the most widespread needle-leaved tree in Türkiye. It can form forests from sea level up to 1,300 metres!",
+  "category": "turkey",
+  "season": "all",
+  "source_name": "OGM (General Directorate of Forestry)",
+  "source_url": "https://www.ogm.gov.tr/tr/haberler/ulkemiz-ormanlarinin-bel-kemigi-kizilcam"
+ },
+ {
+  "id": "fire-006",
+  "tr": "Türkiye'de her yıl 11 Kasım'da Milli Ağaçlandırma Günü kutlanıyor. İlk kez 2019'da yapıldı ve milyonlarca insanı bir araya getirdi!",
+  "en": "Every year on 11 November, Türkiye marks National Tree Planting Day. It was first held in 2019 and brought millions of people together!",
+  "category": "turkey",
+  "season": "autumn",
+  "source_name": "OGM Amasya Regional Directorate",
+  "source_url": "https://www.ogm.gov.tr/amasyaobm/haberler/11-kasim-milli-agaclandirma-gunu"
+ },
+ {
+  "id": "fire-007",
+  "tr": "Türkiye'de yanan ormanların yeniden ağaçlandırılması Anayasa'da yazıyor. Yanan orman alanı başka bir işe kullanılamaz!",
+  "en": "Türkiye's Constitution says burned forests must be planted with trees again. Burned forest land cannot be used for anything else!",
+  "category": "turkey",
+  "season": "all",
+  "source_name": "OGM (General Directorate of Forestry)",
+  "source_url": "https://www.ogm.gov.tr/tr/haberler/yanan-alanlarimizda-11-kasim-milli-agaclandirma-gunu%E2%80%99nde-fidanlarimiz-toprakla-bulusuyor"
+ },
+ {
+  "id": "fire-008",
+  "tr": "Türkiye'de ormanların yakınında binlerce köy var. Milyonlarca insan bu köylerde yaşıyor, orman onların komşusu!",
+  "en": "There are thousands of villages near forests in Türkiye. Millions of people live in them, with the forest as their neighbour!",
+  "category": "turkey",
+  "season": "all",
+  "source_name": "FAO",
+  "source_url": "https://www.fao.org/4/ad352t/AD352T08.htm"
+ },
+ {
+  "id": "fire-011",
+  "tr": "Akdeniz çevresinde yaz bazen haziran'dan ekim'e kadar sürer. Bu uzun yazlarda neredeyse hiç yağmur yağmaz!",
+  "en": "Around the Mediterranean, summer can last from June to October. In these long summers there is almost no rain!",
+  "category": "fire",
+  "season": "summer",
+  "source_name": "FAO Unasylva No. 162",
+  "source_url": "https://www.fao.org/4/t9500e/t9500e02.htm"
+ },
+ {
+  "id": "fire-012",
+  "tr": "Yıldırımın çıkardığı yangınları çoğunlukla normalden uzun süren yıldırımlar başlatır. Bunlara 'sıcak yıldırım' deniyor!",
+  "en": "Fires started by lightning usually come from bolts that last longer than normal. They are called 'hot lightning'!",
+  "category": "fire",
+  "season": "all",
+  "source_name": "US National Park Service",
+  "source_url": "https://www.nps.gov/articles/wildfire-causes-and-evaluation.htm"
+ },
+ {
+  "id": "fire-013",
+  "tr": "Yangın genelde yokuş yukarı, düz yerde ya da yokuş aşağı gittiğinden daha hızlı ilerler. Yani dağlarda çok hızlı tırmanabilir!",
+  "en": "Fire usually moves faster uphill than downhill or on flat ground. So it can climb a mountain very quickly!",
+  "category": "fire",
+  "season": "all",
+  "source_name": "US National Park Service",
+  "source_url": "https://www.nps.gov/articles/wildland-fire-behavior.htm"
+ },
+ {
+  "id": "fire-014",
+  "tr": "Rüzgâr yangına taze oksijen taşır ve onu yeni bitkilere doğru iter. Bu yüzden yangında en önemli şeylerden biri rüzgârdır.",
+  "en": "Wind brings fresh oxygen to a fire and pushes it toward new plants. That is why wind is one of the most important things in a fire.",
+  "category": "fire",
+  "season": "all",
+  "source_name": "US National Park Service",
+  "source_url": "https://www.nps.gov/articles/wildland-fire-behavior.htm"
+ },
+ {
+  "id": "fire-015",
+  "tr": "Yangından sonra yanmış yere renk getiren ilk bitkilerden biri, İngilizcede 'ateş otu' (fireweed) denen çiçektir!",
+  "en": "One of the first plants to bring colour back after a fire is a flower called fireweed!",
+  "category": "fire",
+  "season": "all",
+  "source_name": "US National Park Service, Glacier National Park",
+  "source_url": "https://www.nps.gov/glac/learn/nature/fire-ecology.htm"
+ },
+ {
+  "id": "fire-018",
+  "tr": "Yangın yerdeki kütükleri ve kuru yaprak katmanını küle çevirir. Bu kül, besinleri yeniden toprağa geri verir!",
+  "en": "Fire turns fallen logs and the layer of old leaves into ash. That ash gives food back to the soil!",
+  "category": "fire",
+  "season": "all",
+  "source_name": "US National Park Service, Glacier National Park",
+  "source_url": "https://www.nps.gov/glac/learn/nature/fire-ecology.htm"
+ },
+ {
+  "id": "fire-020",
+  "tr": "Açık havadaki bir ateş hâlâ sıcaksa onu bırakıp gitmek olmaz. Küller de tehlikelidir, sakın eline değdirme!",
+  "en": "If an outdoor fire is still hot, it must never be left alone. Ashes are dangerous too, so never touch them!",
+  "category": "safety",
+  "season": "all",
+  "source_name": "Smokey Bear (USDA Forest Service)",
+  "source_url": "https://smokeybear.com/campfire-safety"
+ },
+ {
+  "id": "fire-021",
+  "tr": "Ateşin çevresindeki taşlar çok çabuk ısınır ve uzun süre sıcak kalır. Bu yüzden üstlerine asla oturma!",
+  "en": "Rocks around a fire heat up fast and stay hot for a long time. So never sit on them!",
+  "category": "safety",
+  "season": "all",
+  "source_name": "Smokey Bear (USDA Forest Service)",
+  "source_url": "https://smokeybear.com/campfire-rules"
+ },
+ {
+  "id": "fire-022",
+  "tr": "Kibrit ya da çakmak bulursan onlarla oynama. Bir büyüğüne nerede olduklarını söyle!",
+  "en": "If you find matches or a lighter, don't play with them. Tell a grown-up where they are!",
+  "category": "safety",
+  "season": "all",
+  "source_name": "Smokey Bear (USDA Forest Service)",
+  "source_url": "https://smokeybear.com/campfire-rules"
+ },
+ {
+  "id": "fire-023",
+  "tr": "İçten içe yanan mangal kömürü yangın çıkarabilir. Tamamen soğumadan çöpe atılmaz, yere de hiç dökülmez!",
+  "en": "Barbecue charcoal that is still smouldering can start a fire. It must cool completely before going in the bin, and it never goes on the ground!",
+  "category": "safety",
+  "season": "summer",
+  "source_name": "Smokey Bear (USDA Forest Service)",
+  "source_url": "https://smokeybear.com/outdoor-grilling-safety"
+ },
+ {
+  "id": "fire-024",
+  "tr": "Bulutlar, kalın duman ya da ağaç tepeleri bir yangını uydudan tamamen saklayabilir. Yani uydu görmedi diye orada yangın yok demek değildir!",
+  "en": "Clouds, thick smoke or treetops can hide a fire from a satellite completely. If a satellite did not see a fire, that does not mean there is none!",
+  "category": "satellites",
+  "season": "all",
+  "source_name": "NASA Earthdata FIRMS FAQ",
+  "source_url": "https://www.earthdata.nasa.gov/faq/firms-faq"
+ },
+ {
+  "id": "fire-025",
+  "tr": "Bir yangın, uydu tekrar bakana kadar başlayıp bitebilir. Bu yüzden uydular bazı yangınları hiç göremez.",
+  "en": "A fire can start and end before a satellite looks again. That is why satellites never see some fires.",
+  "category": "satellites",
+  "season": "all",
+  "source_name": "NASA Earthdata FIRMS FAQ",
+  "source_url": "https://www.earthdata.nasa.gov/faq/firms-faq"
+ },
+ {
+  "id": "fire-026",
+  "tr": "Bazı yangınlar uydunun fark etmesi için fazla küçük ya da yeterince sıcak değildir. Uydu onları göremeyebilir!",
+  "en": "Some fires are too small or not hot enough for a satellite to notice. A satellite may miss them!",
+  "category": "satellites",
+  "season": "all",
+  "source_name": "NASA Earthdata FIRMS FAQ",
+  "source_url": "https://www.earthdata.nasa.gov/faq/firms-faq"
+ },
+ {
+  "id": "fire-027",
+  "tr": "Uydunun gördüğü sıcak nokta her zaman orman yangını değildir. Bazen yanardağdır, bazen de gaz kuyusunun alevi!",
+  "en": "A hot spot seen by a satellite is not always a forest fire. Sometimes it is a volcano or the flame of a gas well!",
+  "category": "satellites",
+  "season": "all",
+  "source_name": "NASA Earthdata FIRMS FAQ",
+  "source_url": "https://www.earthdata.nasa.gov/faq/firms-faq"
+ },
+ {
+  "id": "fire-028",
+  "tr": "NASA'nın yangın haritasına uydu bilgileri, uydu baktıktan sonra 3 saat içinde gelir. Yani haritada gördüğün şey birkaç saat öncesi olabilir!",
+  "en": "Satellite data reaches NASA's fire map within 3 hours of the satellite looking. So what you see on the map may be a few hours old!",
+  "category": "satellites",
+  "season": "all",
+  "source_name": "NASA Earthdata FIRMS",
+  "source_url": "https://www.earthdata.nasa.gov/data/tools/firms"
+ },
+ {
+  "id": "fire-029",
+  "tr": "Bazı uydular hep aynı bölgeye bakar ve 10-15 dakikada bir yeni görüntü alır. Yine de küçük yangınları kaçırabilirler.",
+  "en": "Some satellites watch the same area and take new pictures every 10 to 15 minutes. Even so, they can miss small fires.",
+  "category": "satellites",
+  "season": "all",
+  "source_name": "NASA Earthdata FIRMS FAQ",
+  "source_url": "https://www.earthdata.nasa.gov/faq/firms-faq"
+ },
+ {
+  "id": "fire-030",
+  "tr": "Bir keresinde Alaska'daki yangınların dumanı binlerce kilometre yol alıp Kanada açıklarındaki Labrador Denizi'ne kadar gitti!",
+  "en": "Smoke from fires in Alaska once travelled thousands of kilometres, all the way to the Labrador Sea off Canada!",
+  "category": "fire",
+  "season": "all",
+  "source_name": "NASA Earth Observatory",
+  "source_url": "https://science.nasa.gov/earth/earth-observatory/smoke-from-alaska-fires-13455"
+ },
+ {
+  "id": "fire-031",
+  "tr": "Çok büyük yangınlar kendi fırtına bulutlarını oluşturabilir. Bilim insanları bunlara 'ateş bulutu' diyor!",
+  "en": "Very big fires can make their own thunderstorm clouds. Scientists call them 'fire clouds'!",
+  "category": "fire",
+  "season": "all",
+  "source_name": "NASA Earth Observatory",
+  "source_url": "https://science.nasa.gov/earth/earth-observatory/flying-through-a-fire-cloud-145446/"
+ },
+ {
+  "id": "fire-032",
+  "tr": "Bazı uydular Dünya'dan yaklaşık 36.000 kilometre yukarıda durur ve hep aynı yerin üstünde kalır!",
+  "en": "Some satellites sit about 36,000 kilometres above Earth and always stay over the same place!",
+  "category": "satellites",
+  "season": "all",
+  "source_name": "NASA Earth Observatory",
+  "source_url": "https://science.nasa.gov/earth/earth-observatory/catalog-of-earth-satellite-orbits"
+ },
+ {
+  "id": "fire-033",
+  "tr": "NASA'nın Aqua uydusu Dünya'nın çevresini yaklaşık 99 dakikada dolaşır. Bir film izleyene kadar bir tur!",
+  "en": "NASA's Aqua satellite goes around the Earth in about 99 minutes. One whole trip in the time of a movie!",
+  "category": "satellites",
+  "season": "all",
+  "source_name": "NASA Earth Observatory",
+  "source_url": "https://science.nasa.gov/earth/earth-observatory/catalog-of-earth-satellite-orbits"
+ },
+ {
+  "id": "fire-034",
+  "tr": "ABD'deki Yellowstone'da 1988'de yanan yerler 2019'da bile uzaydan görülebiliyordu. Orman çok yavaş iyileşir!",
+  "en": "Land that burned in Yellowstone in 1988 could still be seen from space in 2019. Forests heal very slowly!",
+  "category": "satellites",
+  "season": "all",
+  "source_name": "NASA Earth Observatory",
+  "source_url": "https://science.nasa.gov/earth/earth-observatory/world-of-change/burn-recovery-in-yellowstone/"
+ },
+ {
+  "id": "fire-035",
+  "tr": "Yellowstone'daki büyük yangınlardan sonra küllerin arasından otlar ve kır çiçekleri çıktı. Zamanla minik çamlar da büyümeye başladı!",
+  "en": "After Yellowstone's big fires, grasses and wildflowers came up from the ashes. Over time, tiny pine trees began to grow too!",
+  "category": "fire",
+  "season": "all",
+  "source_name": "NASA Earth Observatory",
+  "source_url": "https://science.nasa.gov/earth/earth-observatory/world-of-change/burn-recovery-in-yellowstone/"
+ },
+ {
+  "id": "fire-036",
+  "tr": "Landsat uyduları 1970'lerden beri orman yangınlarını kaydediyor. Elimizde tam 50 yıllık bir yangın geçmişi var!",
+  "en": "Landsat satellites have been recording forest fires since the 1970s. That gives us a fire history of fifty years!",
+  "category": "satellites",
+  "season": "all",
+  "source_name": "NASA Science, Landsat",
+  "source_url": "https://science.nasa.gov/mission/landsat/benefits/wildfires/"
+ },
+ {
+  "id": "fire-038",
+  "tr": "Bazı yeni hava uyduları yıldırım düşmelerini takip edebiliyor. Çünkü uzak ormanlardaki pek çok yangını yıldırımlar başlatıyor!",
+  "en": "Some new weather satellites can track lightning strikes. That is because lightning starts many fires in faraway forests!",
+  "category": "satellites",
+  "season": "all",
+  "source_name": "NOAA",
+  "source_url": "https://www.noaa.gov/noaa-wildfire/fire-cycle/during-fire"
+ },
+ {
+  "id": "fire-039",
+  "tr": "Çok büyük bir yangın kendi rüzgârını yaratabilir. Yükselen hava çok hızlanırsa dönen bir ateş hortumu bile oluşabilir.",
+  "en": "A very big fire can make its own wind. If the rising air gets very fast, a spinning fire whirl can even form.",
+  "category": "fire",
+  "season": "all",
+  "source_name": "NOAA NESDIS K-12 Education",
+  "source_url": "https://www.nesdis.noaa.gov/about/k-12-education/dust-ash-fire-smoke/what-firestorm"
+ },
+ {
+  "id": "fire-040",
+  "tr": "Bir kıvılcım, havadaki oksijen ve kuru ot ya da çalı bir araya gelince yangın başlayabilir. O kıvılcım bir yıldırım da olabilir, rüzgârla uçan bir köz de!",
+  "en": "When a spark meets oxygen and dry grass or bushes, a fire can start. That spark can be lightning, or an ember carried by the wind!",
+  "category": "fire",
+  "season": "all",
+  "source_name": "NOAA NESDIS K-12 Education",
+  "source_url": "https://www.nesdis.noaa.gov/about/k-12-education/dust-ash-fire-smoke/how-do-wildfires-spread"
+ },
+ {
+  "id": "fire-041",
+  "tr": "Bazı hava uyduları özel gözleriyle çok küçük yangınların ısısını bile görebilir. Ama sen duman görürsen uyduya bırakma, hemen 112'yi ara!",
+  "en": "Some weather satellites have special vision that can even see the heat of very small fires. But if you see smoke, don't leave it to a satellite, call 112 right away!",
+  "category": "satellites",
+  "season": "all",
+  "source_name": "NOAA NESDIS K-12 Education",
+  "source_url": "https://www.nesdis.noaa.gov/about/k-12-education/dust-ash-fire-smoke/how-do-wildfires-spread"
+ },
+ {
+  "id": "fire-042",
+  "tr": "Yıldırım, içinden geçtiği havayı Güneş'in yüzeyinden 5 kat daha sıcak hale getirebilir!",
+  "en": "Lightning can heat the air it passes through to 5 times hotter than the surface of the Sun!",
+  "category": "fire",
+  "season": "all",
+  "source_name": "NOAA National Weather Service",
+  "source_url": "https://www.weather.gov/safety/lightning-temperature"
+ },
+ {
+  "id": "fire-043",
+  "tr": "Bazı fırtınalarda yağmur yere ulaşmadan havada buharlaşır. Yine de yıldırım yere düşüp yangın başlatabilir!",
+  "en": "In some storms, the rain dries up in the air before it reaches the ground. But lightning can still strike and start a fire!",
+  "category": "fire",
+  "season": "summer",
+  "source_name": "NOAA National Weather Service, Albuquerque",
+  "source_url": "https://www.weather.gov/abq/clifeature2010drythunderstorms"
+ },
+ {
+  "id": "fire-044",
+  "tr": "Hava sıcak, kuru ve rüzgârlı olunca yangınlar daha kolay başlar, büyür ve yayılır.",
+  "en": "When the weather is hot, dry and windy, fires start, grow and spread more easily.",
+  "category": "fire",
+  "season": "summer",
+  "source_name": "NOAA National Severe Storms Laboratory",
+  "source_url": "https://www.nssl.noaa.gov/education/students/wxfriendscards/txt/blaze.html"
+ },
+ {
+  "id": "fire-045",
+  "tr": "Rüzgâr, bir yerden başka bir yere akan havadır. Güneş her yeri aynı ısıtmadığı için hava bu şekilde hareket eder!",
+  "en": "Wind is air moving from one place to another. It moves like this because the Sun does not warm every place the same!",
+  "category": "fire",
+  "season": "all",
+  "source_name": "UCAR Center for Science Education",
+  "source_url": "https://scied.ucar.edu/learning-zone/how-weather-works/wind"
+ },
+ {
+  "id": "fire-046",
+  "tr": "Yangından uçan közler kilometrelerce ileri gidip yeni yangınlar başlatabilir. Yangın uzakta görünse bile yetkililerin uyarılarını dinle!",
+  "en": "Embers from a fire can fly for miles and start new fires. Even if a fire looks far away, listen to the warnings from officials!",
+  "category": "safety",
+  "season": "all",
+  "source_name": "NIST",
+  "source_url": "https://www.nist.gov/el/fire-research-division-73300/wildland-urban-interface-fire-73305/hazard-mitigation-methodology-4"
+ },
+ {
+  "id": "fire-047",
+  "tr": "Alevler geçtikten saatler sonra bile közler yeni bir yangın çıkarabilir. Yangın geçti diye hemen geri dönme, görevlileri bekle!",
+  "en": "Hours after the flames have passed, embers can still start a new fire. Don't rush back, wait for the officials!",
+  "category": "safety",
+  "season": "all",
+  "source_name": "NIST",
+  "source_url": "https://www.nist.gov/el/fire-research-division-73300/wildland-urban-interface-fire-73305/hazard-mitigation-methodology-4"
+ },
+ {
+  "id": "fire-048",
+  "tr": "Yetkililer 'Burayı boşaltın' derse hiç beklemeden çık. Eşyanın yerine yenisi alınır, sen çok önemlisin!",
+  "en": "If officials tell you to leave, go right away. Things can be replaced, you can't!",
+  "category": "safety",
+  "season": "all",
+  "source_name": "Ready.gov (US FEMA)",
+  "source_url": "https://www.ready.gov/wildfires"
+ },
+ {
+  "id": "fire-049",
+  "tr": "Yangın olabilecek yerlerde ailenle bir acil durum çantası hazırla, içine ilk yardım malzemesi koy. Telefonun da hep şarjlı olsun!",
+  "en": "In places where fires can happen, make an emergency bag with your family and put a first aid kit in it. Keep your phone charged too!",
+  "category": "safety",
+  "season": "all",
+  "source_name": "Ready.gov (US FEMA)",
+  "source_url": "https://www.ready.gov/wildfires"
+ },
+ {
+  "id": "fire-050",
+  "tr": "Yangın dumanı gözlerini, burnunu, boğazını ve ciğerlerini tahriş eder. Duman herkesi hasta edebilir!",
+  "en": "Wildfire smoke irritates your eyes, nose, throat and lungs. Smoke can make anyone sick!",
+  "category": "safety",
+  "season": "all",
+  "source_name": "US CDC",
+  "source_url": "https://www.cdc.gov/wildfires/about/index.html"
+ }
+]

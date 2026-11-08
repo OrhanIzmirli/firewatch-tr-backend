@@ -68,7 +68,17 @@ const privacyTr = `
 </ul>
 
 <h2>Yalnızca cihazınızda kalan veriler</h2>
-<p>Doğa sekmesindeki görev yanıtlarınız, seriniz, ders ve test sonuçlarınız, rozetleriniz ve hatırlatma tercihiniz de yalnızca telefonunuzda saklanır; bize gönderilmez.</p>
+<p>Fidan bölümündeki görev yanıtlarınız, seriniz, XP'niz, elmalarınız, ders ve test sonuçlarınız, ağacınızın durumu ve hatırlatma tercihiniz telefonunuzda saklanır. Telefonunuzun Android yedeklemesi açıksa yalnızca bu ilerleme dosyası Google hesabınızın cihaz yedeğine de alınır; konumunuz ve Yerlerim yedeğe girmez.</p>
+
+<h2>Google ile giriş ve ilerleme (isteğe bağlı)</h2>
+<p>Uygulamayı kullanmak için hesap gerekmez. İlerlemenizi telefonlar arasında taşımak için Google ile giriş yaparsanız:</p>
+<ul>
+  <li><strong>Google hesabı:</strong> Firebase Authentication (Google) e-posta adresinizi, adınızı, profil fotoğrafı bağlantınızı ve kullanıcı kimliğinizi hesabınızı yönetmek için işler. Firebase ayrıca güvenlik için IP adresini ve cihaz/uygulama bilgisini işler.</li>
+  <li><strong>İlerleme verisi:</strong> seri, XP, elmalar, tamamlanan dersler, işaretlenen günler ve ağacınızın durumu, Cloud Firestore'da yalnızca sizin erişebildiğiniz bir belgede saklanır. Hesabınızı silene kadar tutulur.</li>
+  <li><strong>Karışmayanlar:</strong> konumunuz, Yerlerim, ihbarlarınız ve bildirim tercihleriniz bu hesaba ve belgeye yazılmaz.</li>
+</ul>
+<p><strong>Doğa notları kanalı:</strong> Fidan hatırlatmasını açarsanız seçtiğiniz saatte telefonunuz "Doğa notları" adlı ayrı bir bildirim kanalından size hatırlatma gösterir. Bu bildirim telefonda planlanır, sunucumuza bir şey gönderilmez. O günün görevini yaptıysanız gönderilmez; kanalı istediğiniz an kapatabilirsiniz.</p>
+<p>Uygulama genel kitleye yöneliktir. 13 yaşından küçükseniz bir yetişkinle birlikte kullanın.</p>
 <p>Dil ve bildirim tercihleri, haritadaki il/ilçe kısayollarınız, izleme listeniz ve uygulama içi uyarı kutunuz telefonunuzda saklanır; bize gönderilmez. Uygulamayı kaldırdığınızda silinir.</p>
 
 <h2>Verileri kimlerle paylaşıyoruz</h2>
@@ -92,8 +102,11 @@ const privacyTr = `
 <p>Yangın ve termal tespit verileri (NASA FIRMS) ile risk hesabındaki hava durumu (Open-Meteo, MET Norway) sunucumuz tarafından çekilir; bu isteklerde sizinle ilgili veri yoktur. "Paylaş" düğmesiyle gönderdiğiniz içerik seçtiğiniz uygulamaya gider ve sunucumuzdan geçmez.</p>
 <p><strong>Veri kaynakları ve atıflar:</strong> Adres araması <a href="https://nominatim.openstreetmap.org/">Nominatim</a> ile yapılır; veriler © OpenStreetMap katkıcıları, ODbL. İl sınırları (haritadaki "Geçmiş yıllar" katmanı ve tespitlerin hangi ile atandığı) <a href="https://www.geoboundaries.org/">geoBoundaries</a> (gbOpen, TUR ADM1) üzerinden OpenStreetMap verisinden türetilmiştir — <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap katkıcıları</a>, <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>. Uydu tespitleri NASA FIRMS; hava verisi Open-Meteo ve MET Norway. Bu veriler cihazınızdan bilgi içermez.</p>
 
+<p><strong>Haber ve görüntü kaynakları:</strong> Haberlerde yalnızca başlık, kaynak adı ve kaynağa bağlantı gösterilir. Başlıklar yayıncıların RSS beslemelerinden, AFAD'dan ve <a href="https://www.gdeltproject.org/">The GDELT Project</a> verisinden gelir. We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS).</p>
+
 <h2>Haklarınız ve verilerinizi silme</h2>
 <ul>
+  <li><strong>Google hesabı ve ilerleme:</strong> Uygulamada Fidan → Hesap → "Hesabı ve ilerlememi sil" hesabınızı ve ilerleme belgenizi hemen siler. Uygulamaya girmeden silme talebi için <a href="/account-deletion">hesap silme sayfası</a>.</li>
   <li><strong>Konum ve takip edilen yerler:</strong> Uygulamada Ayarlar → "Konum verimi sil" sunucudaki konumunuzu ve Yerlerim'deki tüm yerleri hemen siler. Tek bir yeri listeden silebilirsiniz. Bildirimleri kapatmak bildirim konumunuzu siler.</li>
   <li><strong>Diğer veriler:</strong> İhbar, geri bildirim veya e-posta adresinizin silinmesini, verilerinize erişimi ya da düzeltilmesini <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a> adresinden isteyebilirsiniz. Kaydı bulabilmemiz için ihbarın veya geri bildirimin tarihini belirtin. Talebinize en geç 30 gün içinde yanıt veririz.</li>
   <li>6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) ve uygulandığı durumlarda GDPR kapsamındaki haklarınızı aynı adresten kullanabilirsiniz.</li>
@@ -136,7 +149,17 @@ const privacyEn = `
 </ul>
 
 <h2>Data that stays on your device</h2>
-<p>Your Nature tab task answers, streak, lesson and quiz results, badges and reminder setting are also stored only on your phone and are never sent to us.</p>
+<p>Your task answers, streak, XP, apples, lesson and quiz results, tree state and reminder setting in the Fidan section are stored on your phone. If your phone's Android backup is on, this progress file alone is also included in your Google account's device backup; your location and My Places are not.</p>
+
+<h2>Sign in with Google and progress (optional)</h2>
+<p>You do not need an account to use the app. If you sign in with Google to carry your progress between phones:</p>
+<ul>
+  <li><strong>Google account:</strong> Firebase Authentication (Google) processes your email address, name, profile photo link and user ID to manage your account. Firebase also processes IP address and device/app information for security.</li>
+  <li><strong>Progress data:</strong> streak, XP, apples, finished lessons, marked days and tree state are stored in Cloud Firestore in a document only you can access. It is kept until you delete your account.</li>
+  <li><strong>Kept apart:</strong> your location, My Places, reports and notification preferences are never written to this account or document.</li>
+</ul>
+<p><strong>Nature notes channel:</strong> if you turn on the Fidan reminder, your phone shows it at the time you chose, through a separate notification channel called "Nature notes". It is scheduled on the phone and nothing is sent to our server. It is not sent on a day you have already done the task, and you can turn the channel off at any time.</p>
+<p>The app is for a general audience. If you are under 13, use it with an adult.</p>
 <p>Language and notification preferences, your province/district map shortcuts, your watchlist and the in-app alert inbox are stored on your phone and never sent to us. They are removed when you uninstall the app.</p>
 
 <h2>Who we share data with</h2>
@@ -160,8 +183,11 @@ const privacyEn = `
 <p>Fire and thermal detections (NASA FIRMS) and the weather used for risk scoring (Open-Meteo, MET Norway) are fetched by our server; those requests contain no data about you. Content you send with a "Share" button goes to the app you choose and does not pass through our server.</p>
 <p><strong>Data sources and attribution:</strong> Address search uses <a href="https://nominatim.openstreetmap.org/">Nominatim</a>; data © OpenStreetMap contributors, ODbL. Province boundaries (the map's "Past years" layer and the province a detection is assigned to) are derived from OpenStreetMap data via <a href="https://www.geoboundaries.org/">geoBoundaries</a> (gbOpen, TUR ADM1) — <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>, <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>. Satellite detections: NASA FIRMS; weather: Open-Meteo and MET Norway. None of this contains information from your device.</p>
 
+<p><strong>News and image sources:</strong> News shows only the headline, the source's name and a link to the source. Headlines come from publishers' RSS feeds, AFAD and <a href="https://www.gdeltproject.org/">The GDELT Project</a> data. We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS).</p>
+
 <h2>Your rights and deleting your data</h2>
 <ul>
+  <li><strong>Google account and progress:</strong> in the app, Fidan → Account → "Delete my account and progress" deletes your account and progress document immediately. To request deletion without the app, see the <a href="/account-deletion/en">account deletion page</a>.</li>
   <li><strong>Location and tracked places:</strong> Settings → "Delete my location data" in the app deletes your location and all your places from our server immediately. You can delete a single place from the list. Turning notifications off deletes your notification location.</li>
   <li><strong>Other data:</strong> to have a report, feedback or email address deleted, or to access or correct your data, write to <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>. Please include the date of the report or feedback so we can find it. We reply within 30 days.</li>
   <li>You can exercise your rights under Turkey's Personal Data Protection Law No. 6698 (KVKK) and, where it applies, the GDPR at the same address.</li>
@@ -173,6 +199,41 @@ const privacyEn = `
 <h2>Contact</h2>
 <p>Questions about this policy or your data: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a></p>
 `;
+const deletionTr = `
+<h1>FireWatch TR — Hesap ve veri silme</h1>
+<p class="lang-switch"><a href="/account-deletion/en">English version</a></p>
+<p>Bu sayfa, FireWatch TR uygulamasında Google ile giriş yaparak oluşturduğunuz hesabı ve ona bağlı verileri silmeniz içindir. Hesap açmadıysanız sunucumuzda silinecek bir ilerleme kaydınız yoktur.</p>
+<h2>Uygulamadan silme</h2>
+<ol><li>Uygulamada Ana Sayfa'daki Fidan kartını açın.</li><li>Sağ üstteki ayarlardan "Hesap" bölümüne girin.</li><li>"Hesabı ve ilerlememi sil" seçeneğine dokunup onaylayın.</li></ol>
+<p>Hesabınız ve ilerleme belgeniz hemen silinir.</p>
+<h2>Uygulama olmadan silme</h2>
+<p>Uygulamanız yoksa veya hesabınıza giremiyorsanız, Google hesabınızın e-posta adresini belirterek <a href="mailto:${CONTACT_EMAIL}?subject=FireWatch%20TR%20hesap%20silme">${CONTACT_EMAIL}</a> adresine "Hesabımı sil" yazın. Hesabınız ve verileriniz en geç 30 gün içinde silinir, tamamlandığında size yazarız.</p>
+<h2>Silinenler</h2>
+<ul><li>Google ile giriş hesabınız (e-posta, ad, profil fotoğrafı bağlantısı, kullanıcı kimliği)</li><li>İlerleme belgeniz (seri, XP, elmalar, dersler, ağaç durumu)</li></ul>
+<p>Bu silme işleminden sonra hesapla ilgili hiçbir kayıt saklamayız. Konum, Yerlerim, ihbar ve geri bildirim verileri hesaba bağlı değildir; bunların silinmesi <a href="/privacy/tr">gizlilik politikasında</a> anlatılır.</p>
+`;
+const deletionEn = `
+<h1>FireWatch TR — Account and data deletion</h1>
+<p class="lang-switch"><a href="/account-deletion/tr">Türkçe</a></p>
+<p>This page is for deleting an account you created in the FireWatch TR app by signing in with Google, and the data linked to it. If you never signed in, we hold no progress record for you.</p>
+<h2>Delete in the app</h2>
+<ol><li>Open the Fidan card on the Home screen.</li><li>Go to the "Account" section in the settings at the top right.</li><li>Tap "Delete my account and progress" and confirm.</li></ol>
+<p>Your account and progress document are deleted immediately.</p>
+<h2>Delete without the app</h2>
+<p>If you no longer have the app or cannot sign in, write "Delete my account" to <a href="mailto:${CONTACT_EMAIL}?subject=FireWatch%20TR%20account%20deletion">${CONTACT_EMAIL}</a> and include your Google account's email address. Your account and data are deleted within 30 days, and we will tell you when it is done.</p>
+<h2>What is deleted</h2>
+<ul><li>Your Google sign-in account (email, name, profile photo link, user ID)</li><li>Your progress document (streak, XP, apples, lessons, tree state)</li></ul>
+<p>After deletion we keep no record about the account. Location, My Places, report and feedback data are not linked to the account; how to delete them is explained in the <a href="/privacy/en">privacy policy</a>.</p>
+`;
+router.get('/account-deletion', (req, res) => {
+    res.type('html').send(page('FireWatch TR — Hesap silme', deletionTr, 'tr'));
+});
+router.get('/account-deletion/tr', (req, res) => {
+    res.type('html').send(page('FireWatch TR — Hesap silme', deletionTr, 'tr'));
+});
+router.get('/account-deletion/en', (req, res) => {
+    res.type('html').send(page('FireWatch TR — Account deletion', deletionEn, 'en'));
+});
 router.get('/privacy', (req, res) => {
     res.type('html').send(page('FireWatch TR — Privacy Policy / Gizlilik Politikası', `${privacyTr}<hr/>${privacyEn}`, 'tr'));
 });

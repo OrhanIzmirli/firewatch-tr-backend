@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.provinceInTitle = provinceInTitle;
 exports.assessTurkey = assessTurkey;
 const turkishText_1 = require("./turkishText");
 /**
@@ -71,6 +72,17 @@ const TURKEY_RE = [
     // "sınırda", "sınırına", "sınır hattı" — but not "sınırlı" or "sınırsız"
     { w: 'sınır', re: new RegExp(`(^|[^${WORD_CHAR}])sınır(?![ls])`) },
 ];
+const PROVINCE_RE = compile(PROVINCES);
+const DISPLAY = { afyon: 'afyonkarahisar', 'hakkâri': 'hakkari' };
+/** The province a headline names, in its usual spelling, or null. */
+function provinceInTitle(title) {
+    const text = (0, turkishText_1.turkishToLower)(title);
+    const hit = PROVINCE_RE.find(({ re }) => re.test(text));
+    if (!hit)
+        return null;
+    const w = DISPLAY[hit.w] ?? hit.w;
+    return (w[0] === 'i' ? 'İ' : w[0] === 'ı' ? 'I' : w[0].toUpperCase()) + w.slice(1);
+}
 function assessTurkey(title, fullText) {
     const text = (0, turkishText_1.turkishToLower)(`${title} ${fullText}`).replace(NOT_A_PLACE, ' ');
     const far = FAR_RE.filter(({ re }) => re.test(text)).map(({ w }) => w);

@@ -1,8 +1,9 @@
 import pool from '../config/database';
 import { News } from '../types';
 import { turkishToLower } from '../utils/turkishText';
-import { withSourceLogo } from '../utils/newsSourceLogos';
 import { isInFiresFeed, relevantPageIds } from '../utils/newsRelevance';
+import { PublicNews, toPublicNews } from '../utils/publicNews';
+import { REMOVED_NEWS_SOURCES } from '../config/newsSources';
 
 // Jaccard similarity over word tokens — catches near-duplicate titles that
 // differ only by a repeated/dropped word or minor punctuation (the same
@@ -39,14 +40,15 @@ class NewsService {
    * rows only. Titles and summaries are filtered first; full rows are
    * fetched for the page alone.
    */
-  async getAllNews(category?: string, limit: number = 20, offset: number = 0): Promise<News[]> {
+  async getAllNews(category?: string, limit: number = 20, offset: number = 0): Promise<PublicNews[]> {
     try {
       const candidates = await withTimeout(
         pool.query(
           `SELECT id, title, summary FROM news
             WHERE ($1::text IS NULL OR category = $1)
+              AND source <> ALL($2::text[])
             ORDER BY published_at DESC NULLS LAST, id DESC`,
-          [category ?? null]
+          [category ?? null, REMOVED_NEWS_SOURCES]
         ),
         'Query timeout after 8s'
       );
@@ -61,7 +63,7 @@ class NewsService {
       return ids
         .map((id) => byId.get(id))
         .filter((r): r is News => r !== undefined)
-        .map(withSourceLogo);
+        .map(toPublicNews);
     } catch (error) {
       console.error('❌ Error fetching news:', error);
       throw error;
@@ -72,12 +74,12 @@ class NewsService {
     try {
       console.log('📰 getNewsById:', id);
       const result = await Promise.race([
-        pool.query('SELECT * FROM news WHERE id = $1', [id]),
+        pool.query('SELECT * FROM news WHERE id = $1 AND source <> ALL($2::text[])', [id, REMOVED_NEWS_SOURCES]),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Query timeout after 8s')), 8000)
         ),
       ]) as any;
-      return result.rows[0] ? withSourceLogo(result.rows[0]) : null;
+      return result.rows[0] ? (toPublicNews(result.rows[0]) as unknown as News) : null;
     } catch (error) {
       console.error('❌ Error fetching news by id:', error);
       throw error;
@@ -166,8 +168,8 @@ class NewsService {
     try {
       const result = await withTimeout(
         pool.query(
-          'SELECT title, summary FROM news WHERE ($1::text IS NULL OR category = $1)',
-          [category ?? null]
+          'SELECT title, summary FROM news WHERE ($1::text IS NULL OR category = $1) AND source <> ALL($2::text[])',
+          [category ?? null, REMOVED_NEWS_SOURCES]
         ),
         'Count timeout after 8s'
       );

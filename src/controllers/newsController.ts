@@ -15,15 +15,15 @@ class NewsController {
       const offsetNum = Number.isFinite(parsedOffset) ? Math.max(parsedOffset, 0) : 0;
 
       // v2: the feed is filtered on read since the wildfire gate; v1 entries held unfiltered pages.
-      const cacheKey = `news:v2:${category || 'all'}:${limitNum}:${offsetNum}`;
-      const cached = await cacheService.get<News[]>(cacheKey);
+      const cacheKey = `news:v3:${category || 'all'}:${limitNum}:${offsetNum}`;
+      const cached = await cacheService.get<unknown[]>(cacheKey);
       if (cached) {
         res.json({
           status: 'success',
           message: `Retrieved ${cached.length} news (cache)`,
           data: cached,
           timestamp: new Date().toISOString(),
-        } as ApiResponse<News[]>);
+        } as ApiResponse<unknown[]>);
         return;
       }
 
@@ -35,7 +35,7 @@ class NewsController {
         message: `Retrieved ${news.length} news`,
         data: news,
         timestamp: new Date().toISOString(),
-      } as ApiResponse<News[]>);
+      } as ApiResponse<unknown[]>);
     } catch (error) {
       console.error('❌ Error in getAllNews:', error);
       res.status(500).json({
@@ -55,7 +55,7 @@ class NewsController {
         return;
       }
 
-      const cacheKey = `news:${newsId}`;
+      const cacheKey = `news:v3:${newsId}`;
       const cached = await cacheService.get<News>(cacheKey);
       if (cached) {
         res.json({
