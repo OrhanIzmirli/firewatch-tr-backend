@@ -1,8 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.isGreenStory = void 0;
 exports.checkRelevance = checkRelevance;
 exports.isInFiresFeed = isInFiresFeed;
 exports.relevantPageIds = relevantPageIds;
+const newsKinds_1 = require("./newsKinds");
+Object.defineProperty(exports, "isGreenStory", { enumerable: true, get: function () { return newsKinds_1.isGreenStory; } });
 const turkishText_1 = require("./turkishText");
 const wildfireRelevance_1 = require("./wildfireRelevance");
 const newsGeography_1 = require("./newsGeography");
@@ -120,13 +123,6 @@ const BLOCKED_KEYWORDS = [
     'asker cenazesi', 'asker şehit', 'asker gazi', 'asker gazisi',
     'asker yaralı', 'asker yaralısı', 'asker yaralanma', 'asker yaralanması', 'asker yaralandı',
 ];
-// Strict whitelist: MUST_HAVE_KEYWORDS (specific fire/disaster terms) match
-// anywhere in title+summary; TITLE_ONLY_KEYWORDS (generic org names that
-// show up as incident-response boilerplate in unrelated articles) only
-// count when they're in the title itself. BLOCKED always runs against the
-// full text — blocking is inherently conservative, so checking the
-// summary too only ever removes more off-topic content, never loses a
-// genuine match.
 function checkRelevance(title, fullText) {
     const titleLower = (0, turkishText_1.turkishToLower)(title).trim();
     const fullLower = (0, turkishText_1.turkishToLower)(fullText).trim();
@@ -156,7 +152,7 @@ function checkRelevance(title, fullText) {
  */
 function isInFiresFeed(row) {
     const title = row.title ?? '';
-    return checkRelevance(title, `${title} ${row.summary ?? ''}`).relevant;
+    return checkRelevance(title, `${title} ${row.summary ?? ''}`).relevant || (0, newsKinds_1.isGreenStory)(title);
 }
 /**
  * Ids of the feed page `limit`/`offset` counted over relevant rows only,

@@ -7,6 +7,7 @@ const database_1 = __importDefault(require("../config/database"));
 const turkishText_1 = require("../utils/turkishText");
 const newsRelevance_1 = require("../utils/newsRelevance");
 const publicNews_1 = require("../utils/publicNews");
+const districts_1 = require("./districts");
 const newsSources_1 = require("../config/newsSources");
 // Jaccard similarity over word tokens — catches near-duplicate titles that
 // differ only by a repeated/dropped word or minor punctuation (the same
@@ -53,10 +54,11 @@ class NewsService {
                 return [];
             const result = await withTimeout(database_1.default.query('SELECT * FROM news WHERE id = ANY($1::int[])', [ids]), 'Query timeout after 8s');
             const byId = new Map(result.rows.map((r) => [r.id, r]));
+            const districts = await (0, districts_1.loadDistricts)().catch(() => []);
             return ids
                 .map((id) => byId.get(id))
                 .filter((r) => r !== undefined)
-                .map(publicNews_1.toPublicNews);
+                .map((row) => (0, publicNews_1.toPublicNews)(row, districts));
         }
         catch (error) {
             console.error('❌ Error fetching news:', error);

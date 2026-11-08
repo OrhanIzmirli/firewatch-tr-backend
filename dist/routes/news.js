@@ -11,6 +11,7 @@ const cacheService_1 = __importDefault(require("../services/cacheService"));
 const relatedNews_1 = require("../services/relatedNews");
 const newsThumbs_1 = require("../services/newsThumbs");
 const newsStories_1 = require("../utils/newsStories");
+const districts_1 = require("../services/districts");
 const newsRelevance_1 = require("../utils/newsRelevance");
 const newsSourceLogos_1 = require("../utils/newsSourceLogos");
 const newsSources_1 = require("../config/newsSources");
@@ -46,7 +47,7 @@ router.get('/related', (0, security_1.rateLimit)('news-related', 120, 60000), as
 /** GET /api/news/stories — headlines about the same fire, oldest first. */
 router.get('/stories', (0, security_1.rateLimit)('news-stories', 60, 60000), async (_req, res) => {
     try {
-        const key = 'news:stories:v1';
+        const key = 'news:stories:v2';
         let data = await cacheService_1.default.get(key);
         if (!data) {
             const { rows } = await database_1.default.query(`SELECT id, title, source, source_url, COALESCE(published_at, created_at) AS published_at
@@ -55,7 +56,8 @@ router.get('/stories', (0, security_1.rateLimit)('news-stories', 60, 60000), asy
             AND source <> ALL($1::text[])
           ORDER BY 4 DESC
           LIMIT 500`, [newsSources_1.REMOVED_NEWS_SOURCES]);
-            data = (0, newsStories_1.buildStories)(rows.filter(newsRelevance_1.isInFiresFeed).map((r) => ({ ...r, published_at: new Date(r.published_at) }))).map((s) => ({
+            const districts = await (0, districts_1.loadDistricts)().catch(() => []);
+            data = (0, newsStories_1.buildStories)(rows.filter(newsRelevance_1.isInFiresFeed).map((r) => ({ ...r, published_at: new Date(r.published_at) })), districts).map((s) => ({
                 ...s,
                 items: s.items.map((i) => ({ ...i, source_logo_url: (0, newsSourceLogos_1.sourceLogoUrl)(i.source) })),
             }));

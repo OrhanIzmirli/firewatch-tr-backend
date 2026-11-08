@@ -1,4 +1,6 @@
-import { provinceInTitle } from './newsGeography';
+import { headlineProvince } from './publicNews';
+import type { DistrictRef } from '../services/placeMention';
+import { newsKind } from './newsKinds';
 import { turkishToLower } from './turkishText';
 
 export type StoryStage = 'started' | 'controlled' | 'out' | 'restoration';
@@ -19,7 +21,12 @@ export interface Story {
   items: (StoryInput & { stage: StoryStage | null })[];
 }
 
-const MAX_GAP_MS = 3 * 86_400_000;
+const DAY_MS = 86_400_000;
+/** One fire: at most this long between two headlines, and this long overall. */
+const MAX_GAP_MS = 2 * DAY_MS;
+const MAX_SPAN_MS = 8 * DAY_MS;
+/** A headline that does not say what burned joins only when this close. */
+const UNKNOWN_KIND_GAP_MS = DAY_MS;
 
 /** What a headline says happened. Null when it says none of these. */
 export function stageOf(title: string): StoryStage | null {
@@ -43,29 +50,29 @@ export function placesIn(title: string, province: string): Set<string> {
 
 const disagree = (a: Set<string>, b: Set<string>) => a.size > 0 && b.size > 0 && ![...a].some((p) => b.has(p));
 
-/** A forest fire and a stubble fire in one province are two events. */
-export function fireKind(title: string): 'forest' | 'field' | null {
-  const t = turkishToLower(title);
-  if (/orman/.test(t)) return 'forest';
-  if (/otluk|anız|tarla|ot yangın|çöp/.test(t)) return 'field';
-  return null;
-}
-
 /**
  * Groups headlines about one fire: same province, no gap over three days,
  * and no two different districts named. It would rather miss a link than
  * tell two fires' stories as one.
  */
-export function buildStories(news: StoryInput[]): Story[] {
-  const open: { province: string; last: number; places: Set<string>; kind: 'forest' | 'field' | null; items: StoryInput[] }[] = [];
+export function buildStories(news: StoryInput[], districts: readonly DistrictRef[] = []): Story[] {
+  const open: { province: string; first: number; last: number; places: Set<string>; kind: 'fire' | 'field' | null; items: StoryInput[] }[] = [];
   for (const n of [...news].sort((a, b) => a.published_at.getTime() - b.published_at.getTime())) {
-    const province = provinceInTitle(n.title);
+    const province = headlineProvince(n.title, districts);
     if (!province) continue;
+    const rawKind = newsKind(n.title);
+    if (rawKind !== null && rawKind !== 'fire' && rawKind !== 'field') continue;
+    // A headline saying only "fire" does not say what burned.
+    const kind = rawKind === 'fire' && !turkishToLower(n.title).includes('orman') ? null : rawKind;
     const at = n.published_at.getTime();
     const places = placesIn(n.title, province);
-    const kind = fireKind(n.title);
     const group = open.find(
-      (g) => g.province === province && at - g.last <= MAX_GAP_MS && !disagree(g.places, places) && (!g.kind || !kind || g.kind === kind)
+      (g) =>
+        g.province === province &&
+        at - g.last <= (kind && g.kind ? MAX_GAP_MS : UNKNOWN_KIND_GAP_MS) &&
+        at - g.first <= MAX_SPAN_MS &&
+        !disagree(g.places, places) &&
+        (!g.kind || !kind || g.kind === kind)
     );
     if (group) {
       group.items.push(n);
@@ -73,7 +80,7 @@ export function buildStories(news: StoryInput[]): Story[] {
       places.forEach((p) => group.places.add(p));
       group.kind = group.kind ?? kind;
     } else {
-      open.push({ province, last: at, places, kind, items: [n] });
+      open.push({ province, first: at, last: at, places, kind, items: [n] });
     }
   }
   const order: StoryStage[] = ['started', 'controlled', 'out', 'restoration'];

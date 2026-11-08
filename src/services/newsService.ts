@@ -3,6 +3,7 @@ import { News } from '../types';
 import { turkishToLower } from '../utils/turkishText';
 import { isInFiresFeed, relevantPageIds } from '../utils/newsRelevance';
 import { PublicNews, toPublicNews } from '../utils/publicNews';
+import { loadDistricts } from './districts';
 import { REMOVED_NEWS_SOURCES } from '../config/newsSources';
 
 // Jaccard similarity over word tokens — catches near-duplicate titles that
@@ -60,10 +61,11 @@ class NewsService {
         'Query timeout after 8s'
       );
       const byId = new Map<number, News>(result.rows.map((r: News) => [r.id, r]));
+      const districts = await loadDistricts().catch(() => []);
       return ids
         .map((id) => byId.get(id))
         .filter((r): r is News => r !== undefined)
-        .map(toPublicNews);
+        .map((row) => toPublicNews(row, districts));
     } catch (error) {
       console.error('❌ Error fetching news:', error);
       throw error;

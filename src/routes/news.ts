@@ -6,6 +6,7 @@ import cacheService from '../services/cacheService';
 import { relatedNews } from '../services/relatedNews';
 import { provinceThumb } from '../services/newsThumbs';
 import { buildStories } from '../utils/newsStories';
+import { loadDistricts } from '../services/districts';
 import { isInFiresFeed } from '../utils/newsRelevance';
 import { sourceLogoUrl } from '../utils/newsSourceLogos';
 import { REMOVED_NEWS_SOURCES } from '../config/newsSources';
@@ -43,7 +44,7 @@ router.get('/related', rateLimit('news-related', 120, 60_000), async (req, res) 
 /** GET /api/news/stories — headlines about the same fire, oldest first. */
 router.get('/stories', rateLimit('news-stories', 60, 60_000), async (_req, res) => {
   try {
-    const key = 'news:stories:v1';
+    const key = 'news:stories:v2';
     let data = await cacheService.get<unknown[]>(key);
     if (!data) {
       const { rows } = await pool.query(
@@ -55,7 +56,8 @@ router.get('/stories', rateLimit('news-stories', 60, 60_000), async (_req, res) 
           LIMIT 500`,
         [REMOVED_NEWS_SOURCES]
       );
-      data = buildStories(rows.filter(isInFiresFeed).map((r: any) => ({ ...r, published_at: new Date(r.published_at) }))).map((s) => ({
+      const districts = await loadDistricts().catch(() => []);
+      data = buildStories(rows.filter(isInFiresFeed).map((r: any) => ({ ...r, published_at: new Date(r.published_at) })), districts).map((s) => ({
         ...s,
         items: s.items.map((i) => ({ ...i, source_logo_url: sourceLogoUrl(i.source) })),
       }));

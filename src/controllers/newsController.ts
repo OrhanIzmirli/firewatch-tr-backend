@@ -15,7 +15,7 @@ class NewsController {
       const offsetNum = Number.isFinite(parsedOffset) ? Math.max(parsedOffset, 0) : 0;
 
       // v2: the feed is filtered on read since the wildfire gate; v1 entries held unfiltered pages.
-      const cacheKey = `news:v3:${category || 'all'}:${limitNum}:${offsetNum}`;
+      const cacheKey = `news:v4:${category || 'all'}:${limitNum}:${offsetNum}`;
       const cached = await cacheService.get<unknown[]>(cacheKey);
       if (cached) {
         res.json({
@@ -55,7 +55,7 @@ class NewsController {
         return;
       }
 
-      const cacheKey = `news:v3:${newsId}`;
+      const cacheKey = `news:v4:${newsId}`;
       const cached = await cacheService.get<News>(cacheKey);
       if (cached) {
         res.json({

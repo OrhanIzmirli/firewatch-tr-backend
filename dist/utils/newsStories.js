@@ -2,11 +2,16 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.stageOf = stageOf;
 exports.placesIn = placesIn;
-exports.fireKind = fireKind;
 exports.buildStories = buildStories;
-const newsGeography_1 = require("./newsGeography");
+const publicNews_1 = require("./publicNews");
+const newsKinds_1 = require("./newsKinds");
 const turkishText_1 = require("./turkishText");
-const MAX_GAP_MS = 3 * 86400000;
+const DAY_MS = 86400000;
+/** One fire: at most this long between two headlines, and this long overall. */
+const MAX_GAP_MS = 2 * DAY_MS;
+const MAX_SPAN_MS = 8 * DAY_MS;
+/** A headline that does not say what burned joins only when this close. */
+const UNKNOWN_KIND_GAP_MS = DAY_MS;
 /** What a headline says happened. Null when it says none of these. */
 function stageOf(title) {
     const t = (0, turkishText_1.turkishToLower)(title);
@@ -31,30 +36,29 @@ function placesIn(title, province) {
     return out;
 }
 const disagree = (a, b) => a.size > 0 && b.size > 0 && ![...a].some((p) => b.has(p));
-/** A forest fire and a stubble fire in one province are two events. */
-function fireKind(title) {
-    const t = (0, turkishText_1.turkishToLower)(title);
-    if (/orman/.test(t))
-        return 'forest';
-    if (/otluk|anız|tarla|ot yangın|çöp/.test(t))
-        return 'field';
-    return null;
-}
 /**
  * Groups headlines about one fire: same province, no gap over three days,
  * and no two different districts named. It would rather miss a link than
  * tell two fires' stories as one.
  */
-function buildStories(news) {
+function buildStories(news, districts = []) {
     const open = [];
     for (const n of [...news].sort((a, b) => a.published_at.getTime() - b.published_at.getTime())) {
-        const province = (0, newsGeography_1.provinceInTitle)(n.title);
+        const province = (0, publicNews_1.headlineProvince)(n.title, districts);
         if (!province)
             continue;
+        const rawKind = (0, newsKinds_1.newsKind)(n.title);
+        if (rawKind !== null && rawKind !== 'fire' && rawKind !== 'field')
+            continue;
+        // A headline saying only "fire" does not say what burned.
+        const kind = rawKind === 'fire' && !(0, turkishText_1.turkishToLower)(n.title).includes('orman') ? null : rawKind;
         const at = n.published_at.getTime();
         const places = placesIn(n.title, province);
-        const kind = fireKind(n.title);
-        const group = open.find((g) => g.province === province && at - g.last <= MAX_GAP_MS && !disagree(g.places, places) && (!g.kind || !kind || g.kind === kind));
+        const group = open.find((g) => g.province === province &&
+            at - g.last <= (kind && g.kind ? MAX_GAP_MS : UNKNOWN_KIND_GAP_MS) &&
+            at - g.first <= MAX_SPAN_MS &&
+            !disagree(g.places, places) &&
+            (!g.kind || !kind || g.kind === kind));
         if (group) {
             group.items.push(n);
             group.last = at;
@@ -62,7 +66,7 @@ function buildStories(news) {
             group.kind = group.kind ?? kind;
         }
         else {
-            open.push({ province, last: at, places, kind, items: [n] });
+            open.push({ province, first: at, last: at, places, kind, items: [n] });
         }
     }
     const order = ['started', 'controlled', 'out', 'restoration'];
