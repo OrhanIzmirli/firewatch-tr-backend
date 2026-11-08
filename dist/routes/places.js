@@ -7,6 +7,7 @@ const express_1 = require("express");
 const database_1 = __importDefault(require("../config/database"));
 const security_1 = require("../middleware/security");
 const trackedPlaces_1 = require("../services/trackedPlaces");
+const placeSearch_1 = require("../services/placeSearch");
 /**
  * /api/places — "Takip ettiğim yerler" (app 1.2.0).
  *
@@ -71,11 +72,12 @@ function serializePlace(row) {
         longitude: Number(row.longitude),
         radius_km: Number(row.radius_m) / 1000,
         notify_heat: row.notify_heat,
+        notify_risk: row.notify_risk,
         created_at: row.created_at,
         last_alert_at: row.last_alert_at ?? null,
     };
 }
-const PLACE_COLUMNS = `p.id, p.name, p.latitude, p.longitude, p.radius_m, p.notify_heat, p.created_at,
+const PLACE_COLUMNS = `p.id, p.name, p.latitude, p.longitude, p.radius_m, p.notify_heat, p.notify_risk, p.created_at,
   (SELECT max(n.pushed_at) FROM place_notifications n WHERE n.place_id = p.id AND n.push_id IS NOT NULL) AS last_alert_at`;
 /**
  * Point-in-Turkey on the same gate the ingest uses (1.5 km over land
@@ -91,6 +93,29 @@ async function insideTurkey(lat, lng) {
     return result.rows.length === 0 ? true : result.rows[0].inside === true;
 }
 router.use(requireTables);
+// POST /api/places/search — find a neighbourhood or address (OSM Nominatim).
+// POST on purpose: the query stays out of URLs and so out of the access log.
+// One button press, one call; see services/placeSearch.ts for the usage rules.
+router.post('/search', (0, security_1.rateLimit)('places-search', 30, 60 * 60000), async (req, res) => {
+    const query = (0, placeSearch_1.parseSearchQuery)(req.body?.q);
+    if (query === null) {
+        fail(res, 400, 'invalid_query', 'q must be 3-120 characters');
+        return;
+    }
+    try {
+        const results = await (0, placeSearch_1.searchPlaces)(query);
+        res.json({ status: 'success', data: results, attribution: '© OpenStreetMap contributors' });
+    }
+    catch (error) {
+        const reason = error instanceof placeSearch_1.PlaceSearchError ? error.reason : 'upstream';
+        if (reason === 'disabled')
+            fail(res, 503, 'search_unavailable', 'Address search is turned off');
+        else if (reason === 'busy')
+            fail(res, 429, 'search_busy', 'Too many searches, try again shortly');
+        else
+            fail(res, 502, 'search_failed', 'Address search failed');
+    }
+});
 // POST /api/places/devices — register this install (idempotent for the same secret).
 router.post('/devices', (0, security_1.rateLimit)('places-register', 10, 60 * 60000), async (req, res) => {
     const installId = (0, trackedPlaces_1.parseInstallId)(req.body?.install_id);
@@ -228,9 +253,9 @@ router.post('/', (0, security_1.rateLimit)('places-add', 60, 60 * 60000), requir
             fail(res, 409, 'place_limit', `At most ${trackedPlaces_1.MAX_PLACES_PER_DEVICE} places per device`);
             return;
         }
-        const inserted = await client.query(`INSERT INTO tracked_places (install_id, name, latitude, longitude, radius_m, notify_heat)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, name, latitude, longitude, radius_m, notify_heat, created_at, NULL::timestamptz AS last_alert_at`, [installId, input.name, input.latitude, input.longitude, input.radiusM, input.notifyHeat]);
+        const inserted = await client.query(`INSERT INTO tracked_places (install_id, name, latitude, longitude, radius_m, notify_heat, notify_risk)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, name, latitude, longitude, radius_m, notify_heat, notify_risk, created_at, NULL::timestamptz AS last_alert_at`, [installId, input.name, input.latitude, input.longitude, input.radiusM, input.notifyHeat, input.notifyRisk]);
         await client.query('COMMIT');
         res.status(201).json({ status: 'success', data: serializePlace(inserted.rows[0]) });
     }
@@ -243,22 +268,28 @@ router.post('/', (0, security_1.rateLimit)('places-add', 60, 60 * 60000), requir
         client.release();
     }
 });
-// PATCH /api/places/:id — per-place alert switch. Name and radius are not
-// editable in 1.2.0 (delete and add again).
+// PATCH /api/places/:id — name, radius and the two alert switches. The
+// position cannot change: moving a place means adding a new one.
 router.patch('/:id', (0, security_1.rateLimit)('places-patch', 120, 60 * 60000), requireDevice, deviceWriteBudget, async (req, res) => {
     const placeId = (0, trackedPlaces_1.parseUuid)(req.params.id);
     if (placeId === null) {
         fail(res, 404, 'not_found', 'Place not found');
         return;
     }
-    if (typeof req.body?.notify_heat !== 'boolean') {
-        fail(res, 400, 'invalid_place', 'notify_heat must be a boolean');
+    const patch = (0, trackedPlaces_1.parsePlacePatch)(req.body);
+    if (typeof patch === 'string') {
+        fail(res, 400, 'invalid_place', patch);
         return;
     }
     try {
-        const result = await database_1.default.query(`UPDATE tracked_places p SET notify_heat = $3, updated_at = NOW()
+        const result = await database_1.default.query(`UPDATE tracked_places p SET
+         name = COALESCE($3::varchar, name),
+         radius_m = COALESCE($4::integer, radius_m),
+         notify_heat = COALESCE($5::boolean, notify_heat),
+         notify_risk = COALESCE($6::boolean, notify_risk),
+         updated_at = NOW()
        WHERE p.id = $1 AND p.install_id = $2
-       RETURNING ${PLACE_COLUMNS}`, [placeId, res.locals.installId, req.body.notify_heat]);
+       RETURNING ${PLACE_COLUMNS}`, [placeId, res.locals.installId, patch.name ?? null, patch.radiusM ?? null, patch.notifyHeat ?? null, patch.notifyRisk ?? null]);
         if (result.rowCount === 0) {
             fail(res, 404, 'not_found', 'Place not found');
             return;

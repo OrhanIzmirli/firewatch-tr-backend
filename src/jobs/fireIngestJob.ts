@@ -6,6 +6,7 @@ import { recordJobRun } from '../services/jobRunRecorder';
 import { regionKeyForCoordinates, regionKeyForRegionName } from '../utils/regions';
 import fireClusterJob from './fireClusterJob';
 import placeAlertJob from './placeAlertJob';
+import placeRiskJob from './placeRiskJob';
 
 /**
  * Persists raw FIRMS thermal detections into fire_detections.
@@ -371,6 +372,8 @@ class FireIngestJob {
       // Tracked-place heat alerts read the incidents clustering just wrote.
       // Never throws; skips itself until migration 014 is applied.
       await placeAlertJob.run();
+      // Once a day per place, in waking hours; never throws.
+      await placeRiskJob.run();
 
       console.log(
         `🛰️  Ingest [${stats.products.join(', ') || 'none'}]: fetched ${stats.fetched}, ` +

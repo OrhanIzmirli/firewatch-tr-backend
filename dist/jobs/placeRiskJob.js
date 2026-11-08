@@ -1,0 +1,201 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.RISK_CHECK_MAX_POINTS = exports.RISK_CHECK_LAST_HOUR = exports.RISK_CHECK_FIRST_HOUR = void 0;
+exports.turkeyClock = turkeyClock;
+exports.shouldAlert = shouldAlert;
+exports.dueRiskPlacesSql = dueRiskPlacesSql;
+exports.runPlaceRiskAlerts = runPlaceRiskAlerts;
+const crypto_1 = __importDefault(require("crypto"));
+const database_1 = __importDefault(require("../config/database"));
+const jobRunRecorder_1 = require("../services/jobRunRecorder");
+const notificationService_1 = __importStar(require("../services/notificationService"));
+const fwiPoint_1 = require("../services/fwiPoint");
+const trackedPlaces_1 = require("../services/trackedPlaces");
+/**
+ * Per-place fire-danger alerts ("Yerlerim"). Runs in the ingest tick, right
+ * after the heat alerts, so it works whenever the service is awake.
+ *
+ * Each place with its switch on is checked once per Turkish calendar day,
+ * during waking hours. An alert goes out when the day's FWI class is High or
+ * above and has risen (or is unknown from before): a level that merely stays
+ * High does not repeat. One push per device per run, naming the worst place.
+ */
+exports.RISK_CHECK_FIRST_HOUR = 7;
+exports.RISK_CHECK_LAST_HOUR = 20;
+/** Upper bound per tick, to stay polite to the Copernicus map server. */
+exports.RISK_CHECK_MAX_POINTS = 60;
+/** Turkish calendar date and hour, whatever the server's time zone is. */
+function turkeyClock(now) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Istanbul',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        hourCycle: 'h23',
+    }).formatToParts(now);
+    const get = (type) => parts.find((p) => p.type === type).value;
+    return { date: `${get('year')}-${get('month')}-${get('day')}`, hour: Number(get('hour')) };
+}
+/** The rule in one place: High or above, risen, not already told today. */
+function shouldAlert(previous, current, lastNotifiedOn, today) {
+    if (current === null || current < fwiPoint_1.FWI_HIGH_CLASS)
+        return false;
+    if (lastNotifiedOn === today)
+        return false;
+    return previous === null || previous < fwiPoint_1.FWI_HIGH_CLASS || current > previous;
+}
+function dueRiskPlacesSql() {
+    return `SELECT p.id AS place_id, p.install_id, p.name AS place_name, p.latitude, p.longitude,
+                 d.fcm_token, d.locale, s.last_class,
+                 to_char(s.last_notified_on, 'YYYY-MM-DD') AS last_notified_on
+            FROM tracked_places p
+            JOIN place_devices d ON d.install_id = p.install_id
+            LEFT JOIN place_risk_state s ON s.place_id = p.id
+           WHERE p.notify_risk
+             AND (s.last_checked_on IS NULL OR s.last_checked_on < $1::date)
+           ORDER BY s.last_checked_on NULLS FIRST
+           LIMIT 300`;
+}
+async function saveState(db, placeId, cls, today, notified) {
+    await db.query(`INSERT INTO place_risk_state (place_id, last_class, last_checked_on, last_notified_on)
+     VALUES ($1, $2, $3::date, CASE WHEN $4 THEN $3::date END)
+     ON CONFLICT (place_id) DO UPDATE SET
+       last_class = EXCLUDED.last_class,
+       last_checked_on = EXCLUDED.last_checked_on,
+       last_notified_on = COALESCE(EXCLUDED.last_notified_on, place_risk_state.last_notified_on),
+       updated_at = NOW()`, [placeId, cls, today, notified]);
+}
+async function runPlaceRiskAlerts(db, send, sample, now = new Date(), opts = {}) {
+    const stats = { skipped: false, checked: 0, pushesSent: 0, failed: 0, sampleErrors: 0 };
+    const { date, hour } = turkeyClock(now);
+    if (hour < exports.RISK_CHECK_FIRST_HOUR || hour > exports.RISK_CHECK_LAST_HOUR)
+        return { ...stats, skipped: true };
+    const { rows } = await db.query(dueRiskPlacesSql(), [date]);
+    // Places are stored rounded to 2 decimals, so neighbours share one sample.
+    const samples = new Map();
+    const candidates = new Map();
+    for (const row of rows) {
+        const key = `${row.latitude},${row.longitude}`;
+        if (!samples.has(key)) {
+            if (samples.size >= exports.RISK_CHECK_MAX_POINTS)
+                continue;
+            try {
+                samples.set(key, await sample(Number(row.latitude), Number(row.longitude), date));
+            }
+            catch {
+                samples.set(key, 'error');
+                stats.sampleErrors++;
+            }
+        }
+        const cls = samples.get(key);
+        // A failed sample is retried next tick: no state is written.
+        if (cls === 'error')
+            continue;
+        stats.checked++;
+        if (shouldAlert(row.last_class, cls, row.last_notified_on, date) && row.fcm_token) {
+            const list = candidates.get(row.install_id) ?? [];
+            list.push({ row, cls: cls });
+            candidates.set(row.install_id, list);
+        }
+        else {
+            await saveState(db, row.place_id, cls, date, false);
+        }
+    }
+    const devices = [...candidates.values()].map((list) => [...list].sort((a, b) => b.cls - a.cls));
+    if (devices.length === 0)
+        return stats;
+    const messages = devices.map((list) => {
+        const worst = list[0];
+        const locale = worst.row.locale === 'en' ? 'en' : 'tr';
+        const text = (0, trackedPlaces_1.buildRiskAlertText)(locale, worst.row.place_name, worst.cls, list.length - 1);
+        return {
+            token: worst.row.fcm_token,
+            title: text.title,
+            body: text.body,
+            data: { type: 'place_heat_summary', count: String(list.length), push_id: crypto_1.default.randomUUID() },
+            androidChannelId: trackedPlaces_1.PLACES_ANDROID_CHANNEL,
+            tag: `place-risk-${date}`,
+            ttlSeconds: trackedPlaces_1.HEAT_ALERT_TTL_SECONDS,
+        };
+    });
+    const results = await send(messages);
+    const deadTokens = [];
+    for (let i = 0; i < devices.length; i++) {
+        const result = results[i];
+        if (result?.success) {
+            stats.pushesSent++;
+            for (const { row, cls } of devices[i])
+                await saveState(db, row.place_id, cls, date, true);
+        }
+        else {
+            stats.failed++;
+            if (result?.deadToken)
+                deadTokens.push(devices[i][0].row.fcm_token);
+            // Not recorded as checked, so a transient failure is retried next tick.
+        }
+    }
+    if (deadTokens.length > 0) {
+        await db.query(`UPDATE place_devices SET fcm_token = NULL, token_invalid_at = NOW() WHERE fcm_token = ANY($1::text[])`, [deadTokens]);
+        if (opts.forgetFcmTokens !== false)
+            await (0, notificationService_1.forgetDeadTokens)(deadTokens);
+    }
+    return stats;
+}
+class PlaceRiskJob {
+    async run() {
+        const startedAt = new Date();
+        const empty = { skipped: true, checked: 0, pushesSent: 0, failed: 0, sampleErrors: 0 };
+        if (!(await (0, trackedPlaces_1.trackedPlacesAvailable)(database_1.default)))
+            return empty;
+        try {
+            const stats = await runPlaceRiskAlerts(database_1.default, (m) => notificationService_1.default.sendMessages(m), fwiPoint_1.sampleFwiClass);
+            if (!stats.skipped && (stats.checked > 0 || stats.sampleErrors > 0)) {
+                await (0, jobRunRecorder_1.recordJobRun)('place_risk', startedAt, 'ok', { ...stats });
+            }
+            return stats;
+        }
+        catch (error) {
+            console.error('Place risk alerts failed:', error.message);
+            await (0, jobRunRecorder_1.recordJobRun)('place_risk', startedAt, 'failed', {}, error);
+            return empty;
+        }
+    }
+}
+exports.default = new PlaceRiskJob();
