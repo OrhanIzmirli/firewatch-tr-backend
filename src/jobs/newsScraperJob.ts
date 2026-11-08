@@ -4,7 +4,7 @@ import * as xml2js from 'xml2js';
 import { recordJobRun } from '../services/jobRunRecorder';
 import newsService from '../services/newsService';
 import { turkishToLower } from '../utils/turkishText';
-import { RelevanceResult, checkRelevance } from '../utils/newsRelevance';
+import { RelevanceResult, checkRelevance, isGreenStory } from '../utils/newsRelevance';
 import { NEWS_USER_AGENT, RSS_SOURCES } from '../config/newsSources';
 import { fetchGdeltHeadlines, fetchOfficialHeadlines } from '../services/newsFetchers';
 
@@ -135,7 +135,8 @@ class NewsScraperJob {
       const fullText = `${h.title} ${h.text}`;
       const relevance = checkRelevance(h.title, fullText);
       filterCounts[relevance.reason]++;
-      if (!relevance.relevant || !h.link) continue;
+      // Quiet-season stories (replanting, preparation, nature) are wanted too.
+      if ((!relevance.relevant && !isGreenStory(h.title)) || !h.link) continue;
       try {
         const created = await newsService.createNews({
           title: h.title.trim().slice(0, 255),

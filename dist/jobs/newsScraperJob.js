@@ -166,7 +166,8 @@ class NewsScraperJob {
             const fullText = `${h.title} ${h.text}`;
             const relevance = (0, newsRelevance_1.checkRelevance)(h.title, fullText);
             filterCounts[relevance.reason]++;
-            if (!relevance.relevant || !h.link)
+            // Quiet-season stories (replanting, preparation, nature) are wanted too.
+            if ((!relevance.relevant && !(0, newsRelevance_1.isGreenStory)(h.title)) || !h.link)
                 continue;
             try {
                 const created = await newsService_1.default.createNews({
