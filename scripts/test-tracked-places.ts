@@ -228,7 +228,7 @@ b('retention: devices after 90 days or 7 days with a dead token; alert records a
 });
 
 b('ingest runs the place alerts after clustering', () => {
-  assert.match(src('src/jobs/fireIngestJob.ts'), /await fireClusterJob\.runClustering\(\);[\s\S]{0,200}await placeAlertJob\.run\(\);/);
+  assert.match(src('src/jobs/fireIngestJob.ts'), /await fireClusterJob\.runClustering\(\);[\s\S]{0,400}await placeAlertJob\.run\(\);/);
   assert.match(src('src/server.ts'), /app\.use\('\/api\/places', placesRoutes\)/);
 });
 

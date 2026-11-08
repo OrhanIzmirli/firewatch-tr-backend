@@ -23,6 +23,10 @@ const job = require('../src/jobs/placeRiskJob') as typeof import('../src/jobs/pl
 const point = require('../src/services/pointRisk') as typeof import('../src/services/pointRisk');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const status = require('../src/services/detectionStatus') as typeof import('../src/services/detectionStatus');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const evidence = require('../src/jobs/incidentEvidenceJob') as typeof import('../src/jobs/incidentEvidenceJob');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const related = require('../src/services/relatedNews') as typeof import('../src/services/relatedNews');
 
 const migrationSql = (file: string) => readFileSync(join(__dirname, '..', 'database', 'migrations', file), 'utf8')
   .split('\n')
@@ -43,6 +47,7 @@ async function b(name: string, fn: () => Promise<void>) {
       await c.query(migrationSql('016_place_risk_alerts.sql'));
     }
     await c.query(migrationSql('017_place_risk_score.sql'));
+    await c.query(migrationSql('018_incident_land_cover.sql'));
     // The branch is a copy of real data; this test only counts its own place.
     await c.query('DELETE FROM tracked_places');
     const install = '11111111-1111-4111-8111-111111111111';
@@ -100,6 +105,13 @@ async function b(name: string, fn: () => Promise<void>) {
       if (r.pipeline_fresh) assert.strictEqual(typeof r.strong_detections_24h, 'number');
       else assert.strictEqual(r.strong_detections_24h, null);
       console.log('      ' + JSON.stringify(r));
+    });
+    await b('evidence queries run against the real schema', async () => {
+      const r = await evidence.runIncidentEvidence(c, async () => ({ crop: 90, grass: 10 }));
+      assert.ok(r.classified > 0 || r.failed === 0);
+      console.log('      ' + JSON.stringify(r));
+      const rel = await related.relatedNews(c, 'Muğla', new Date('2026-10-01'), new Date('2026-10-30'), 3);
+      console.log('      ' + rel.map((x: any) => x.title.slice(0, 50)).join(' | '));
     });
     await b('switch off: not checked', async () => {
       await c.query('UPDATE tracked_places SET notify_risk = false WHERE id = $1', [placeId]);

@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import axios from 'axios';
 import * as xml2js from 'xml2js';
+import { recordJobRun } from '../services/jobRunRecorder';
 import newsService from '../services/newsService';
 import { turkishToLower } from '../utils/turkishText';
 import { RelevanceResult, checkRelevance } from '../utils/newsRelevance';
@@ -120,6 +121,7 @@ class NewsScraperJob {
   }
 
   async runScraper() {
+    const startedAt = new Date();
     console.log('🔍 Running news scraper at:', new Date().toISOString());
     let totalAdded = 0;
     let totalFetched = 0;
@@ -188,6 +190,11 @@ class NewsScraperJob {
       }
     }
 
+    await recordJobRun('news_scrape', startedAt, totalFetched > 0 ? 'ok' : 'failed', {
+      fetched: totalFetched,
+      passed: filterCounts.ok,
+      added: totalAdded,
+    });
     console.log(
       `✅ Scraper done. Fetched: ${totalFetched} | Passed whitelist: ${filterCounts.ok} | Added (new): ${totalAdded}`
     );

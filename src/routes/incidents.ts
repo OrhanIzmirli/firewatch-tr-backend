@@ -401,12 +401,16 @@ router.get('/', rateLimit('incidents', 60, 60_000), async (req: Request, res: Re
               ${hasHeatSource
                 ? 'heat_source_class, heat_source_reason, heat_source_flagged_at,'
                 : 'NULL::text AS heat_source_class, NULL::text AS heat_source_reason, NULL::timestamptz AS heat_source_flagged_at,'}
+              i.land_cover,
+              nv.id AS news_id, nv.title AS news_title, nv.source AS news_source,
+              nv.source_url AS news_url, COALESCE(nv.published_at, nv.created_at) AS news_at,
               frp_trend,
               frp_trend_ratio,
               frp_trend_passes,
               frp_geometry_ratio
        FROM fire_incidents i
        LEFT JOIN turkey_cities c ON c.id = i.city_id
+       LEFT JOIN news nv ON nv.id = i.news_verified_id
        WHERE ${conditions.join(' AND ')}
        ORDER BY last_detected_at DESC
        LIMIT $${params.length}`,
@@ -420,6 +424,10 @@ router.get('/', rateLimit('incidents', 60, 60_000), async (req: Request, res: Re
       duration_hours: round(row.duration_hours, 2),
       detection_count: row.detection_count,
       overpass_count: row.overpass_count,
+      land_cover: row.land_cover ?? null,
+      news_verification: row.news_id
+        ? { title: row.news_title, source: row.news_source, url: row.news_url, published_at: row.news_at }
+        : null,
       latitude: round(row.latitude, 5),
       longitude: round(row.longitude, 5),
       max_frp_mw: numeric(row.max_frp_mw),

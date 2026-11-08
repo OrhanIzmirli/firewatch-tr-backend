@@ -40,6 +40,7 @@ exports.checkRelevance = void 0;
 const node_cron_1 = __importDefault(require("node-cron"));
 const axios_1 = __importDefault(require("axios"));
 const xml2js = __importStar(require("xml2js"));
+const jobRunRecorder_1 = require("../services/jobRunRecorder");
 const newsService_1 = __importDefault(require("../services/newsService"));
 const turkishText_1 = require("../utils/turkishText");
 const newsRelevance_1 = require("../utils/newsRelevance");
@@ -150,6 +151,7 @@ class NewsScraperJob {
         this.runScraper();
     }
     async runScraper() {
+        const startedAt = new Date();
         console.log('🔍 Running news scraper at:', new Date().toISOString());
         let totalAdded = 0;
         let totalFetched = 0;
@@ -215,6 +217,11 @@ class NewsScraperJob {
                 console.error(`❌ Error processing ${source.source}:`, error);
             }
         }
+        await (0, jobRunRecorder_1.recordJobRun)('news_scrape', startedAt, totalFetched > 0 ? 'ok' : 'failed', {
+            fetched: totalFetched,
+            passed: filterCounts.ok,
+            added: totalAdded,
+        });
         console.log(`✅ Scraper done. Fetched: ${totalFetched} | Passed whitelist: ${filterCounts.ok} | Added (new): ${totalAdded}`);
         console.log(`   Filter breakdown — no must-have keyword in title: ${filterCounts.no_must_have}, ` +
             `blocked: ${filterCounts.blocked}, not a wildfire: ${filterCounts.not_wildfire}, abroad: ${filterCounts.foreign}, passed: ${filterCounts.ok}`);

@@ -46,6 +46,7 @@ const crypto_1 = __importDefault(require("crypto"));
 const database_1 = __importDefault(require("../config/database"));
 const jobRunRecorder_1 = require("../services/jobRunRecorder");
 const heatSource_1 = require("../services/heatSource");
+const landCover_1 = require("../services/landCover");
 const notificationService_1 = __importStar(require("../services/notificationService"));
 const trackedPlaces_1 = require("../services/trackedPlaces");
 const RECENT_PUSHES_SQL = (installIdExpr) => `
@@ -77,6 +78,7 @@ function newHeatPairsSql() {
         AND i.last_detected_at > NOW() - make_interval(hours => ${trackedPlaces_1.HEAT_ALERT_MAX_AGE_HOURS})
         AND i.peak_confidence_tier IN (${tiers})
         AND NOT COALESCE((${(0, heatSource_1.heatSourceSqlCondition)('i')}), false)
+        AND ${(0, landCover_1.naturalOrConfirmedSql)('i')}
     ),
     inserted AS (
       INSERT INTO place_notifications (place_id, kind, ref_key, install_id, status)

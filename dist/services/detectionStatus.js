@@ -6,6 +6,7 @@ exports.detectionSummarySql = detectionSummarySql;
 exports.latestDetectionCitySql = latestDetectionCitySql;
 exports.loadDetectionStatus = loadDetectionStatus;
 const heatSource_1 = require("./heatSource");
+const landCover_1 = require("./landCover");
 const nearbyFireCount_1 = require("./nearbyFireCount");
 /**
  * What the app needs to tell "no detections" apart from "we don't know".
@@ -63,8 +64,9 @@ async function loadPipelineState(db) {
     return { fresh: (0, nearbyFireCount_1.isPipelineFresh)(lastOk, now), lastUpdateAt };
 }
 function detectionSummarySql() {
-    return `SELECT count(*) FILTER (WHERE i.last_detected_at > now() - interval '24 hours')::int AS n,
-                 max(i.last_detected_at) AS latest
+    return `SELECT count(*) FILTER (WHERE i.last_detected_at > now() - interval '24 hours' AND ${(0, landCover_1.naturalOrConfirmedSql)('i')})::int AS n,
+                 count(*) FILTER (WHERE i.last_detected_at > now() - interval '24 hours' AND NOT ${(0, landCover_1.naturalOrConfirmedSql)('i')})::int AS other,
+                 max(i.last_detected_at) FILTER (WHERE ${(0, landCover_1.naturalOrConfirmedSql)('i')}) AS latest
             FROM fire_incidents i
            WHERE ${STRONG_SQL('i')}
              AND NOT COALESCE((${(0, heatSource_1.heatSourceSqlCondition)('i')}), false)`;
@@ -75,6 +77,7 @@ function latestDetectionCitySql() {
             LEFT JOIN turkey_cities c ON c.id = i.city_id
            WHERE i.last_detected_at = $1
              AND ${STRONG_SQL('i')}
+             AND ${(0, landCover_1.naturalOrConfirmedSql)('i')}
              AND NOT COALESCE((${(0, heatSource_1.heatSourceSqlCondition)('i')}), false)
            LIMIT 1`;
 }
@@ -89,6 +92,7 @@ async function loadDetectionStatus(db) {
         last_update_at: pipeline.lastUpdateAt?.toISOString() ?? null,
         pipeline_fresh: pipeline.fresh,
         strong_detections_24h: pipeline.fresh ? Number(summary.rows[0].n) : null,
+        strong_other_24h: pipeline.fresh ? Number(summary.rows[0].other ?? 0) : null,
         latest_detection: latest ? { detected_at: latest.toISOString(), city } : null,
     };
 }
