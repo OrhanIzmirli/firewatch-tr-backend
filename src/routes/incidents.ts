@@ -3,6 +3,12 @@ import pool from '../config/database';
 import { rateLimit } from '../middleware/security';
 import { isRegionKey } from '../utils/regions';
 import cacheService from '../services/cacheService';
+import {
+  DetectionStatus,
+  SIGNIFICANT_MIN_FRP_MW,
+  SIGNIFICANT_MIN_OVERPASSES,
+  loadDetectionStatus,
+} from '../services/detectionStatus';
 import { heatSourceColumnsAvailable, HEAT_SOURCE_CLASS, HEAT_SOURCE_MIN_DISTINCT_DAYS, HEAT_SOURCE_MAX_MEAN_FRP_MW, HEAT_SOURCE_MAX_PEAK_FRP_MW } from '../services/heatSource';
 
 const router = Router();
@@ -22,25 +28,6 @@ const DEFAULT_WINDOW_DAYS = 7;
 const RECENT_DETECTION_HOURS = 6;
 
 /**
- * The evidence bar an incident must clear before it is counted as a fire that
- * was burning and is no longer being detected. Mirrors IncidentSignificance
- * in the Flutter client, which is what the map filter uses — if one moves,
- * both move, or the home card and the map disagree about how many fires
- * there were.
- *
- * Of 237 live incidents, 149 were seen on exactly one overpass and never
- * again. Counting all 227 no-longer-detected incidents put "194" on the home
- * screen next to a map showing 15 — and a number that large, next to the
- * words "detection ended", reads as a body count of extinguished fires.
- *
- * The power floor is 8 MW rather than a higher overpass count on purpose:
- * requiring four passes admits ~24-hour, 1-4 MW sources that are visible on
- * every pass, which is the signature of a gas flare, not a wildfire.
- */
-const SIGNIFICANT_MIN_OVERPASSES = 2;
-const SIGNIFICANT_MIN_FRP_MW = 8;
-
-/**
  * Cache lifetime for incident reads.
  *
  * Five minutes is chosen from the data rate, not from taste: FIRMS publishes
@@ -49,6 +36,26 @@ const SIGNIFICANT_MIN_FRP_MW = 8;
  * that scales to zero, every avoided query is also an avoided cold start.
  */
 const INCIDENTS_CACHE_TTL_SECONDS = 300;
+
+/**
+ * GET /api/incidents/status — "no detections" or "we don't know"?
+ * A database error is a 503, never an empty answer.
+ */
+router.get('/status', rateLimit('incidents_status', 60, 60_000), async (_req: Request, res: Response) => {
+  try {
+    const cacheKey = 'incidents:status:v1';
+    let data = await cacheService.get<DetectionStatus>(cacheKey);
+    if (!data) {
+      data = await loadDetectionStatus(pool);
+      await cacheService.set(cacheKey, data, 120);
+    }
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json({ status: 'success', data });
+  } catch (error) {
+    console.error('incident status failed:', (error as Error).message);
+    res.status(503).json({ status: 'error', code: 'status_unavailable', message: 'Status is not available right now' });
+  }
+});
 
 /**
  * GET /api/incidents/summary — the last 24 hours in three numbers.

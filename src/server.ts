@@ -15,6 +15,8 @@ import pipelineHealthRoutes from './routes/pipelineHealth';
 import lossSummaryRoutes from './routes/lossSummary';
 import historyRoutes from './routes/history';
 import legalRoutes from './routes/legal';
+import { pointRiskRouter } from './routes/pointRisk';
+import { defaultPointRiskDeps } from './services/pointRisk';
 import placesRoutes from './routes/places';
 import { rateLimit, requireAdminToken as secureAdminToken, securityHeaders } from './middleware/security';
 import newsScraperJob, { checkRelevance } from './jobs/newsScraperJob';
@@ -207,6 +209,8 @@ app.get('/api/admin/clean-news', secureAdminToken, async (req, res) => {
     res.status(500).json({ status: 'error', message: 'Admin operation failed' });
   }
 });
+
+app.use('/api/risk', pointRiskRouter(() => defaultPointRiskDeps(pool)));
 
 // Risk verisi endpoint
 app.get('/api/risk/summary', async (req, res) => {

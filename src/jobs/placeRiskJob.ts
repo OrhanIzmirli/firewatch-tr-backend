@@ -2,7 +2,8 @@ import crypto from 'crypto';
 import pool from '../config/database';
 import { recordJobRun } from '../services/jobRunRecorder';
 import notificationService, { forgetDeadTokens, PushMessage, PushResult } from '../services/notificationService';
-import { FWI_HIGH_CLASS, sampleFwiClass } from '../services/fwiPoint';
+import { computePointRisk, defaultPointRiskDeps, roundToPointGrid } from '../services/pointRisk';
+import { RISK_HIGH_INDEX, riskLevelIndex } from '../services/riskScore';
 import {
   HEAT_ALERT_TTL_SECONDS,
   Locale,
@@ -12,25 +13,34 @@ import {
 } from '../services/trackedPlaces';
 
 /**
- * Per-place fire-danger alerts ("Yerlerim"). Runs in the ingest tick, right
- * after the heat alerts, so it works whenever the service is awake.
+ * Per-place risk alerts ("Yerlerim"). Runs in the ingest tick, right after
+ * the heat alerts, so it works whenever the service is awake.
  *
- * Each place with its switch on is checked once per Turkish calendar day,
- * during waking hours. An alert goes out when the day's FWI class is High or
- * above and has risen (or is unknown from before): a level that merely stays
- * High does not repeat. One push per device per run, naming the worst place.
+ * Each place with its switch on is checked every RISK_CHECK_INTERVAL_HOURS
+ * during waking hours, with the same score the app shows for that point
+ * (services/pointRisk.ts). An alert goes out when the level is High or
+ * Critical and has risen (or is unknown from before), at most once per
+ * Turkish calendar day: a level that merely stays High does not repeat. One
+ * push per device per run, naming the worst place.
  */
 
 export const RISK_CHECK_FIRST_HOUR = 7;
 export const RISK_CHECK_LAST_HOUR = 20;
-/** Upper bound per tick, to stay polite to the Copernicus map server. */
+/** The score follows the weather, so one morning check would miss the afternoon. */
+export const RISK_CHECK_INTERVAL_HOURS = 3;
+/** Upper bound per tick, to stay polite to the weather services. */
 export const RISK_CHECK_MAX_POINTS = 60;
 
 export interface Db {
   query(sql: string, params?: unknown[]): Promise<{ rows: any[]; rowCount: number | null }>;
 }
 export type Sender = (messages: PushMessage[]) => Promise<PushResult[]>;
-export type Sampler = (lat: number, lng: number, date: string) => Promise<number | null>;
+/** The level index (0 Low ... 3 Critical) and score at a point. */
+export interface PlaceRiskReading {
+  level: number;
+  score: number;
+}
+export type Sampler = (lat: number, lng: number) => Promise<PlaceRiskReading>;
 
 export interface PlaceRiskStats {
   skipped: boolean;
@@ -67,10 +77,10 @@ export function turkeyClock(now: Date): { date: string; hour: number } {
 }
 
 /** The rule in one place: High or above, risen, not already told today. */
-export function shouldAlert(previous: number | null, current: number | null, lastNotifiedOn: string | null, today: string): boolean {
-  if (current === null || current < FWI_HIGH_CLASS) return false;
+export function shouldAlert(previous: number | null, current: number, lastNotifiedOn: string | null, today: string): boolean {
+  if (current < RISK_HIGH_INDEX) return false;
   if (lastNotifiedOn === today) return false;
-  return previous === null || previous < FWI_HIGH_CLASS || current > previous;
+  return previous === null || previous < RISK_HIGH_INDEX || current > previous;
 }
 
 export function dueRiskPlacesSql(): string {
@@ -81,27 +91,29 @@ export function dueRiskPlacesSql(): string {
             JOIN place_devices d ON d.install_id = p.install_id
             LEFT JOIN place_risk_state s ON s.place_id = p.id
            WHERE p.notify_risk
-             AND (s.last_checked_on IS NULL OR s.last_checked_on < $1::date)
-           ORDER BY s.last_checked_on NULLS FIRST
+             AND (s.last_checked_at IS NULL
+                  OR s.last_checked_at <= $1::timestamptz - make_interval(hours => $2))
+           ORDER BY s.last_checked_at NULLS FIRST
            LIMIT 300`;
 }
 
-async function saveState(db: Db, placeId: string, cls: number | null, today: string, notified: boolean): Promise<void> {
+async function saveState(db: Db, placeId: string, cls: number, today: string, notified: boolean, at: Date): Promise<void> {
   await db.query(
-    `INSERT INTO place_risk_state (place_id, last_class, last_checked_on, last_notified_on)
-     VALUES ($1, $2, $3::date, CASE WHEN $4 THEN $3::date END)
+    `INSERT INTO place_risk_state (place_id, last_class, last_checked_on, last_notified_on, last_checked_at)
+     VALUES ($1, $2, $3::date, CASE WHEN $4 THEN $3::date END, $5::timestamptz)
      ON CONFLICT (place_id) DO UPDATE SET
        last_class = EXCLUDED.last_class,
        last_checked_on = EXCLUDED.last_checked_on,
+       last_checked_at = EXCLUDED.last_checked_at,
        last_notified_on = COALESCE(EXCLUDED.last_notified_on, place_risk_state.last_notified_on),
        updated_at = NOW()`,
-    [placeId, cls, today, notified]
+    [placeId, cls, today, notified, at]
   );
 }
 
 interface Candidate {
   row: RiskRow;
-  cls: number;
+  reading: PlaceRiskReading;
 }
 
 export async function runPlaceRiskAlerts(
@@ -115,42 +127,42 @@ export async function runPlaceRiskAlerts(
   const { date, hour } = turkeyClock(now);
   if (hour < RISK_CHECK_FIRST_HOUR || hour > RISK_CHECK_LAST_HOUR) return { ...stats, skipped: true };
 
-  const { rows } = await db.query(dueRiskPlacesSql(), [date]);
+  const { rows } = await db.query(dueRiskPlacesSql(), [now, RISK_CHECK_INTERVAL_HOURS]);
 
-  // Places are stored rounded to 2 decimals, so neighbours share one sample.
-  const samples = new Map<string, number | null | 'error'>();
+  // The score is computed on a coarse grid, so neighbours share one reading.
+  const samples = new Map<string, PlaceRiskReading | 'error'>();
   const candidates = new Map<string, Candidate[]>();
   for (const row of rows as RiskRow[]) {
-    const key = `${row.latitude},${row.longitude}`;
+    const key = `${roundToPointGrid(Number(row.latitude))},${roundToPointGrid(Number(row.longitude))}`;
     if (!samples.has(key)) {
       if (samples.size >= RISK_CHECK_MAX_POINTS) continue;
       try {
-        samples.set(key, await sample(Number(row.latitude), Number(row.longitude), date));
+        samples.set(key, await sample(Number(row.latitude), Number(row.longitude)));
       } catch {
         samples.set(key, 'error');
         stats.sampleErrors++;
       }
     }
-    const cls = samples.get(key)!;
-    // A failed sample is retried next tick: no state is written.
-    if (cls === 'error') continue;
+    const reading = samples.get(key)!;
+    // A failed reading is retried next tick: no state is written.
+    if (reading === 'error') continue;
     stats.checked++;
-    if (shouldAlert(row.last_class, cls, row.last_notified_on, date) && row.fcm_token) {
+    if (shouldAlert(row.last_class, reading.level, row.last_notified_on, date) && row.fcm_token) {
       const list = candidates.get(row.install_id) ?? [];
-      list.push({ row, cls: cls as number });
+      list.push({ row, reading });
       candidates.set(row.install_id, list);
     } else {
-      await saveState(db, row.place_id, cls, date, false);
+      await saveState(db, row.place_id, reading.level, date, false, now);
     }
   }
 
-  const devices = [...candidates.values()].map((list) => [...list].sort((a, b) => b.cls - a.cls));
+  const devices = [...candidates.values()].map((list) => [...list].sort((a, b) => b.reading.score - a.reading.score));
   if (devices.length === 0) return stats;
 
   const messages: PushMessage[] = devices.map((list) => {
     const worst = list[0];
     const locale: Locale = worst.row.locale === 'en' ? 'en' : 'tr';
-    const text = buildRiskAlertText(locale, worst.row.place_name, worst.cls, list.length - 1);
+    const text = buildRiskAlertText(locale, worst.row.place_name, worst.reading.level, worst.reading.score, list.length - 1);
     return {
       token: worst.row.fcm_token!,
       title: text.title,
@@ -168,7 +180,7 @@ export async function runPlaceRiskAlerts(
     const result = results[i];
     if (result?.success) {
       stats.pushesSent++;
-      for (const { row, cls } of devices[i]) await saveState(db, row.place_id, cls, date, true);
+      for (const { row, reading } of devices[i]) await saveState(db, row.place_id, reading.level, date, true, now);
     } else {
       stats.failed++;
       if (result?.deadToken) deadTokens.push(devices[i][0].row.fcm_token!);
@@ -191,7 +203,11 @@ class PlaceRiskJob {
     const empty: PlaceRiskStats = { skipped: true, checked: 0, pushesSent: 0, failed: 0, sampleErrors: 0 };
     if (!(await trackedPlacesAvailable(pool))) return empty;
     try {
-      const stats = await runPlaceRiskAlerts(pool, (m) => notificationService.sendMessages(m), sampleFwiClass);
+      const deps = defaultPointRiskDeps(pool);
+      const stats = await runPlaceRiskAlerts(pool, (m) => notificationService.sendMessages(m), async (lat, lng) => {
+        const risk = await computePointRisk(lat, lng, deps);
+        return { level: riskLevelIndex(risk.risk_level), score: risk.general_risk_score };
+      });
       if (!stats.skipped && (stats.checked > 0 || stats.sampleErrors > 0)) {
         await recordJobRun('place_risk', startedAt, 'ok', { ...stats });
       }

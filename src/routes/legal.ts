@@ -53,7 +53,7 @@ const privacyTr = `
 <tr><th>Veri</th><th>Ne zaman ve neden</th><th>Ne kadar süre</th></tr>
 <tr><td>Yaklaşık konum (yaklaşık 1 km hassasiyetinde enlem/boylam)</td><td>Yalnızca konum izni verip bildirimler için otomatik taramayı başlattığınızda. Size bölgenizle ilgili yangın ve risk uyarıları gönderebilmek için. Tam konumunuz saklanmaz; sunucuya yazılmadan önce yaklaşık 1 km'ye yuvarlanır.</td><td>Bildirimler açık olduğu sürece. Bildirimleri kapattığınızda, uygulamada "Konum verimi sil"e dokunduğunuzda veya cihaz belirteciniz geçersizleştiğinde (ör. uygulamayı kaldırdığınızda) hemen silinir.</td></tr>
 <tr><td>Cihaz belirteci (Firebase Cloud Messaging token), bildirim kapsamı tercihi (tüm Türkiye / bölge / il), kayıt ve güncelleme zamanı</td><td>Bildirim gönderebilmek ve seçtiğiniz kapsama uymak için. Uygulama her açıldığında belirteci yeniler.</td><td>Uygulamayı son açışınızdan itibaren 90 gün; sonra kayıt tamamen silinir. Uygulamayı yeniden açtığınızda yeni kayıt oluşur.</td></tr>
-<tr><td>Yerlerim: verdiğiniz ad, yaklaşık 1 km'ye yuvarlanmış konum, yarıçap (5/10/25 km), iki bildirim tercihi (yeni ısı tespiti, yangın tehlikesi), o yer için son günlük tehlike seviyesi; bu yerler için gönderilen ve bildirim sınırı nedeniyle sonraki bir özete bırakılan uyarıların kaydı (yer, tespit, zaman). Cihazınız hesapla değil, uygulamanın ürettiği rastgele bir kimlikle tanınır; sunucuda bu kimliğin yalnızca gizli anahtarının özeti (hash) tutulur.</td><td>Yalnızca "Yerlerim"e yer eklediğinizde. Yarıçap içinde yeni uydu ısı tespiti olduğunda ya da o yerin yangın tehlikesi Yüksek veya üzerine çıktığında (günde en fazla bir kez, açılıp kapatılabilir) size bildirim göndermek ve aynı olay için ikinci bildirim göndermemek için.</td><td>Siz silene kadar. Uygulamayı 90 gün açmazsanız ya da cihaz belirteciniz 7 gündür geçersizse tüm yerleriniz silinir. Uyarı kayıtları 30 gün sonra silinir.</td></tr>
+<tr><td>Yerlerim: verdiğiniz ad, yaklaşık 1 km'ye yuvarlanmış konum, yarıçap (5/10/25 km), iki bildirim tercihi (yeni ısı tespiti, yangın riski), o yer için son risk seviyesi; bu yerler için gönderilen ve bildirim sınırı nedeniyle sonraki bir özete bırakılan uyarıların kaydı (yer, tespit, zaman). Cihazınız hesapla değil, uygulamanın ürettiği rastgele bir kimlikle tanınır; sunucuda bu kimliğin yalnızca gizli anahtarının özeti (hash) tutulur.</td><td>Yalnızca "Yerlerim"e yer eklediğinizde. Yarıçap içinde yeni uydu ısı tespiti olduğunda ya da o yerin yangın riski Yüksek veya Kritik seviyesine çıktığında (günde en fazla bir kez, açılıp kapatılabilir) size bildirim göndermek ve aynı olay için ikinci bildirim göndermemek için.</td><td>Siz silene kadar. Uygulamayı 90 gün açmazsanız ya da cihaz belirteciniz 7 gündür geçersizse tüm yerleriniz silinir. Uyarı kayıtları 30 gün sonra silinir.</td></tr>
 <tr><td>Yer araması: "Yerlerim"de yazdığınız arama metni</td><td>Yalnızca "Ara"ya bastığınızda ve mahalle veya adres aranıyorsa. Sonucu bulmak için sunucumuz aracılığıyla OpenStreetMap Nominatim'e iletilir; IP adresiniz ve cihaz kimliğiniz Nominatim'e gönderilmez. İl ve ilçe aramaları telefonunuzda yapılır, gönderilmez.</td><td>Arama metni kaydedilmez ve kayıtlara yazılmaz. Sonuçlar, aynı aramayı tekrarlamamak için metnin geri çevrilemez özetiyle (hash) en fazla 7 gün önbellekte tutulur.</td></tr>
 <tr><td>Yangın ihbarı: yaklaşık 1 km'ye yuvarlanmış konum, başlık, açıklama, isteğe bağlı ad ve en fazla 3 fotoğraf</td><td>Yalnızca ihbar gönderdiğinizde. İhbarı incelemek ve uydu tespitleriyle karşılaştırmak için.</td><td>90 gün; sonra fotoğraflarıyla birlikte silinir.</td></tr>
 <tr><td>Geri bildirim: puan, kategori, mesaj, uygulama sürümü ve isteğe bağlı e-posta adresi</td><td>Yalnızca geri bildirim gönderdiğinizde. Uygulamayı geliştirmek ve isterseniz size dönebilmek için.</td><td>Silinmesini isteyene kadar.</td></tr>
@@ -62,7 +62,8 @@ const privacyTr = `
 
 <h2>Konum nasıl kullanılır</h2>
 <ul>
-  <li><strong>Cihazınızda:</strong> Size yakın tespitlere olan mesafe ve yakınınızdaki risk telefonunuzda hesaplanır.</li>
+  <li><strong>Cihazınızda:</strong> Size yakın tespitlere olan mesafe telefonunuzda hesaplanır.</li>
+  <li><strong>Noktasal risk:</strong> Konumum'da ya da bir yerin analizinde risk puanı sunucumuzda hesaplanır. Bunun için nokta yaklaşık 10 km'ye yuvarlanır; hava durumu bu yuvarlanmış noktayla Open-Meteo veya MET Norway'den alınır. Sonuç, yuvarlanmış noktayla en fazla 15 dakika önbellekte tutulur, veritabanına yazılmaz.</li>
   <li><strong>En yakın il sorgusu:</strong> Bulunduğunuz ili göstermek için konumunuz sunucumuza gönderilir. Bu sorgudaki konum saklanmaz ve kayıtlara yazılmaz.</li>
   <li><strong>Bildirimler:</strong> Otomatik taramayı başlattığınızda yaklaşık konumunuz (yaklaşık 1 km) yukarıdaki tabloda yazdığı gibi saklanır.</li>
   <li><strong>Yerlerim:</strong> Aradığınız, haritadan seçtiğiniz ya da "Konumumu ekle" ile o anki konumunuzdan eklediğiniz noktalar yaklaşık 1 km'ye yuvarlanarak saklanır. Yeni tespitlerle eşleştirme sunucuda bu noktalara göre yapılır; bunun için cihazınızın konumu izlenmez.</li>
@@ -88,7 +89,7 @@ const privacyTr = `
 <ul>
   <li><strong>CARTO ve OpenStreetMap</strong> — harita karoları (görüntülediğiniz harita bölgesi)</li>
   <li><strong>Google Fonts</strong> — yazı tipleri</li>
-  <li><strong>Copernicus EFFIS/GWIS</strong> — yangın hava indeksi; bir yerin indeksine baktığınızda o yerin koordinatları gönderilir. Günlük tehlike bildirimi için sunucumuz da yuvarlanmış koordinatla aynı servisi sorgular; bu istekte sizinle ilgili başka veri yoktur</li>
+  <li><strong>Copernicus EFFIS/GWIS</strong> — yangın hava indeksi; bir yerin indeksine baktığınızda o yerin koordinatları gönderilir. Bu gösterge FireWatch risk puanından ayrıdır ve puana katılmaz</li>
   <li><strong>Open-Meteo</strong> — bir yangının bulunduğu noktadaki rüzgâr (sizin konumunuz değil, yangının konumu gönderilir)</li>
 </ul>
 <p>Yangın ve termal tespit verileri (NASA FIRMS) ile risk hesabındaki hava durumu (Open-Meteo, MET Norway) sunucumuz tarafından çekilir; bu isteklerde sizinle ilgili veri yoktur. "Paylaş" düğmesiyle gönderdiğiniz içerik seçtiğiniz uygulamaya gider ve sunucumuzdan geçmez.</p>
@@ -129,7 +130,8 @@ const privacyEn = `
 
 <h2>How location is used</h2>
 <ul>
-  <li><strong>On your device:</strong> distance to nearby detections and the risk near you are calculated on your phone.</li>
+  <li><strong>Risk at a point:</strong> On My Location or a place's analysis, the risk score is calculated on our server. The point is rounded to about 10 km first; the weather is fetched for that rounded point from Open-Meteo or MET Norway. The result is cached with the rounded point for up to 15 minutes and is not written to the database.</li>
+  <li><strong>On your device:</strong> distance to nearby detections is calculated on your phone.</li>
   <li><strong>Nearest-province lookup:</strong> your location is sent to our server to show which province you are in. The location in this lookup is not stored and not logged.</li>
   <li><strong>Notifications:</strong> when you start automatic monitoring, your approximate location (about 1 km) is stored as described in the table above.</li>
   <li><strong>My Places:</strong> points you search for, pick on the map, or add from your current location with "Use my location", are stored rounded to about 1 km. New detections are matched against these points on the server; your device's location is not tracked for this.</li>
@@ -155,7 +157,7 @@ const privacyEn = `
 <ul>
   <li><strong>CARTO and OpenStreetMap</strong> — map tiles (the map area you view)</li>
   <li><strong>Google Fonts</strong> — fonts</li>
-  <li><strong>Copernicus EFFIS/GWIS</strong> — fire weather index; when you look up the index for a place, that place's coordinates are sent. For the daily danger alert our server queries the same service with the rounded coordinates; nothing else about you is sent</li>
+  <li><strong>Copernicus EFFIS/GWIS</strong> — fire weather index; when you look up the index for a place, that place's coordinates are sent. This indicator is separate from the FireWatch risk score and does not feed into it</li>
   <li><strong>Open-Meteo</strong> — wind at a fire's location (the fire's location is sent, not yours)</li>
 </ul>
 <p>Fire and thermal detections (NASA FIRMS) and the weather used for risk scoring (Open-Meteo, MET Norway) are fetched by our server; those requests contain no data about you. Content you send with a "Share" button goes to the app you choose and does not pass through our server.</p>

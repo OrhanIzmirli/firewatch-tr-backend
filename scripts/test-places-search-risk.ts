@@ -1,18 +1,16 @@
 /**
- * Place search (Nominatim rules) and the daily fire-danger alert.
+ * Place search (Nominatim rules) and the alert when a place's risk rises.
  *
  *   npm run test:places-search-risk
  */
 import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PNG } from 'pngjs';
 
 process.env.DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://nobody@127.0.0.1:1/none';
 /* eslint-disable @typescript-eslint/no-var-requires */
 const search = require('../src/services/placeSearch') as typeof import('../src/services/placeSearch');
 const risk = require('../src/jobs/placeRiskJob') as typeof import('../src/jobs/placeRiskJob');
-const fwi = require('../src/services/fwiPoint') as typeof import('../src/services/fwiPoint');
 const places = require('../src/services/trackedPlaces') as typeof import('../src/services/trackedPlaces');
 
 let failures = 0;
@@ -124,34 +122,24 @@ const raw = [{ lat: '38.30', lon: '26.77', name: 'Zeytinalanı', display_name: '
   });
   await b('alert rule: rises to High or above, once a day', () => {
     const f = risk.shouldAlert;
-    assert.strictEqual(f(2, 3, null, '2026-07-02'), true);
-    assert.strictEqual(f(null, 4, null, '2026-07-02'), true);
-    assert.strictEqual(f(3, 4, '2026-07-01', '2026-07-02'), true);
-    assert.strictEqual(f(3, 3, '2026-07-01', '2026-07-02'), false, 'staying High does not repeat');
-    assert.strictEqual(f(2, 2, null, '2026-07-02'), false);
-    assert.strictEqual(f(2, 5, '2026-07-02', '2026-07-02'), false, 'at most once a day');
-    assert.strictEqual(f(2, null, null, '2026-07-02'), false);
+    assert.strictEqual(f(1, 2, null, '2026-07-02'), true);
+    assert.strictEqual(f(null, 3, null, '2026-07-02'), true);
+    assert.strictEqual(f(2, 3, '2026-07-01', '2026-07-02'), true);
+    assert.strictEqual(f(2, 2, '2026-07-01', '2026-07-02'), false, 'staying High does not repeat');
+    assert.strictEqual(f(1, 1, null, '2026-07-02'), false);
+    assert.strictEqual(f(1, 3, '2026-07-02', '2026-07-02'), false, 'at most once a day');
   });
-  await b('alert text says forecast, not fire', () => {
-    const tr = places.buildRiskAlertText('tr', 'Urla', 4, 0);
-    assert.match(tr.title, /Urla: yangın tehlikesi Çok yüksek/);
-    assert.match(tr.body, /hava tahminidir, tespit edilmiş yangın değildir/);
-    assert.match(places.buildRiskAlertText('en', 'Urla', 5, 2).body, /Extreme \(\+2 more of your places\)/);
+  await b('alert text says index, not fire', () => {
+    const tr = places.buildRiskAlertText('tr', 'Urla', 2, 58, 0);
+    assert.match(tr.title, /Urla: yangın riski Yüksek/);
+    assert.match(tr.body, /58\/100/);
+    assert.match(tr.body, /tespit edilmiş yangın değildir/);
+    assert.match(places.buildRiskAlertText('en', 'Urla', 3, 80, 2).title, /fire risk Critical/);
+    assert.match(places.buildRiskAlertText('en', 'Urla', 3, 80, 2).body, /\+2 more of your places/);
   });
   await b('Turkish clock whatever the server zone', () => {
     assert.deepStrictEqual(risk.turkeyClock(new Date('2026-07-01T22:30:00Z')), { date: '2026-07-02', hour: 1 });
   });
-  await b('FWI class is read from the centre pixel; transparent is no data', () => {
-    const png = new PNG({ width: 3, height: 3 });
-    const paint = (r: number, g: number, b2: number, a: number) => {
-      for (let i = 0; i < 36; i += 4) { png.data[i] = r; png.data[i + 1] = g; png.data[i + 2] = b2; png.data[i + 3] = a; }
-    };
-    paint(0xad, 0x06, 0x0e, 255);
-    assert.strictEqual(fwi.fwiClassFromPng(PNG.sync.write(png)), 4);
-    paint(0, 0, 0, 0);
-    assert.strictEqual(fwi.fwiClassFromPng(PNG.sync.write(png)), null);
-  });
-
   function fakeDb(rows: any[]) {
     const saved: any[][] = [];
     return { saved, db: { query: async (sql: string, params?: unknown[]) => {
@@ -167,15 +155,15 @@ const raw = [{ lat: '38.30', lon: '26.77', name: 'Zeytinalanı', display_name: '
   const ok = async (m: any[]) => m.map(() => ({ success: true, deadToken: false }));
 
   await b('job: nothing at night', async () => {
-    const { db } = fakeDb([row('a', '1', 2)]);
-    const stats = await risk.runPlaceRiskAlerts(db as any, ok as any, async () => 5, new Date('2026-07-01T23:00:00Z'));
+    const { db } = fakeDb([row('a', '1', 1)]);
+    const stats = await risk.runPlaceRiskAlerts(db as any, ok as any, async () => ({ level: 3, score: 90 }), new Date('2026-07-01T23:00:00Z'));
     assert.strictEqual(stats.skipped, true);
   });
   await b('job: one push per device naming the worst place; neighbours share a sample', async () => {
-    const { db, saved } = fakeDb([row('a', '1', 2), row('b', '1', 2)]);
+    const { db, saved } = fakeDb([row('a', '1', 1), row('b', '1', 1)]);
     const sent: any[] = [];
     let samples = 0;
-    const stats = await risk.runPlaceRiskAlerts(db as any, (async (m: any[]) => { sent.push(...m); return ok(m); }) as any, async () => { samples++; return 4; }, noon);
+    const stats = await risk.runPlaceRiskAlerts(db as any, (async (m: any[]) => { sent.push(...m); return ok(m); }) as any, async () => { samples++; return { level: 2, score: 60 }; }, noon);
     assert.strictEqual(samples, 1);
     assert.strictEqual(sent.length, 1);
     assert.strictEqual(stats.pushesSent, 1);
@@ -184,20 +172,20 @@ const raw = [{ lat: '38.30', lon: '26.77', name: 'Zeytinalanı', display_name: '
     assert.strictEqual(saved.every((p) => p[3] === true), true);
   });
   await b('job: below High records the check and sends nothing', async () => {
-    const { db, saved } = fakeDb([row('a', '1', 2)]);
+    const { db, saved } = fakeDb([row('a', '1', 1)]);
     const sent: any[] = [];
-    await risk.runPlaceRiskAlerts(db as any, (async (m: any[]) => { sent.push(...m); return ok(m); }) as any, async () => 1, noon);
+    await risk.runPlaceRiskAlerts(db as any, (async (m: any[]) => { sent.push(...m); return ok(m); }) as any, async () => ({ level: 0, score: 10 }), noon);
     assert.strictEqual(sent.length, 0);
-    assert.strictEqual(saved[0][1], 1);
+    assert.strictEqual(saved[0][1], 0);
     assert.strictEqual(saved[0][3], false);
   });
   await b('job: a failed sample or push is retried next tick', async () => {
-    const a = fakeDb([row('a', '1', 2)]);
+    const a = fakeDb([row('a', '1', 1)]);
     const stats = await risk.runPlaceRiskAlerts(a.db as any, ok as any, async () => { throw new Error('net'); }, noon);
     assert.strictEqual(stats.sampleErrors, 1);
     assert.strictEqual(a.saved.length, 0);
-    const b2 = fakeDb([row('a', '1', 2)]);
-    await risk.runPlaceRiskAlerts(b2.db as any, (async (m: any[]) => m.map(() => ({ success: false, deadToken: false }))) as any, async () => 4, noon);
+    const b2 = fakeDb([row('a', '1', 1)]);
+    await risk.runPlaceRiskAlerts(b2.db as any, (async (m: any[]) => m.map(() => ({ success: false, deadToken: false }))) as any, async () => ({ level: 2, score: 60 }), noon);
     assert.strictEqual(b2.saved.length, 0);
   });
   await b('policy describes the search and Nominatim in both languages', () => {

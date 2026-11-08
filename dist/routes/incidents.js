@@ -8,6 +8,7 @@ const database_1 = __importDefault(require("../config/database"));
 const security_1 = require("../middleware/security");
 const regions_1 = require("../utils/regions");
 const cacheService_1 = __importDefault(require("../services/cacheService"));
+const detectionStatus_1 = require("../services/detectionStatus");
 const heatSource_1 = require("../services/heatSource");
 const router = (0, express_1.Router)();
 const DEFAULT_LIMIT = 100;
@@ -23,24 +24,6 @@ const DEFAULT_WINDOW_DAYS = 7;
  */
 const RECENT_DETECTION_HOURS = 6;
 /**
- * The evidence bar an incident must clear before it is counted as a fire that
- * was burning and is no longer being detected. Mirrors IncidentSignificance
- * in the Flutter client, which is what the map filter uses — if one moves,
- * both move, or the home card and the map disagree about how many fires
- * there were.
- *
- * Of 237 live incidents, 149 were seen on exactly one overpass and never
- * again. Counting all 227 no-longer-detected incidents put "194" on the home
- * screen next to a map showing 15 — and a number that large, next to the
- * words "detection ended", reads as a body count of extinguished fires.
- *
- * The power floor is 8 MW rather than a higher overpass count on purpose:
- * requiring four passes admits ~24-hour, 1-4 MW sources that are visible on
- * every pass, which is the signature of a gas flare, not a wildfire.
- */
-const SIGNIFICANT_MIN_OVERPASSES = 2;
-const SIGNIFICANT_MIN_FRP_MW = 8;
-/**
  * Cache lifetime for incident reads.
  *
  * Five minutes is chosen from the data rate, not from taste: FIRMS publishes
@@ -49,6 +32,26 @@ const SIGNIFICANT_MIN_FRP_MW = 8;
  * that scales to zero, every avoided query is also an avoided cold start.
  */
 const INCIDENTS_CACHE_TTL_SECONDS = 300;
+/**
+ * GET /api/incidents/status — "no detections" or "we don't know"?
+ * A database error is a 503, never an empty answer.
+ */
+router.get('/status', (0, security_1.rateLimit)('incidents_status', 60, 60000), async (_req, res) => {
+    try {
+        const cacheKey = 'incidents:status:v1';
+        let data = await cacheService_1.default.get(cacheKey);
+        if (!data) {
+            data = await (0, detectionStatus_1.loadDetectionStatus)(database_1.default);
+            await cacheService_1.default.set(cacheKey, data, 120);
+        }
+        res.set('Cache-Control', 'public, max-age=60');
+        res.json({ status: 'success', data });
+    }
+    catch (error) {
+        console.error('incident status failed:', error.message);
+        res.status(503).json({ status: 'error', code: 'status_unavailable', message: 'Status is not available right now' });
+    }
+});
 /**
  * GET /api/incidents/summary — the last 24 hours in three numbers.
  *
@@ -142,7 +145,7 @@ router.get('/summary', (0, security_1.rateLimit)('incidents_summary', 60, 60000)
                 longest.city_name AS longest_city_name,
                 longest.first_detected_at AS longest_first_detected_at,
                 longest.last_detected_at AS longest_last_detected_at
-         FROM counts LEFT JOIN longest ON TRUE`, [RECENT_DETECTION_HOURS, SIGNIFICANT_MIN_OVERPASSES, SIGNIFICANT_MIN_FRP_MW]);
+         FROM counts LEFT JOIN longest ON TRUE`, [RECENT_DETECTION_HOURS, detectionStatus_1.SIGNIFICANT_MIN_OVERPASSES, detectionStatus_1.SIGNIFICANT_MIN_FRP_MW]);
         const row = result.rows[0] ?? {};
         // Where the fixed heat sources currently radiating are, so the client
         // can grey out the raw detections sitting on top of them (2 km) on the
@@ -163,8 +166,8 @@ router.get('/summary', (0, security_1.rateLimit)('incidents_summary', 60, 60000)
             data: {
                 recent_detection_hours: RECENT_DETECTION_HOURS,
                 significance: {
-                    min_overpasses: SIGNIFICANT_MIN_OVERPASSES,
-                    min_frp_mw: SIGNIFICANT_MIN_FRP_MW,
+                    min_overpasses: detectionStatus_1.SIGNIFICANT_MIN_OVERPASSES,
+                    min_frp_mw: detectionStatus_1.SIGNIFICANT_MIN_FRP_MW,
                     excluded_confidence_tier: 'low',
                 },
                 active_count: Number(row.active_count ?? 0),
