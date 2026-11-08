@@ -122,6 +122,11 @@ function deps(over: Partial<import('../src/services/pointRisk').PointRiskDeps> =
     assert.deepStrictEqual(r.latest_detection, { detected_at: '2026-06-29T10:00:00.000Z', city: 'Muğla' });
     assert.strictEqual(r.last_update_at, '2026-07-02T08:00:00.000Z');
   });
+  await b('status: strong includes the single hot pass the map banners', () => {
+    const sql = status.detectionSummarySql();
+    assert.match(sql, /max_frp_mw, 0\) >= 15\)\s+AND NOT COALESCE/);
+    assert.match(sql, /WHERE \(\(i\.overpass_count >= 2/);
+  });
   await b('status: a stale pipeline never says zero', async () => {
     const r = await status.loadDetectionStatus(fakeStatusDb(9, 0, null, null));
     assert.strictEqual(r.pipeline_fresh, false);

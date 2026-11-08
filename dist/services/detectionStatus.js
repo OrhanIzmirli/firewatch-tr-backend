@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SIGNIFICANT_MIN_FRP_MW = exports.SIGNIFICANT_MIN_OVERPASSES = void 0;
+exports.STRONG_SINGLE_PASS_FRP_MW = exports.SIGNIFICANT_MIN_FRP_MW = exports.SIGNIFICANT_MIN_OVERPASSES = void 0;
 exports.loadPipelineState = loadPipelineState;
 exports.detectionSummarySql = detectionSummarySql;
 exports.latestDetectionCitySql = latestDetectionCitySql;
@@ -13,8 +13,9 @@ const nearbyFireCount_1 = require("./nearbyFireCount");
  * An empty incident list alone cannot say which it is: a quiet winter day and
  * a pipeline that stopped three hours ago both produce no rows. So the app
  * asks here, and says "no strong detections" only when pipeline_fresh is true
- * and strong_detections_24h is a real 0. "Strong" is the events layer's bar:
- * lone weak pixels are still on the map's possible-points layer.
+ * and strong_detections_24h is a real 0. "Strong" is what the map calls
+ * strong: an event, or a single hot pass. Weak pixels stay on the map's
+ * possible-points layer and do not count.
  */
 /**
  * The evidence bar an incident must clear before it is counted as a fire that
@@ -34,9 +35,16 @@ const nearbyFireCount_1 = require("./nearbyFireCount");
  */
 exports.SIGNIFICANT_MIN_OVERPASSES = 2;
 exports.SIGNIFICANT_MIN_FRP_MW = 8;
-const STRONG_SQL = (alias) => `${alias}.overpass_count >= ${exports.SIGNIFICANT_MIN_OVERPASSES}
-   AND COALESCE(${alias}.max_frp_mw, 0) >= ${exports.SIGNIFICANT_MIN_FRP_MW}
-   AND ${alias}.peak_confidence_tier IS DISTINCT FROM 'low'`;
+/**
+ * One pass, but hot enough that the map banners it as a strong unverified
+ * detection (FireIncident.isStrongUnverified in the client). "No strong heat
+ * signature" must stay true next to that banner.
+ */
+exports.STRONG_SINGLE_PASS_FRP_MW = 15;
+const STRONG_SQL = (alias) => `((${alias}.overpass_count >= ${exports.SIGNIFICANT_MIN_OVERPASSES}
+     AND COALESCE(${alias}.max_frp_mw, 0) >= ${exports.SIGNIFICANT_MIN_FRP_MW}
+     AND ${alias}.peak_confidence_tier IS DISTINCT FROM 'low')
+    OR COALESCE(${alias}.max_frp_mw, 0) >= ${exports.STRONG_SINGLE_PASS_FRP_MW})`;
 async function loadPipelineState(db) {
     const runs = await db.query(`SELECT j.job, now() AS db_now,
             (SELECT max(r.finished_at) FROM job_runs r

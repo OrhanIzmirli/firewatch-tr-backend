@@ -8,8 +8,9 @@ import { NEARBY_FIRE_PIPELINE_JOBS, isPipelineFresh } from './nearbyFireCount';
  * An empty incident list alone cannot say which it is: a quiet winter day and
  * a pipeline that stopped three hours ago both produce no rows. So the app
  * asks here, and says "no strong detections" only when pipeline_fresh is true
- * and strong_detections_24h is a real 0. "Strong" is the events layer's bar:
- * lone weak pixels are still on the map's possible-points layer.
+ * and strong_detections_24h is a real 0. "Strong" is what the map calls
+ * strong: an event, or a single hot pass. Weak pixels stay on the map's
+ * possible-points layer and do not count.
  */
 
 /**
@@ -31,10 +32,18 @@ import { NEARBY_FIRE_PIPELINE_JOBS, isPipelineFresh } from './nearbyFireCount';
 export const SIGNIFICANT_MIN_OVERPASSES = 2;
 export const SIGNIFICANT_MIN_FRP_MW = 8;
 
+/**
+ * One pass, but hot enough that the map banners it as a strong unverified
+ * detection (FireIncident.isStrongUnverified in the client). "No strong heat
+ * signature" must stay true next to that banner.
+ */
+export const STRONG_SINGLE_PASS_FRP_MW = 15;
+
 const STRONG_SQL = (alias: string): string =>
-  `${alias}.overpass_count >= ${SIGNIFICANT_MIN_OVERPASSES}
-   AND COALESCE(${alias}.max_frp_mw, 0) >= ${SIGNIFICANT_MIN_FRP_MW}
-   AND ${alias}.peak_confidence_tier IS DISTINCT FROM 'low'`;
+  `((${alias}.overpass_count >= ${SIGNIFICANT_MIN_OVERPASSES}
+     AND COALESCE(${alias}.max_frp_mw, 0) >= ${SIGNIFICANT_MIN_FRP_MW}
+     AND ${alias}.peak_confidence_tier IS DISTINCT FROM 'low')
+    OR COALESCE(${alias}.max_frp_mw, 0) >= ${STRONG_SINGLE_PASS_FRP_MW})`;
 
 export interface PipelineState {
   fresh: boolean;
