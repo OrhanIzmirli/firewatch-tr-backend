@@ -9,7 +9,7 @@ const PREPARATION = /yangın (tatbikat|eğitim|sezon|önlem|hazırlı)|orman yan
 const NATURE = /yaban hayat|yaban keçi|milli park|tabiat park|doğa koruma|orman köylü|orman haftası|orman kahraman/;
 /** "Ormancı" alone says nothing about the subject: traffic training is not forest news. */
 const FORESTER = /ormancı/;
-const FORESTER_TOPIC = /ağaçlandır|fidan|restorasyon|rehabilitasyon|yeşer|erozyon/;
+const FORESTER_TOPIC = /ağaçlandır|fidan|dikim|restorasyon|rehabilitasyon|yenileme|yeşer|erozyon|iklim|proje|orman varlığ/;
 const FIELD = /anız|otluk|tarla|ot yangın|ekili alan|tarım alan|örtü yangın|çöplük|bahçe yangın/;
 const FIRE = /yangın|alev/;
 const BLOCKED = /cinayet|kaza yaptı|maç|seçim|bakan.*istifa/;

@@ -123,6 +123,11 @@ assert.strictEqual(newsKind('Ormancılara Jandarmadan trafik güvenliği eğitim
 assert.ok(isGreenStory('Ormancılar Bolu’da fidan üretimini anlattı'), 'forester with a topic stays');
 assert.ok(isGreenStory('Ormancılık çalışmalarıyla bozuk orman restorasyonu Muğla’da sürüyor'), 'forestry with a topic stays');
 assert.strictEqual(newsKind('Ormancılar orman yangınına müdahale etti'), 'fire');
+assert.ok(isGreenStory('Yeşil Vatanımızın Üreten İnsanımıza İklime Dirençli Ormancılık Projesi (İDOP) Desteklerimiz'), 'climate project stays');
+assert.ok(isGreenStory('Ormancılar Bolu’da dikim çalışmasına başladı'), 'planting stays');
+assert.ok(isGreenStory('Ormancılık çalışmalarıyla Muğla’da orman varlığı arttı'), 'forest area stays');
+assert.ok(isGreenStory('Ormancılar bozuk alanlarda yenileme çalışması yapıyor'), 'renewal stays');
+assert.ok(!isGreenStory('Ormancılar için trafik eğitimi verildi'), 'traffic stays out');
 assert.equal(newsKind("Nefes darlığının kısır döngüsünü 'Pulmoner Rehabilitasyon' ile kırın"), null, 'medical rehabilitation is not forest news');
 
 // Thumbnails
