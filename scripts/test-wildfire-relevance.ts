@@ -149,5 +149,29 @@ b('scraper and clean-news use the same checkRelevance', () => {
   assert.ok(!/const BLOCKED_KEYWORDS/.test(job), 'keyword lists must live only in utils/newsRelevance.ts');
 });
 
+// Live items found in the 2026-11-08 accuracy audit.
+b('audit: a house fire with a forest crew is not a wildfire (#3271)', () => {
+  const v = assessWildfire('Yer: Kastamonu... Ahşap evdeki yangın 4 eve sıçradı',
+    "Kastamonu'nun İnebolu ilçesine bağlı Deresökü köyünde bir evde yangın çıktı. Alevler 4 eve daha sıçradı. Çok sayıda itfaiye ve orman ekibi yangına müdahale ediyor.");
+  assert.strictEqual(v.wildfire, false);
+});
+b('audit: burning pitch materials are not a wildfire (#3142)', () => {
+  const v = assessWildfire('Yanan halı saha malzemeleri, site sakinlerine korku dolu anlar yaşattı',
+    "Bursa'da halı saha malzemelerinin bulunduğu alandan yükselen alevler, itfaiye ekiplerinin hızlı müdahalesiyle kontrol altına alındı. Orman ekipleri de bölgeye geldi.");
+  assert.strictEqual(v.wildfire, false);
+});
+b('audit: a forecast mentioning fires in passing is out (#3123)', () => {
+  const v = assessWildfire('Termometre 30 derecelerde... Yurt genelinde eylül yazı',
+    "Bugün sıcaklık 30 derecelerde olacak. Orman yangınlarının yüreğimizi yaktığı Akdeniz'de rüzgârın orta kuvvette olacağı bildirildi.");
+  assert.deepStrictEqual([v.wildfire, v.basis], [false, 'weather_forecast']);
+});
+b('audit: a heat warning that names fire in the title stays', () => {
+  assert.strictEqual(assessWildfire('Sıcaklık artıyor: orman yangını uyarısı', 'Meteoroloji orman yangını riskine dikkat çekti.').wildfire, true);
+});
+b('audit: a forest fire spotted by police stays (#3307)', () => {
+  assert.strictEqual(assessWildfire("Bursa'da yunus ekiplerinin dikkati faciayı önledi",
+    "Mudanya ilçesi ormanlık alanda yakılan ateşin çevredeki kuru ot ve ağaçları tutuşturmasıyla başlayan yangın söndürüldü.").wildfire, true);
+});
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILED`);
 process.exit(failures === 0 ? 0 : 1);

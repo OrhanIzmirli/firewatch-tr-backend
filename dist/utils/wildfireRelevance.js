@@ -77,7 +77,7 @@ const WEAK = [
  */
 const FIRE_WORD = /yang[ıi]n|alev|söndür|fire|blaze|giriş yasa/;
 /** Building, vehicle or facility named in a title. */
-exports.BUILDING_OR_VEHICLE_IN_TITLE = /(^|[\s'’"(])(ev|evi|evde|evler|evleri|evinde|bungalov\S*|villa\S*|yazlık\S*|kulübe\S*|fabrika\S*|apartman\S*|daire\S*|bina\S*|otomobil\S*|araç\S*|aracı|tır|tır\S*|otobüs\S*|minibüs\S*|kamyon\S*|tanker\S*|traktör\S*|motosiklet\S*|depo\S*|baraka\S*|ahır\S*|samanlık\S*|işyeri\S*|iş yeri\S*|market\S*|mağaza\S*|tesis\S*|atölye\S*|restoran\S*|otel\S*|okul\S*|hastane\S*|cami\S*|tekne\S*|gemi\S*|uçak|jet|trafo\S*|baz istasyon\S*|plaza\S*|gecekondu\S*|konteyner\S*|çatı\S*)(?=$|[\s,.!?:;'’"):])/;
+exports.BUILDING_OR_VEHICLE_IN_TITLE = /(^|[\s'’"(])(ev|evi|eve|evde|evdeki|evler|evleri|evlere|evinde|halı saha\S*|bungalov\S*|villa\S*|yazlık\S*|kulübe\S*|fabrika\S*|apartman\S*|daire\S*|bina\S*|otomobil\S*|araç\S*|aracı|tır|tır\S*|otobüs\S*|minibüs\S*|kamyon\S*|tanker\S*|traktör\S*|motosiklet\S*|depo\S*|baraka\S*|ahır\S*|samanlık\S*|işyeri\S*|iş yeri\S*|market\S*|mağaza\S*|tesis\S*|atölye\S*|restoran\S*|otel\S*|okul\S*|hastane\S*|cami\S*|tekne\S*|gemi\S*|uçak|jet|trafo\S*|baz istasyon\S*|plaza\S*|gecekondu\S*|konteyner\S*|çatı\S*)(?=$|[\s,.!?:;'’"):])/;
 /** Lowercase Turkish letters and digits: a keyword must not follow one. */
 const WORD_CHAR = 'a-zçğıöşüâîû0-9';
 /**
@@ -105,9 +105,18 @@ const WEAK_RE = compile(WEAK);
  * "orman ürünleri fabrikası" is a timber/furniture plant (#1916, #3685).
  */
 const NOT_A_SIGNAL = /orman ürün\S*/g;
+/**
+ * A forecast that mentions fires in passing ("Orman yangınlarının yüreğimizi
+ * yaktığı Akdeniz'de rüzgâr...", #3123) is not a fire story. Only when the
+ * title itself says nothing about fire.
+ */
+const WEATHER_TITLE = /hava durumu|termometre|meteoroloji|sıcaklık|derece/;
 function assessWildfire(title, fullText) {
     const titleLower = (0, turkishText_1.turkishToLower)(title);
     const text = (0, turkishText_1.turkishToLower)(`${title} ${fullText}`).replace(NOT_A_SIGNAL, ' ');
+    if (WEATHER_TITLE.test(titleLower) && !FIRE_WORD.test(titleLower)) {
+        return { wildfire: false, basis: 'weather_forecast', matched: [] };
+    }
     const fire = FIRE_WORD.test(text);
     const namedStructure = exports.BUILDING_OR_VEHICLE_IN_TITLE.test(titleLower);
     const strong = STRONG_RE.filter(({ re }) => re.test(text)).map(({ kw }) => kw);

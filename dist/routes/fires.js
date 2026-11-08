@@ -10,6 +10,7 @@ const locationPrivacy_1 = require("../utils/locationPrivacy");
 const security_1 = require("../middleware/security");
 const regions_1 = require("../utils/regions");
 const provinces_1 = require("../services/provinces");
+const reportSatelliteMatch_1 = require("../services/reportSatelliteMatch");
 const router = (0, express_1.Router)();
 // GET /api/fires - Get all fires
 router.get('/', (req, res) => fireController_1.default.getAllFires(req, res));
@@ -216,22 +217,17 @@ router.post('/report', (0, security_1.rateLimit)('fire-report', 5, 60 * 60000), 
         const province = await (0, provinces_1.resolveProvince)(database_1.default, lat, lng);
         const city = province?.name ?? 'Bilinmiyor';
         const region = province?.region ?? 'Türkiye';
-        // NASA ile doğrulama — 10km içinde termal nokta var mı?
-        // fires tablosunda PostGIS geometry varsa kullan, yoksa basit hesap
+        // 10 km içinde son 24 saatte uydu ısı tespiti var mı?
+        // (services/reportSatelliteMatch.ts)
         let verified = false;
         let nasaCount = 0;
         try {
-            const nasaResult = await database_1.default.query(`SELECT COUNT(*) as count FROM fires
-         WHERE ST_DWithin(
-           ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
-           ST_SetSRID(ST_MakePoint(longitude::float, latitude::float), 4326)::geography,
-           10000
-         )`, [lng, lat]);
+            const nasaResult = await database_1.default.query((0, reportSatelliteMatch_1.reportSatelliteMatchSql)(), [lng, lat, reportSatelliteMatch_1.REPORT_MATCH_RADIUS_M, reportSatelliteMatch_1.REPORT_MATCH_WINDOW_HOURS]);
             nasaCount = parseInt(nasaResult.rows[0]?.count ?? '0');
             verified = nasaCount > 0;
         }
         catch (_) {
-            // fires tablosunda geometry yoksa doğrulama atla
+            // Eşleşme denenemedi; rapor yine kaydedilir.
             verified = false;
         }
         // Duplicate check, province lookup and NASA match above use the exact
@@ -261,9 +257,7 @@ router.post('/report', (0, security_1.rateLimit)('fire-report', 5, 60 * 60000), 
                 photo_count: photoUrls.length,
                 created_at: result.rows[0].created_at,
                 nasa_nearby: nasaCount,
-                message: verified
-                    ? '✅ NASA verisiyle doğrulandı — bölgede termal aktivite mevcut'
-                    : '⏳ Rapor alındı — NASA eşleşmesi yok, manuel inceleme bekliyor',
+                message: (0, reportSatelliteMatch_1.reportResultMessage)(verified),
             },
         });
     }

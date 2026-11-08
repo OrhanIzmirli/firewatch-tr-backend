@@ -79,7 +79,7 @@ const FIRE_WORD = /yang[ıi]n|alev|söndür|fire|blaze|giriş yasa/;
 
 /** Building, vehicle or facility named in a title. */
 export const BUILDING_OR_VEHICLE_IN_TITLE =
-  /(^|[\s'’"(])(ev|evi|evde|evler|evleri|evinde|bungalov\S*|villa\S*|yazlık\S*|kulübe\S*|fabrika\S*|apartman\S*|daire\S*|bina\S*|otomobil\S*|araç\S*|aracı|tır|tır\S*|otobüs\S*|minibüs\S*|kamyon\S*|tanker\S*|traktör\S*|motosiklet\S*|depo\S*|baraka\S*|ahır\S*|samanlık\S*|işyeri\S*|iş yeri\S*|market\S*|mağaza\S*|tesis\S*|atölye\S*|restoran\S*|otel\S*|okul\S*|hastane\S*|cami\S*|tekne\S*|gemi\S*|uçak|jet|trafo\S*|baz istasyon\S*|plaza\S*|gecekondu\S*|konteyner\S*|çatı\S*)(?=$|[\s,.!?:;'’"):])/;
+  /(^|[\s'’"(])(ev|evi|eve|evde|evdeki|evler|evleri|evlere|evinde|halı saha\S*|bungalov\S*|villa\S*|yazlık\S*|kulübe\S*|fabrika\S*|apartman\S*|daire\S*|bina\S*|otomobil\S*|araç\S*|aracı|tır|tır\S*|otobüs\S*|minibüs\S*|kamyon\S*|tanker\S*|traktör\S*|motosiklet\S*|depo\S*|baraka\S*|ahır\S*|samanlık\S*|işyeri\S*|iş yeri\S*|market\S*|mağaza\S*|tesis\S*|atölye\S*|restoran\S*|otel\S*|okul\S*|hastane\S*|cami\S*|tekne\S*|gemi\S*|uçak|jet|trafo\S*|baz istasyon\S*|plaza\S*|gecekondu\S*|konteyner\S*|çatı\S*)(?=$|[\s,.!?:;'’"):])/;
 
 /** Lowercase Turkish letters and digits: a keyword must not follow one. */
 const WORD_CHAR = 'a-zçğıöşüâîû0-9';
@@ -114,7 +114,7 @@ const WEAK_RE = compile(WEAK);
 
 export type WildfireVerdict =
   | { wildfire: true; basis: 'strong' | 'weak'; matched: string[] }
-  | { wildfire: false; basis: 'no_signal' | 'building_or_vehicle_title' | 'no_fire_word'; matched: string[] };
+  | { wildfire: false; basis: 'no_signal' | 'building_or_vehicle_title' | 'no_fire_word' | 'weather_forecast'; matched: string[] };
 
 /**
  * Phrases that contain a signal word but describe something else: an
@@ -122,9 +122,20 @@ export type WildfireVerdict =
  */
 const NOT_A_SIGNAL = /orman ürün\S*/g;
 
+/**
+ * A forecast that mentions fires in passing ("Orman yangınlarının yüreğimizi
+ * yaktığı Akdeniz'de rüzgâr...", #3123) is not a fire story. Only when the
+ * title itself says nothing about fire.
+ */
+const WEATHER_TITLE = /hava durumu|termometre|meteoroloji|sıcaklık|derece/;
+
 export function assessWildfire(title: string, fullText: string): WildfireVerdict {
   const titleLower = turkishToLower(title);
   const text = turkishToLower(`${title} ${fullText}`).replace(NOT_A_SIGNAL, ' ');
+
+  if (WEATHER_TITLE.test(titleLower) && !FIRE_WORD.test(titleLower)) {
+    return { wildfire: false, basis: 'weather_forecast', matched: [] };
+  }
 
   const fire = FIRE_WORD.test(text);
   const namedStructure = BUILDING_OR_VEHICLE_IN_TITLE.test(titleLower);
