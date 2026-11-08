@@ -55,6 +55,7 @@ const legal_1 = __importDefault(require("./routes/legal"));
 const nature_1 = __importDefault(require("./routes/nature"));
 const pointRisk_1 = require("./routes/pointRisk");
 const pointRisk_2 = require("./services/pointRisk");
+const riskScore_1 = require("./services/riskScore");
 const places_1 = __importDefault(require("./routes/places"));
 const security_1 = require("./middleware/security");
 const newsScraperJob_1 = __importStar(require("./jobs/newsScraperJob"));
@@ -265,7 +266,7 @@ app.get('/api/risk/summary', async (req, res) => {
         // nearby_fire_count: same region, last 24 h, fixed heat sources excluded;
         // null for every region when the satellite pipeline is stale.
         const counts = await (0, nearbyFireCount_1.loadNearbyFireCounts)(database_1.default);
-        const data = (0, nearbyFireCount_1.attachNearbyFireCounts)(result.rows, counts);
+        const data = (0, riskScore_1.markStaleRisk)((0, nearbyFireCount_1.attachNearbyFireCounts)(result.rows, counts));
         await cacheService_1.default.set(cacheKey, data, 300); // calculator runs every 3h, 5 min cache is safe
         res.json({ status: 'success', data });
     }

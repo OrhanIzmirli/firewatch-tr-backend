@@ -5,7 +5,8 @@ import { loadPipelineState } from './detectionStatus';
 import { NEARBY_FIRE_WINDOW_HOURS } from './nearbyFireCount';
 import { resolveProvince } from './provinces';
 import { calculateRisk } from './riskScore';
-import { WeatherData, fetchWeatherWithFallback } from './weatherProviders';
+import type { WeatherData } from './weatherProviders';
+import { WeatherCaller, roundToWeatherGrid, weatherSource } from './weatherSource';
 
 /**
  * The FireWatch risk score at one point: "Konumum", a saved place, and the
@@ -45,7 +46,7 @@ export interface PointRisk {
 }
 
 export function roundToPointGrid(value: number): number {
-  return Math.round(value * 10) / 10;
+  return roundToWeatherGrid(value);
 }
 
 export function nearbyIncidentCountSql(): string {
@@ -89,9 +90,9 @@ export interface PointRiskDeps {
   now: () => Date;
 }
 
-export function defaultPointRiskDeps(db: Pick<Pool, 'query'>): PointRiskDeps {
+export function defaultPointRiskDeps(db: Pick<Pool, 'query'>, caller: WeatherCaller = 'point'): PointRiskDeps {
   return {
-    weather: async (lat, lng) => (await fetchWeatherWithFallback(lat, lng)).weather,
+    weather: async (lat, lng) => (await weatherSource.read(lat, lng, caller)).weather,
     nearby: (lat, lng) => loadNearbyIncidentCount(db, lat, lng),
     province: (lat, lng) => resolveProvince(db, lat, lng),
     cache: cacheService,

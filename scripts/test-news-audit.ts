@@ -116,6 +116,13 @@ assert.equal(newsKind('Ekonomi haberi'), null);
 assert.ok(isGreenStory('Yanan alanlara 50 bin fidan dikildi'));
 assert.ok(!isGreenStory("Muğla'da orman yangını"));
 assert.ok(!isGreenStory('Kanada milli parkında yaban hayatı'), 'abroad stays out');
+assert.ok(!isGreenStory('Ormancılara Jandarmadan trafik güvenliği eğitimi.'), 'forester alone is not a topic');
+assert.ok(!isGreenStory('Ormancılar futbol turnuvasında buluştu'), 'forester alone is not a topic');
+assert.ok(!isGreenStory('Ormancılık Haftası kutlandı'), 'forestry alone is not a topic');
+assert.strictEqual(newsKind('Ormancılara Jandarmadan trafik güvenliği eğitimi.'), null);
+assert.ok(isGreenStory('Ormancılar Bolu’da fidan üretimini anlattı'), 'forester with a topic stays');
+assert.ok(isGreenStory('Ormancılık çalışmalarıyla bozuk orman restorasyonu Muğla’da sürüyor'), 'forestry with a topic stays');
+assert.strictEqual(newsKind('Ormancılar orman yangınına müdahale etti'), 'fire');
 assert.equal(newsKind("Nefes darlığının kısır döngüsünü 'Pulmoner Rehabilitasyon' ile kırın"), null, 'medical rehabilitation is not forest news');
 
 // Thumbnails

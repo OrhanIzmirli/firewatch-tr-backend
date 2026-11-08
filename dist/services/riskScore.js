@@ -1,9 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RISK_HIGH_INDEX = exports.RISK_LEVELS = void 0;
+exports.RISK_STALE_AFTER_HOURS = exports.RISK_HIGH_INDEX = exports.RISK_LEVELS = void 0;
 exports.riskLevelForScore = riskLevelForScore;
 exports.riskLevelIndex = riskLevelIndex;
 exports.calculateRisk = calculateRisk;
+exports.markStaleRisk = markStaleRisk;
 exports.RISK_LEVELS = ['Low', 'Medium', 'High', 'Critical'];
 function riskLevelForScore(score) {
     if (score >= 75)
@@ -72,4 +73,14 @@ function calculateRisk(weather, fireCount) {
     const drynessIndex = Math.min(100, Math.round((weather.temperature / 45) * 50 + ((100 - weather.humidity) / 100) * 35 + (weather.windSpeed / 80) * 15));
     const vegetationPressure = Math.min(100, Math.round((weather.windSpeed / 80) * 50 + (weather.temperature / 45) * 50));
     return { score, level: riskLevelForScore(score), drynessIndex, vegetationPressure };
+}
+/** The calculator runs every 3 hours, so this is two missed runs. */
+exports.RISK_STALE_AFTER_HOURS = 6;
+/** Marks rows whose score is too old to be read as the current risk. */
+function markStaleRisk(rows, now = new Date()) {
+    const limit = exports.RISK_STALE_AFTER_HOURS * 60 * 60 * 1000;
+    return rows.map((row) => {
+        const at = new Date(row.created_at).getTime();
+        return { ...row, is_stale: Number.isNaN(at) || now.getTime() - at > limit };
+    });
 }

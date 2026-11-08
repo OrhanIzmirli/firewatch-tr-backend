@@ -142,45 +142,108 @@ export function isRetryable(err: unknown): boolean {
 
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+export type OpenMeteoLimit = 'minute' | 'hour' | 'day';
+
+/** Which of Open-Meteo's limits a failure hit, or null when it is not a 429. */
+export function openMeteoLimitOf(err: unknown): OpenMeteoLimit | null {
+  if (((err ?? {}) as HttpFailure).response?.status !== 429) return null;
+  const text = describeHttpError(err).toLowerCase();
+  if (text.includes('daily')) return 'day';
+  if (text.includes('hourly')) return 'hour';
+  return 'minute';
+}
+
+/** Open-Meteo answers one object for one location and an array for several. */
+export function parseOpenMeteoBatch(body: unknown, count: number): WeatherData[] {
+  const list = Array.isArray(body) ? body : [body];
+  if (list.length !== count) throw new Error(`expected ${count} locations, got ${list.length}`);
+  return list.map(parseOpenMeteo);
+}
+
+export interface WeatherPoint {
+  lat: number;
+  lng: number;
+}
+
+export interface WeatherBatch {
+  /** Same order as the points. Null when no provider could answer for it. */
+  readings: (WeatherReading | null)[];
+  notes: string[];
+  openMeteoAttempts: number;
+  metCalls: number;
+  limit: OpenMeteoLimit | null;
+}
+
+interface BatchOptions {
+  now?: Date;
+  sleep?: (ms: number) => Promise<void>;
+  /** Budget used up or a limit already hit: go straight to MET Norway. */
+  skipOpenMeteo?: boolean;
+}
+
+/** Open-Meteo for all points in one request, then MET Norway point by point. */
+export async function fetchWeatherBatch(
+  points: readonly WeatherPoint[],
+  http: WeatherHttp = axios,
+  options: BatchOptions = {}
+): Promise<WeatherBatch> {
+  const sleep = options.sleep ?? defaultSleep;
+  const notes: string[] = [];
+  let openMeteoAttempts = 0;
+  let metCalls = 0;
+  let limit: OpenMeteoLimit | null = null;
+
+  for (let attempt = 0; attempt < 2 && !options.skipOpenMeteo; attempt++) {
+    openMeteoAttempts++;
+    try {
+      const response = await http.get(OPEN_METEO_URL, {
+        params: {
+          latitude: points.map((p) => p.lat).join(','),
+          longitude: points.map((p) => p.lng).join(','),
+          current: 'temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m',
+          wind_speed_unit: 'kmh',
+        },
+        timeout: REQUEST_TIMEOUT_MS,
+      });
+      const weather = parseOpenMeteoBatch(response.data, points.length);
+      const readings = weather.map((w): WeatherReading => ({ weather: w, provider: 'open-meteo', notes }));
+      return { readings, notes, openMeteoAttempts, metCalls, limit: null };
+    } catch (err) {
+      notes.push(`open-meteo: ${describeHttpError(err)}`);
+      limit = openMeteoLimitOf(err);
+      // A daily or hourly limit will not lift in three seconds.
+      if (!isRetryable(err) || attempt === 1 || limit === 'day' || limit === 'hour') break;
+      await sleep(OPEN_METEO_RETRY_DELAY_MS);
+    }
+  }
+
+  const readings: (WeatherReading | null)[] = [];
+  for (const { lat, lng } of points) {
+    metCalls++;
+    try {
+      const response = await http.get(MET_NORWAY_URL, {
+        // MET asks for at most four decimals in coordinates.
+        params: { lat: Number(lat.toFixed(4)), lon: Number(lng.toFixed(4)) },
+        headers: { 'User-Agent': MET_NORWAY_USER_AGENT, Accept: 'application/json' },
+        timeout: REQUEST_TIMEOUT_MS,
+      });
+      readings.push({ weather: parseMetNorway(response.data, options.now), provider: 'met.no', notes: [...notes] });
+    } catch (err) {
+      notes.push(`met.no: ${describeHttpError(err)}`);
+      readings.push(null);
+    }
+  }
+  return { readings, notes, openMeteoAttempts, metCalls, limit };
+}
+
 export async function fetchWeatherWithFallback(
   lat: number,
   lng: number,
   http: WeatherHttp = axios,
   options: { now?: Date; sleep?: (ms: number) => Promise<void> } = {}
 ): Promise<WeatherReading> {
-  const sleep = options.sleep ?? defaultSleep;
-  const notes: string[] = [];
-
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const response = await http.get(OPEN_METEO_URL, {
-        params: {
-          latitude: lat,
-          longitude: lng,
-          current: 'temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m',
-          wind_speed_unit: 'kmh',
-        },
-        timeout: REQUEST_TIMEOUT_MS,
-      });
-      return { weather: parseOpenMeteo(response.data), provider: 'open-meteo', notes };
-    } catch (err) {
-      notes.push(`open-meteo: ${describeHttpError(err)}`);
-      if (!isRetryable(err) || attempt === 1) break;
-      await sleep(OPEN_METEO_RETRY_DELAY_MS);
-    }
-  }
-
-  try {
-    const response = await http.get(MET_NORWAY_URL, {
-      // MET asks for at most four decimals in coordinates.
-      params: { lat: Number(lat.toFixed(4)), lon: Number(lng.toFixed(4)) },
-      headers: { 'User-Agent': MET_NORWAY_USER_AGENT, Accept: 'application/json' },
-      timeout: REQUEST_TIMEOUT_MS,
-    });
-    return { weather: parseMetNorway(response.data, options.now), provider: 'met.no', notes };
-  } catch (err) {
-    notes.push(`met.no: ${describeHttpError(err)}`);
-  }
-
-  throw new Error(`Weather unavailable (${notes.join('; ')})`);
+  const batch = await fetchWeatherBatch([{ lat, lng }], http, options);
+  const reading = batch.readings[0];
+  if (!reading) throw new Error(`Weather unavailable (${batch.notes.join('; ')})`);
+  return reading;
 }

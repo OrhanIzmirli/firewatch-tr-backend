@@ -15,7 +15,7 @@ const detectionStatus_1 = require("./detectionStatus");
 const nearbyFireCount_1 = require("./nearbyFireCount");
 const provinces_1 = require("./provinces");
 const riskScore_1 = require("./riskScore");
-const weatherProviders_1 = require("./weatherProviders");
+const weatherSource_1 = require("./weatherSource");
 /**
  * The FireWatch risk score at one point: "Konumum", a saved place, and the
  * alert for a saved place. Same formula as the regions (services/riskScore.ts);
@@ -32,7 +32,7 @@ const weatherProviders_1 = require("./weatherProviders");
 exports.NEARBY_RISK_RADIUS_KM = 50;
 exports.POINT_RISK_CACHE_SECONDS = 15 * 60;
 function roundToPointGrid(value) {
-    return Math.round(value * 10) / 10;
+    return (0, weatherSource_1.roundToWeatherGrid)(value);
 }
 function nearbyIncidentCountSql() {
     return `SELECT count(*)::int AS n
@@ -63,9 +63,9 @@ async function loadNearbyIncidentCount(db, lat, lng) {
         return null;
     }
 }
-function defaultPointRiskDeps(db) {
+function defaultPointRiskDeps(db, caller = 'point') {
     return {
-        weather: async (lat, lng) => (await (0, weatherProviders_1.fetchWeatherWithFallback)(lat, lng)).weather,
+        weather: async (lat, lng) => (await weatherSource_1.weatherSource.read(lat, lng, caller)).weather,
         nearby: (lat, lng) => loadNearbyIncidentCount(db, lat, lng),
         province: (lat, lng) => (0, provinces_1.resolveProvince)(db, lat, lng),
         cache: cacheService_1.default,

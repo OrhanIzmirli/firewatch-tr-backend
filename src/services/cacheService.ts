@@ -26,6 +26,19 @@ class CacheService {
     }
   }
 
+  /** Adds to a counter and returns the new total, or null without Redis. */
+  async increment(key: string, by: number, ttl: number): Promise<number | null> {
+    if (!redisClient) return null;
+    try {
+      const total = await redisClient.incrby(key, by);
+      await redisClient.expire(key, ttl);
+      return total;
+    } catch (error) {
+      console.error('Cache increment error:', error);
+      return null;
+    }
+  }
+
   async delete(key: string): Promise<boolean> {
     if (!redisClient) return false;
     try {

@@ -2,7 +2,8 @@ import cron from 'node-cron';
 import pool from '../config/database';
 import cacheService from '../services/cacheService';
 import { RegionFireStats, loadRegionFireStats } from '../services/nearbyFireCount';
-import { WeatherData, fetchWeatherWithFallback } from '../services/weatherProviders';
+import type { WeatherData } from '../services/weatherProviders';
+import { weatherCellKey, weatherSource } from '../services/weatherSource';
 import notificationService from '../services/notificationService';
 import { multipleDetectionsAlertText, riskAlertText } from '../services/alertText';
 import { regionKeyForCoordinates, regionKeyForRegionName } from '../utils/regions';
@@ -17,8 +18,6 @@ const REGIONS = [
   { name: 'Dogu Anadolu', display: 'Doğu Anadolu', lat: 39.9, lng: 41.27 },
   { name: 'Guneydogu Anadolu', display: 'Güneydoğu Anadolu', lat: 37.07, lng: 37.38 },
 ];
-
-const CACHE_TTL = 300; // 5 dakika
 
 type Region = typeof REGIONS[number];
 
@@ -50,9 +49,15 @@ class RiskCalculatorJob {
       return;
     }
 
+    // All regions in one request. A region with no reading gets no row, so
+    // the published score ages and is marked stale instead of being invented.
+    const readings = await weatherSource.readMany(REGIONS, 'regions');
+
     for (const region of REGIONS) {
       try {
-        const weather = await this.fetchWeather(region.lat, region.lng);
+        const reading = readings.get(weatherCellKey(region.lat, region.lng));
+        if (!reading) throw new Error('weather unavailable from every provider');
+        const weather = reading.weather;
         const fireStats = this.fireStatsFor(region, fireStatsByRegion);
         const risk = calculateRisk(weather, fireStats.incidents);
 
@@ -92,26 +97,6 @@ class RiskCalculatorJob {
 
     await cacheService.delete('risk:summary');
     console.log('Risk calculator completed');
-  }
-
-  private async fetchWeather(lat: number, lng: number): Promise<WeatherData> {
-    const cacheKey = `weather:${lat}:${lng}`;
-    const cached = await cacheService.get<WeatherData>(cacheKey);
-    if (cached) {
-      console.log(`Cache HIT: ${cacheKey}`);
-      return cached;
-    }
-
-    // Open-Meteo first, MET Norway when it is rate-limited or down
-    // (services/weatherProviders.ts). A fallback answer is logged so the
-    // 429 streaks stay visible even though the row still gets written.
-    const reading = await fetchWeatherWithFallback(lat, lng);
-    if (reading.notes.length > 0) {
-      console.warn(`Weather ${lat},${lng} from ${reading.provider} after: ${reading.notes.join('; ')}`);
-    }
-
-    await cacheService.set(cacheKey, reading.weather, CACHE_TTL);
-    return reading.weather;
   }
 
   private fireStatsFor(region: Region, stats: Map<string, RegionFireStats>): RegionFireStats {
