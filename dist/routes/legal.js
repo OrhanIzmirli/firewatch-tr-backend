@@ -85,7 +85,7 @@ const privacyTr = `
 <ul>
   <li><strong>CARTO ve OpenStreetMap</strong> — harita karoları (görüntülediğiniz harita bölgesi)</li>
   <li><strong>Google Fonts</strong> — yazı tipleri</li>
-  <li><strong>Copernicus EFFIS/GWIS</strong> — yangın hava indeksi; bir yerin indeksine baktığınızda o yerin koordinatları gönderilir. Bu gösterge FireWatch risk puanından ayrıdır ve puana katılmaz</li>
+  <li><strong>Copernicus EFFIS/GWIS</strong> — yangın hava indeksi; Konumum'da ya da bir yerin analizinde indeksi göstermek için yaklaşık 10 km'ye yuvarlanmış koordinatlar gönderilir. Bu gösterge FireWatch risk puanından ayrıdır ve puana katılmaz</li>
   <li><strong>Open-Meteo</strong> — bir yangının bulunduğu noktadaki rüzgâr (sizin konumunuz değil, yangının konumu gönderilir)</li>
 </ul>
 <p>Yangın ve termal tespit verileri (NASA FIRMS) ile risk hesabındaki hava durumu (Open-Meteo, MET Norway) sunucumuz tarafından çekilir; bu isteklerde sizinle ilgili veri yoktur. "Paylaş" düğmesiyle gönderdiğiniz içerik seçtiğiniz uygulamaya gider ve sunucumuzdan geçmez.</p>
@@ -152,7 +152,7 @@ const privacyEn = `
 <ul>
   <li><strong>CARTO and OpenStreetMap</strong> — map tiles (the map area you view)</li>
   <li><strong>Google Fonts</strong> — fonts</li>
-  <li><strong>Copernicus EFFIS/GWIS</strong> — fire weather index; when you look up the index for a place, that place's coordinates are sent. This indicator is separate from the FireWatch risk score and does not feed into it</li>
+  <li><strong>Copernicus EFFIS/GWIS</strong> — fire weather index; to show the index on My Location or a place's analysis, coordinates rounded to about 10 km are sent. This indicator is separate from the FireWatch risk score and does not feed into it</li>
   <li><strong>Open-Meteo</strong> — wind at a fire's location (the fire's location is sent, not yours)</li>
 </ul>
 <p>Fire and thermal detections (NASA FIRMS) and the weather used for risk scoring (Open-Meteo, MET Norway) are fetched by our server; those requests contain no data about you. Content you send with a "Share" button goes to the app you choose and does not pass through our server.</p>
