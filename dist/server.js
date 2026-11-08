@@ -52,6 +52,8 @@ const pipelineHealth_1 = __importDefault(require("./routes/pipelineHealth"));
 const lossSummary_1 = __importDefault(require("./routes/lossSummary"));
 const history_1 = __importDefault(require("./routes/history"));
 const legal_1 = __importDefault(require("./routes/legal"));
+const pointRisk_1 = require("./routes/pointRisk");
+const pointRisk_2 = require("./services/pointRisk");
 const places_1 = __importDefault(require("./routes/places"));
 const security_1 = require("./middleware/security");
 const newsScraperJob_1 = __importStar(require("./jobs/newsScraperJob"));
@@ -230,6 +232,7 @@ app.get('/api/admin/clean-news', security_1.requireAdminToken, async (req, res) 
         res.status(500).json({ status: 'error', message: 'Admin operation failed' });
     }
 });
+app.use('/api/risk', (0, pointRisk_1.pointRiskRouter)(() => (0, pointRisk_2.defaultPointRiskDeps)(database_1.default)));
 // Risk verisi endpoint
 app.get('/api/risk/summary', async (req, res) => {
     try {

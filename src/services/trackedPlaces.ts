@@ -215,33 +215,39 @@ export function buildHeatSummaryText(locale: Locale, count: number): HeatAlertTe
   };
 }
 
-const RISK_CLASS_LABELS: Record<Locale, Record<number, string>> = {
-  tr: { 3: 'Yüksek', 4: 'Çok yüksek', 5: 'Aşırı' },
-  en: { 3: 'High', 4: 'Very high', 5: 'Extreme' },
+const RISK_LEVEL_LABELS: Record<Locale, readonly string[]> = {
+  tr: ['Düşük', 'Orta', 'Yüksek', 'Kritik'],
+  en: ['Low', 'Medium', 'High', 'Critical'],
 };
 
 /**
- * The daily fire-danger alert for a place. It is a weather-based forecast,
- * so it must not read like a detection. `extra` is how many more of this
- * device's places reached High or above in the same check.
+ * The alert for a place whose risk level rose. The score is an index from
+ * weather and nearby detections, so it must not read like a detected fire.
+ * `extra` is how many more of this device's places rose in the same check.
  */
-export function buildRiskAlertText(locale: Locale, placeName: string, fwiClass: number, extra: number): HeatAlertText {
-  const label = RISK_CLASS_LABELS[locale][fwiClass] ?? RISK_CLASS_LABELS[locale][3];
+export function buildRiskAlertText(
+  locale: Locale,
+  placeName: string,
+  level: number,
+  score: number,
+  extra: number
+): HeatAlertText {
+  const label = RISK_LEVEL_LABELS[locale][level] ?? RISK_LEVEL_LABELS[locale][2];
   if (locale === 'en') {
     const more = extra > 0 ? ` (+${extra} more of your places)` : '';
     return {
-      title: `⚠️ ${placeName}: fire danger ${label}`,
+      title: `⚠️ ${placeName}: fire risk ${label}`,
       body:
-        `Today's fire weather danger for "${placeName}" is ${label}${more}. ` +
-        'This is a weather forecast, not a detected fire. Do not light fires outdoors.',
+        `The fire risk score for "${placeName}" is ${score}/100${more}. ` +
+        'It is an index from weather and satellite detections, not a detected fire. Do not light fires outdoors.',
     };
   }
   const more = extra > 0 ? ` (yerlerinden +${extra} tanesi daha)` : '';
   return {
-    title: `⚠️ ${placeName}: yangın tehlikesi ${label}`,
+    title: `⚠️ ${placeName}: yangın riski ${label}`,
     body:
-      `"${placeName}" için bugünkü yangın hava tehlikesi ${label} düzeyinde${more}. ` +
-      'Bu bir hava tahminidir, tespit edilmiş yangın değildir. Açık alanda ateş yakmayın.',
+      `"${placeName}" için yangın risk puanı ${score}/100${more}. ` +
+      'Bu, hava koşulları ve uydu tespitlerinden hesaplanan bir endekstir, tespit edilmiş yangın değildir. Açık alanda ateş yakmayın.',
   };
 }
 
