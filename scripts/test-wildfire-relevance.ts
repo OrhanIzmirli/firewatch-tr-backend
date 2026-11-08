@@ -144,7 +144,7 @@ b('newsService filters getAllNews and getNewsCount, and deletes nothing', () => 
 });
 b('scraper and clean-news use the same checkRelevance', () => {
   const job = readFileSync(join(__dirname, '../src/jobs/newsScraperJob.ts'), 'utf8');
-  assert.match(job, /import \{ RelevanceResult, checkRelevance \} from '\.\.\/utils\/newsRelevance'/);
+  assert.match(job, /import \{ RelevanceResult, checkRelevance, isGreenStory \} from '\.\.\/utils\/newsRelevance'/);
   assert.match(job, /export \{ checkRelevance \}/);
   assert.ok(!/const BLOCKED_KEYWORDS/.test(job), 'keyword lists must live only in utils/newsRelevance.ts');
 });
