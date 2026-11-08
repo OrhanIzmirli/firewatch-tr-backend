@@ -79,12 +79,24 @@ const TURKEY_RE = [
 const PROVINCE_RE = compile(PROVINCES);
 const DISPLAY: Record<string, string> = { afyon: 'afyonkarahisar', 'hakkâri': 'hakkari' };
 
-/** The province a headline names, in its usual spelling, or null. */
+/** "Bursa'dan destek" is where the help came from, not where the fire is. */
+const FROM_SUFFIX = /['’](dan|den|tan|ten)(?![a-zçğıöşü])/;
+
+/**
+ * The province a headline is about, in its usual spelling. Null when it
+ * names none or several: a story about two provinces has no single picture.
+ */
 export function provinceInTitle(title: string): string | null {
   const text = turkishToLower(title);
-  const hit = PROVINCE_RE.find(({ re }) => re.test(text));
-  if (!hit) return null;
-  const w = DISPLAY[hit.w] ?? hit.w;
+  const found = new Set<string>();
+  for (const { w, re } of PROVINCE_RE) {
+    const m = re.exec(text);
+    if (!m) continue;
+    if (FROM_SUFFIX.test(text.slice(m.index + m[0].length, m.index + m[0].length + 5))) continue;
+    found.add(DISPLAY[w] ?? w);
+  }
+  if (found.size !== 1) return null;
+  const w = [...found][0];
   return (w[0] === 'i' ? 'İ' : w[0] === 'ı' ? 'I' : w[0].toUpperCase()) + w.slice(1);
 }
 

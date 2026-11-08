@@ -43,25 +43,37 @@ export function placesIn(title: string, province: string): Set<string> {
 
 const disagree = (a: Set<string>, b: Set<string>) => a.size > 0 && b.size > 0 && ![...a].some((p) => b.has(p));
 
+/** A forest fire and a stubble fire in one province are two events. */
+export function fireKind(title: string): 'forest' | 'field' | null {
+  const t = turkishToLower(title);
+  if (/orman/.test(t)) return 'forest';
+  if (/otluk|anız|tarla|ot yangın|çöp/.test(t)) return 'field';
+  return null;
+}
+
 /**
  * Groups headlines about one fire: same province, no gap over three days,
  * and no two different districts named. It would rather miss a link than
  * tell two fires' stories as one.
  */
 export function buildStories(news: StoryInput[]): Story[] {
-  const open: { province: string; last: number; places: Set<string>; items: StoryInput[] }[] = [];
+  const open: { province: string; last: number; places: Set<string>; kind: 'forest' | 'field' | null; items: StoryInput[] }[] = [];
   for (const n of [...news].sort((a, b) => a.published_at.getTime() - b.published_at.getTime())) {
     const province = provinceInTitle(n.title);
     if (!province) continue;
     const at = n.published_at.getTime();
     const places = placesIn(n.title, province);
-    const group = open.find((g) => g.province === province && at - g.last <= MAX_GAP_MS && !disagree(g.places, places));
+    const kind = fireKind(n.title);
+    const group = open.find(
+      (g) => g.province === province && at - g.last <= MAX_GAP_MS && !disagree(g.places, places) && (!g.kind || !kind || g.kind === kind)
+    );
     if (group) {
       group.items.push(n);
       group.last = at;
       places.forEach((p) => group.places.add(p));
+      group.kind = group.kind ?? kind;
     } else {
-      open.push({ province, last: at, places, items: [n] });
+      open.push({ province, last: at, places, kind, items: [n] });
     }
   }
   const order: StoryStage[] = ['started', 'controlled', 'out', 'restoration'];
