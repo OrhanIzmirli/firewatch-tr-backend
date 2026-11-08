@@ -1,3 +1,4 @@
+import { isGreenStory } from './newsKinds';
 import { turkishToLower } from './turkishText';
 import { assessWildfire } from './wildfireRelevance';
 import { assessTurkey } from './newsGeography';
@@ -132,6 +133,8 @@ export type RelevanceResult = {
 // full text — blocking is inherently conservative, so checking the
 // summary too only ever removes more off-topic content, never loses a
 // genuine match.
+export { isGreenStory };
+
 export function checkRelevance(title: string, fullText: string): RelevanceResult {
   const titleLower = turkishToLower(title).trim();
   const fullLower = turkishToLower(fullText).trim();
@@ -165,7 +168,7 @@ export function checkRelevance(title: string, fullText: string): RelevanceResult
  */
 export function isInFiresFeed(row: { title?: string | null; summary?: string | null }): boolean {
   const title = row.title ?? '';
-  return checkRelevance(title, `${title} ${row.summary ?? ''}`).relevant;
+  return checkRelevance(title, `${title} ${row.summary ?? ''}`).relevant || isGreenStory(title);
 }
 
 /**

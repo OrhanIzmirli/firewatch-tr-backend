@@ -118,12 +118,12 @@ async function fetchRSS(url) {
 class NewsScraperJob {
     start() {
         console.log('🔥 News Scraper Job starting...');
-        node_cron_1.default.schedule('0 */6 * * *', async () => {
+        node_cron_1.default.schedule('0 */2 * * *', async () => {
             await this.runScraper();
         });
-        this.runScraper();
+        this.runScraper(true);
     }
-    async runScraper() {
+    async runScraper(includeOfficial = false) {
         const startedAt = new Date();
         console.log('🔍 Running news scraper at:', new Date().toISOString());
         let totalAdded = 0;
@@ -136,10 +136,12 @@ class NewsScraperJob {
             foreign: 0,
             ok: 0,
         };
+        const rssCounts = {};
         const headlines = [];
         for (const source of newsSources_1.RSS_SOURCES) {
             const items = await fetchRSS(source.url);
             console.log(`📰 ${source.source}: ${items.length} items found`);
+            rssCounts[source.source] = items.length;
             for (const item of items) {
                 headlines.push({
                     title: String(item.title || ''),
@@ -152,7 +154,11 @@ class NewsScraperJob {
                 });
             }
         }
-        for (const h of [...(await (0, newsFetchers_1.fetchGdeltHeadlines)()), ...(await (0, newsFetchers_1.fetchAfadHeadlines)())]) {
+        const gdelt = await (0, newsFetchers_1.fetchGdeltHeadlines)();
+        // Official pages change slowly: every third run is enough.
+        const official = includeOfficial || new Date().getUTCHours() % 6 < 2 ? await (0, newsFetchers_1.fetchOfficialHeadlines)() : { headlines: [], failed: 0 };
+        const bySource = { gdelt: gdelt.headlines.length, official: official.headlines.length, official_failed: official.failed };
+        for (const h of [...gdelt.headlines, ...official.headlines]) {
             headlines.push({ title: h.title, text: '', link: h.link, source: h.source, region: null, at: h.publishedAt });
         }
         totalFetched = headlines.length;
@@ -189,6 +195,9 @@ class NewsScraperJob {
             fetched: totalFetched,
             passed: filterCounts.ok,
             added: totalAdded,
+            gdelt_status: gdelt.status,
+            gdelt_raw: gdelt.raw,
+            by_source: { ...rssCounts, ...bySource },
         });
         console.log(`✅ Scraper done. Fetched: ${totalFetched} | Passed whitelist: ${filterCounts.ok} | Added (new): ${totalAdded}`);
         console.log(`   Filter breakdown — no must-have keyword in title: ${filterCounts.no_must_have}, ` +

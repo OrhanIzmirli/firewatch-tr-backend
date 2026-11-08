@@ -77,7 +77,7 @@ const privacyTr = `
   <li><strong>İlerleme verisi:</strong> seri, XP, elmalar, tamamlanan dersler, işaretlenen günler ve ağacınızın durumu, Cloud Firestore'da yalnızca sizin erişebildiğiniz bir belgede saklanır. Hesabınızı silene kadar tutulur.</li>
   <li><strong>Karışmayanlar:</strong> konumunuz, Yerlerim, ihbarlarınız ve bildirim tercihleriniz bu hesaba ve belgeye yazılmaz.</li>
 </ul>
-<p><strong>Doğa notları kanalı:</strong> Fidan hatırlatmasını açarsanız seçtiğiniz saatte telefonunuz "Doğa notları" adlı ayrı bir bildirim kanalından size hatırlatma gösterir. Bu bildirim telefonda planlanır, sunucumuza bir şey gönderilmez. O günün görevini yaptıysanız gönderilmez; kanalı istediğiniz an kapatabilirsiniz.</p>
+<p><strong>Doğa notları kanalı:</strong> Uygulama haftada 2-3 kısa doğa bilgisini ve açtıysanız Fidan hatırlatmasını "Doğa notları" adlı ayrı bir bildirim kanalından gösterir. Bu bildirimler telefonda planlanır, sunucumuza bir şey gönderilmez; yangın uyarılarından ayrıdır. Ayarlar'dan veya telefonunuzun bildirim ayarlarından kapatabilirsiniz.</p>
 <p>Uygulama genel kitleye yöneliktir. 13 yaşından küçükseniz bir yetişkinle birlikte kullanın.</p>
 <p>Dil ve bildirim tercihleri, haritadaki il/ilçe kısayollarınız, izleme listeniz ve uygulama içi uyarı kutunuz telefonunuzda saklanır; bize gönderilmez. Uygulamayı kaldırdığınızda silinir.</p>
 
@@ -102,7 +102,7 @@ const privacyTr = `
 <p>Yangın ve termal tespit verileri (NASA FIRMS) ile risk hesabındaki hava durumu (Open-Meteo, MET Norway) sunucumuz tarafından çekilir; bu isteklerde sizinle ilgili veri yoktur. "Paylaş" düğmesiyle gönderdiğiniz içerik seçtiğiniz uygulamaya gider ve sunucumuzdan geçmez.</p>
 <p><strong>Veri kaynakları ve atıflar:</strong> Adres araması <a href="https://nominatim.openstreetmap.org/">Nominatim</a> ile yapılır; veriler © OpenStreetMap katkıcıları, ODbL. İl sınırları (haritadaki "Geçmiş yıllar" katmanı ve tespitlerin hangi ile atandığı) <a href="https://www.geoboundaries.org/">geoBoundaries</a> (gbOpen, TUR ADM1) üzerinden OpenStreetMap verisinden türetilmiştir — <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap katkıcıları</a>, <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>. Uydu tespitleri NASA FIRMS; hava verisi Open-Meteo ve MET Norway. Bu veriler cihazınızdan bilgi içermez.</p>
 
-<p><strong>Haber ve görüntü kaynakları:</strong> Haberlerde yalnızca başlık, kaynak adı ve kaynağa bağlantı gösterilir. Başlıklar yayıncıların RSS beslemelerinden, AFAD'dan ve <a href="https://www.gdeltproject.org/">The GDELT Project</a> verisinden gelir. We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS).</p>
+<p><strong>Haber ve görüntü kaynakları:</strong> Haberlerde yalnızca başlık, kaynak adı ve kaynağa bağlantı gösterilir. Başlıklar yayıncıların RSS beslemelerinden, OGM, AFAD ve valiliklerin duyurularından ve <a href="https://www.gdeltproject.org/">The GDELT Project</a> verisinden gelir. We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS).</p>
 
 <h2>Haklarınız ve verilerinizi silme</h2>
 <ul>
@@ -158,7 +158,7 @@ const privacyEn = `
   <li><strong>Progress data:</strong> streak, XP, apples, finished lessons, marked days and tree state are stored in Cloud Firestore in a document only you can access. It is kept until you delete your account.</li>
   <li><strong>Kept apart:</strong> your location, My Places, reports and notification preferences are never written to this account or document.</li>
 </ul>
-<p><strong>Nature notes channel:</strong> if you turn on the Fidan reminder, your phone shows it at the time you chose, through a separate notification channel called "Nature notes". It is scheduled on the phone and nothing is sent to our server. It is not sent on a day you have already done the task, and you can turn the channel off at any time.</p>
+<p><strong>Nature notes channel:</strong> the app shows 2-3 short nature facts a week and, if you turned it on, the Fidan reminder, through a separate notification channel called "Nature notes". They are scheduled on the phone and nothing is sent to our server; they are separate from fire alerts. You can turn them off in Settings or in your phone's notification settings.</p>
 <p>The app is for a general audience. If you are under 13, use it with an adult.</p>
 <p>Language and notification preferences, your province/district map shortcuts, your watchlist and the in-app alert inbox are stored on your phone and never sent to us. They are removed when you uninstall the app.</p>
 
@@ -183,7 +183,7 @@ const privacyEn = `
 <p>Fire and thermal detections (NASA FIRMS) and the weather used for risk scoring (Open-Meteo, MET Norway) are fetched by our server; those requests contain no data about you. Content you send with a "Share" button goes to the app you choose and does not pass through our server.</p>
 <p><strong>Data sources and attribution:</strong> Address search uses <a href="https://nominatim.openstreetmap.org/">Nominatim</a>; data © OpenStreetMap contributors, ODbL. Province boundaries (the map's "Past years" layer and the province a detection is assigned to) are derived from OpenStreetMap data via <a href="https://www.geoboundaries.org/">geoBoundaries</a> (gbOpen, TUR ADM1) — <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>, <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>. Satellite detections: NASA FIRMS; weather: Open-Meteo and MET Norway. None of this contains information from your device.</p>
 
-<p><strong>News and image sources:</strong> News shows only the headline, the source's name and a link to the source. Headlines come from publishers' RSS feeds, AFAD and <a href="https://www.gdeltproject.org/">The GDELT Project</a> data. We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS).</p>
+<p><strong>News and image sources:</strong> News shows only the headline, the source's name and a link to the source. Headlines come from publishers' RSS feeds, announcements of OGM, AFAD and governorships, and <a href="https://www.gdeltproject.org/">The GDELT Project</a> data. We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS).</p>
 
 <h2>Your rights and deleting your data</h2>
 <ul>
