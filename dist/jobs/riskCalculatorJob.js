@@ -9,6 +9,7 @@ const cacheService_1 = __importDefault(require("../services/cacheService"));
 const nearbyFireCount_1 = require("../services/nearbyFireCount");
 const weatherProviders_1 = require("../services/weatherProviders");
 const notificationService_1 = __importDefault(require("../services/notificationService"));
+const alertText_1 = require("../services/alertText");
 const regions_1 = require("../utils/regions");
 const REGIONS = [
     { name: 'Ege', display: 'Ege', lat: 38.42, lng: 27.14 },
@@ -67,7 +68,7 @@ class RiskCalculatorJob {
                 console.log(`OK ${region.name}: Score=${risk.score}, Temp=${weather.temperature}, Hum=${weather.humidity}, Wind=${weather.windSpeed}, Fire=${fireStats.incidents} (db, 24h), HighConf=${fireStats.highConfidence}`);
                 // Best-effort: a notification failure must never take down the
                 // calculator loop or skip the risk_data row already just written.
-                await this.maybeSendRiskAlert(region, risk).catch((err) => console.error(`Risk alert failed for ${region.name}:`, err.message));
+                await this.maybeSendRiskAlert(region, risk, weather).catch((err) => console.error(`Risk alert failed for ${region.name}:`, err.message));
                 await this.maybeSendCriticalFireAlert(region, fireStats.highConfidence).catch((err) => console.error(`Critical alert failed for ${region.name}:`, err.message));
             }
             catch (error) {
@@ -152,7 +153,7 @@ class RiskCalculatorJob {
          )`, [region.lng, region.lat, RiskCalculatorJob.REGION_RADIUS_METERS, regionKey, cityIds]);
         return result.rows.map((row) => row.token);
     }
-    async maybeSendRiskAlert(region, risk) {
+    async maybeSendRiskAlert(region, risk, weather) {
         if (risk.score < RISK_ALERT_THRESHOLD)
             return;
         const cacheKey = `notif:region:${region.name}`;
@@ -161,7 +162,14 @@ class RiskCalculatorJob {
         const tokens = await this.getActiveTokensNearRegion(region);
         if (tokens.length === 0)
             return;
-        await notificationService_1.default.sendToTokens(tokens, `🔥 Yüksek Yangın Riski - ${region.display}`, `Risk skoru: ${risk.score}/100. Sıcaklık yüksek, nem düşük. Dikkatli olun.`);
+        const text = (0, alertText_1.riskAlertText)({
+            regionDisplay: region.display,
+            score: risk.score,
+            temperature: weather.temperature,
+            humidity: weather.humidity,
+            windSpeed: weather.windSpeed,
+        });
+        await notificationService_1.default.sendToTokens(tokens, text.title, text.body);
         await cacheService_1.default.set(cacheKey, true, RISK_ALERT_TTL_SECONDS);
     }
     async maybeSendCriticalFireAlert(region, highConfidenceCount) {
@@ -173,7 +181,8 @@ class RiskCalculatorJob {
         const tokens = await this.getActiveTokensNearRegion(region);
         if (tokens.length === 0)
             return;
-        await notificationService_1.default.sendToTokens(tokens, '🚨 Kritik: Çoklu Yangın Tespiti', `${highConfidenceCount} yüksek güvenilirlikli termal nokta tespit edildi - ${region.display}`);
+        const text = (0, alertText_1.multipleDetectionsAlertText)(region.display, highConfidenceCount);
+        await notificationService_1.default.sendToTokens(tokens, text.title, text.body);
         await cacheService_1.default.set(cacheKey, true, CRITICAL_ALERT_TTL_SECONDS);
     }
     calculateRisk(weather, fireCount) {

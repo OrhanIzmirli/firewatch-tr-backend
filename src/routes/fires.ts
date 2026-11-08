@@ -6,6 +6,13 @@ import { rateLimit, requireAdminToken } from '../middleware/security';
 import { regionKeyForRegionName } from '../utils/regions';
 import { resolveProvince, resolveProvinces } from '../services/provinces';
 
+import {
+  REPORT_MATCH_RADIUS_M,
+  REPORT_MATCH_WINDOW_HOURS,
+  reportResultMessage,
+  reportSatelliteMatchSql,
+} from '../services/reportSatelliteMatch';
+
 const router = Router();
 
 // GET /api/fires - Get all fires
@@ -236,24 +243,19 @@ router.post('/report', rateLimit('fire-report', 5, 60 * 60_000), async (req: Req
     const city = province?.name ?? 'Bilinmiyor';
     const region = province?.region ?? 'Türkiye';
 
-    // NASA ile doğrulama — 10km içinde termal nokta var mı?
-    // fires tablosunda PostGIS geometry varsa kullan, yoksa basit hesap
+    // 10 km içinde son 24 saatte uydu ısı tespiti var mı?
+    // (services/reportSatelliteMatch.ts)
     let verified = false;
     let nasaCount = 0;
     try {
       const nasaResult = await pool.query(
-        `SELECT COUNT(*) as count FROM fires
-         WHERE ST_DWithin(
-           ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
-           ST_SetSRID(ST_MakePoint(longitude::float, latitude::float), 4326)::geography,
-           10000
-         )`,
-        [lng, lat]
+        reportSatelliteMatchSql(),
+        [lng, lat, REPORT_MATCH_RADIUS_M, REPORT_MATCH_WINDOW_HOURS]
       );
       nasaCount = parseInt(nasaResult.rows[0]?.count ?? '0');
       verified = nasaCount > 0;
     } catch (_) {
-      // fires tablosunda geometry yoksa doğrulama atla
+      // Eşleşme denenemedi; rapor yine kaydedilir.
       verified = false;
     }
 
@@ -288,9 +290,7 @@ router.post('/report', rateLimit('fire-report', 5, 60 * 60_000), async (req: Req
         photo_count: photoUrls.length,
         created_at: result.rows[0].created_at,
         nasa_nearby: nasaCount,
-        message: verified
-          ? '✅ NASA verisiyle doğrulandı — bölgede termal aktivite mevcut'
-          : '⏳ Rapor alındı — NASA eşleşmesi yok, manuel inceleme bekliyor',
+        message: reportResultMessage(verified),
       },
     });
   } catch (error) {
