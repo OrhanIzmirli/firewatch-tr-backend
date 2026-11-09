@@ -35,8 +35,8 @@ ${body}
 // step: rounding, erasure and log redaction in utils/locationPrivacy.ts and
 // controllers/notificationController.ts, the 90-day deletion in
 // jobs/privacyRetentionJob.ts.
-const POLICY_DATE_TR = '8 Kasım 2026';
-const POLICY_DATE_EN = 'November 8, 2026';
+const POLICY_DATE_TR = '9 Kasım 2026';
+const POLICY_DATE_EN = 'November 9, 2026';
 const privacyTr = `
 <h1>FireWatch TR — Gizlilik Politikası</h1>
 <p class="updated">Son güncelleme: ${POLICY_DATE_TR}</p>
@@ -48,18 +48,18 @@ const privacyTr = `
 <table>
 <tr><th>Veri</th><th>Ne zaman ve neden</th><th>Ne kadar süre</th></tr>
 <tr><td>Yaklaşık konum (yaklaşık 1 km hassasiyetinde enlem/boylam)</td><td>Yalnızca konum izni verip bildirimler için otomatik taramayı başlattığınızda. Size bölgenizle ilgili yangın ve risk uyarıları gönderebilmek için. Tam konumunuz saklanmaz; sunucuya yazılmadan önce yaklaşık 1 km'ye yuvarlanır.</td><td>Bildirimler açık olduğu sürece. Bildirimleri kapattığınızda, uygulamada "Konum verimi sil"e dokunduğunuzda veya cihaz belirteciniz geçersizleştiğinde (ör. uygulamayı kaldırdığınızda) hemen silinir.</td></tr>
-<tr><td>Cihaz belirteci (Firebase Cloud Messaging token), bildirim kapsamı tercihi (tüm Türkiye / bölge / il), kayıt ve güncelleme zamanı</td><td>Bildirim gönderebilmek ve seçtiğiniz kapsama uymak için. Uygulama her açıldığında belirteci yeniler.</td><td>Uygulamayı son açışınızdan itibaren 90 gün; sonra kayıt tamamen silinir. Uygulamayı yeniden açtığınızda yeni kayıt oluşur.</td></tr>
-<tr><td>Yerlerim: verdiğiniz ad, yaklaşık 1 km'ye yuvarlanmış konum, yarıçap (5/10/25 km), iki bildirim tercihi (yeni ısı tespiti, yangın riski), o yer için son risk seviyesi; bu yerler için gönderilen ve bildirim sınırı nedeniyle sonraki bir özete bırakılan uyarıların kaydı (yer, tespit, zaman). Cihazınız hesapla değil, uygulamanın ürettiği rastgele bir kimlikle tanınır; sunucuda bu kimliğin yalnızca gizli anahtarının özeti (hash) tutulur.</td><td>Yalnızca "Yerlerim"e yer eklediğinizde. Yarıçap içinde yeni uydu ısı tespiti olduğunda ya da o yerin yangın riski Yüksek veya Kritik seviyesine çıktığında (günde en fazla bir kez, açılıp kapatılabilir) size bildirim göndermek ve aynı olay için ikinci bildirim göndermemek için.</td><td>Siz silene kadar. Uygulamayı 90 gün açmazsanız ya da cihaz belirteciniz 7 gündür geçersizse tüm yerleriniz silinir. Uyarı kayıtları 30 gün sonra silinir.</td></tr>
+<tr><td>Cihaz belirteci (Firebase Cloud Messaging token), uygulama sürümü, bildirim kapsamı tercihi (tüm Türkiye / bölge / il), kayıt ve güncelleme zamanı</td><td>Bildirim gönderebilmek ve seçtiğiniz kapsama uymak için. Uygulama her açıldığında belirteci yeniler.</td><td>Uygulamayı son açışınızdan itibaren 90 gün; sonra kayıt tamamen silinir. Uygulamayı yeniden açtığınızda yeni kayıt oluşur.</td></tr>
+<tr><td>Yerlerim: verdiğiniz ad, yaklaşık 1 km'ye yuvarlanmış konum, yarıçap (5/10/25 km), iki bildirim tercihi (yeni ısı tespiti, yangın riski), uygulama dili, o yer için son risk seviyesi; bu yerler için gönderilen ve bildirim sınırı nedeniyle sonraki bir özete bırakılan uyarıların kaydı (yer, tespit, zaman). Cihazınız hesapla değil, uygulamanın ürettiği rastgele bir kimlikle tanınır; sunucuda bu kimliğin yalnızca gizli anahtarının özeti (hash) tutulur.</td><td>Yalnızca "Yerlerim"e yer eklediğinizde. Yarıçap içinde yeni uydu ısı tespiti olduğunda ya da o yerin yangın riski Yüksek veya Kritik seviyesine çıktığında (günde en fazla bir kez, açılıp kapatılabilir) size bildirim göndermek ve aynı olay için ikinci bildirim göndermemek için.</td><td>Siz silene kadar. Uygulamayı 90 gün açmazsanız ya da cihaz belirteciniz 7 gündür geçersizse tüm yerleriniz silinir. Uyarı kayıtları 30 gün sonra silinir.</td></tr>
 <tr><td>Yer araması: "Yerlerim"de yazdığınız arama metni</td><td>Yalnızca "Ara"ya bastığınızda ve mahalle veya adres aranıyorsa. Sonucu bulmak için sunucumuz aracılığıyla OpenStreetMap Nominatim'e iletilir; IP adresiniz ve cihaz kimliğiniz Nominatim'e gönderilmez. İl ve ilçe aramaları telefonunuzda yapılır, gönderilmez.</td><td>Arama metni kaydedilmez ve kayıtlara yazılmaz. Sonuçlar, aynı aramayı tekrarlamamak için metnin geri çevrilemez özetiyle (hash) en fazla 7 gün önbellekte tutulur.</td></tr>
-<tr><td>Yangın ihbarı: yaklaşık 1 km'ye yuvarlanmış konum, başlık, açıklama, isteğe bağlı ad ve en fazla 3 fotoğraf</td><td>Yalnızca ihbar gönderdiğinizde. İhbarı incelemek ve uydu tespitleriyle karşılaştırmak için.</td><td>90 gün; sonra fotoğraflarıyla birlikte silinir.</td></tr>
-<tr><td>Geri bildirim: puan, kategori, mesaj, uygulama sürümü ve isteğe bağlı e-posta adresi</td><td>Yalnızca geri bildirim gönderdiğinizde. Uygulamayı geliştirmek ve isterseniz size dönebilmek için.</td><td>Silinmesini isteyene kadar.</td></tr>
+<tr><td>Yangın ihbarı: yaklaşık 1 km'ye yuvarlanmış konum, başlık, açıklama, isteğe bağlı ad ve en fazla 3 fotoğraf. Telefonunuz fotoğrafa konum bilgisi eklediyse bu bilgi fotoğrafla birlikte saklanabilir ve yuvarlanmaz.</td><td>Yalnızca ihbar gönderdiğinizde. İhbarı incelemek ve uydu tespitleriyle karşılaştırmak için.</td><td>90 gün; sonra fotoğraflarıyla birlikte silinir.</td></tr>
+<tr><td>Geri bildirim: puan, kategori, mesaj, uygulama sürümü, hata bildirimlerinde telefonun işletim sistemi ve sürümü, isteğe bağlı e-posta adresi</td><td>Yalnızca geri bildirim gönderdiğinizde. Uygulamayı geliştirmek ve isterseniz size dönebilmek için.</td><td>Silinmesini isteyene kadar.</td></tr>
 <tr><td>Sunucu erişim kayıtları: IP adresi, istek yolu, zaman, tarayıcı/uygulama bilgisi</td><td>Hizmeti çalıştırmak, hataları ve kötüye kullanımı tespit etmek için. Konum bilgisi bu kayıtlara yazılmaz.</td><td>Barındırma sağlayıcısının (Render) kısa süreli kayıt saklama süresi boyunca.</td></tr>
 </table>
 
 <h2>Konum nasıl kullanılır</h2>
 <ul>
   <li><strong>Cihazınızda:</strong> Size yakın tespitlere olan mesafe telefonunuzda hesaplanır.</li>
-  <li><strong>Noktasal risk:</strong> Konumum'da ya da bir yerin analizinde risk puanı sunucumuzda hesaplanır. Bunun için nokta yaklaşık 10 km'ye yuvarlanır; hava durumu bu yuvarlanmış noktayla Open-Meteo veya MET Norway'den alınır. Sonuç, yuvarlanmış noktayla en fazla 15 dakika önbellekte tutulur, veritabanına yazılmaz.</li>
+  <li><strong>Noktasal risk:</strong> Konumum'da ya da bir yerin analizinde risk puanı sunucumuzda hesaplanır. Bunun için nokta yaklaşık 10 km'ye yuvarlanır; hava durumu bu yuvarlanmış noktayla Open-Meteo veya MET Norway'den alınır ve en fazla 1 saat önbellekte tutulur. Sonuç, yuvarlanmış noktayla en fazla 15 dakika önbellekte tutulur, veritabanına yazılmaz.</li>
   <li><strong>En yakın il sorgusu:</strong> Bulunduğunuz ili göstermek için konumunuz sunucumuza gönderilir. Bu sorgudaki konum saklanmaz ve kayıtlara yazılmaz.</li>
   <li><strong>Bildirimler:</strong> Otomatik taramayı başlattığınızda yaklaşık konumunuz (yaklaşık 1 km) yukarıdaki tabloda yazdığı gibi saklanır.</li>
   <li><strong>Yerlerim:</strong> Aradığınız, haritadan seçtiğiniz ya da "Konumumu ekle" ile o anki konumunuzdan eklediğiniz noktalar yaklaşık 1 km'ye yuvarlanarak saklanır. Yeni tespitlerle eşleştirme sunucuda bu noktalara göre yapılır; bunun için cihazınızın konumu izlenmez.</li>
@@ -74,7 +74,7 @@ const privacyTr = `
 <p>Uygulamayı kullanmak için hesap gerekmez. İlerlemenizi telefonlar arasında taşımak için Google ile giriş yaparsanız:</p>
 <ul>
   <li><strong>Google hesabı:</strong> Firebase Authentication (Google) e-posta adresinizi, adınızı, profil fotoğrafı bağlantınızı ve kullanıcı kimliğinizi hesabınızı yönetmek için işler. Firebase ayrıca güvenlik için IP adresini ve cihaz/uygulama bilgisini işler.</li>
-  <li><strong>İlerleme verisi:</strong> seri, XP, elmalar, tamamlanan dersler, işaretlenen günler ve ağacınızın durumu, Cloud Firestore'da yalnızca sizin erişebildiğiniz bir belgede saklanır. Hesabınızı silene kadar tutulur.</li>
+  <li><strong>İlerleme verisi:</strong> işaretlenen günler, tamamlanan dersler, tekrar edilen ders sayısı, paylaşım ve gözlem sayıları, en uzun seri ve güncelleme zamanı Cloud Firestore'da yalnızca sizin erişebildiğiniz bir belgede saklanır. Hesabınızı silene kadar tutulur.</li>
   <li><strong>Karışmayanlar:</strong> konumunuz, Yerlerim, ihbarlarınız ve bildirim tercihleriniz bu hesaba ve belgeye yazılmaz.</li>
 </ul>
 <p><strong>Doğa notları kanalı:</strong> Uygulama haftada 2-3 kısa doğa bilgisini ve açtıysanız Fidan hatırlatmasını "Doğa notları" adlı ayrı bir bildirim kanalından gösterir. Bu bildirimler telefonda planlanır, sunucumuza bir şey gönderilmez; yangın uyarılarından ayrıdır. Ayarlar'dan veya telefonunuzun bildirim ayarlarından kapatabilirsiniz.</p>
@@ -87,7 +87,8 @@ const privacyTr = `
   <li><strong>Render</strong> — sunucu barındırma ve erişim kayıtları</li>
   <li><strong>Neon</strong> — veritabanı (Frankfurt, Almanya)</li>
   <li><strong>Firebase Cloud Messaging (Google)</strong> — bildirimlerin cihazınıza iletilmesi (cihaz belirteci ve bildirim içeriği)</li>
-  <li><strong>Upstash</strong> — önbellek; kişisel veri tutulmaz</li>
+  <li><strong>Firebase Authentication ve Cloud Firestore (Google)</strong> — yalnız Google ile giriş yaparsanız hesabınız ve ilerleme belgeniz</li>
+  <li><strong>Upstash</strong> — önbellek; yuvarlanmış noktalar için kısa süreli sonuçlar ve arama metinlerinin özetleri tutulur, sizi tanıtan bilgi tutulmaz</li>
 </ul>
 <p>Bu sağlayıcıların sunucuları Türkiye dışında (AB ve ABD) bulunabilir; verileriniz hizmetin sunulması için bu ülkelere aktarılır.</p>
 
@@ -95,10 +96,12 @@ const privacyTr = `
 <p>Harita ve bazı katmanlar için uygulama aşağıdaki servislere doğrudan bağlanır. Bu servisler, her internet bağlantısında olduğu gibi IP adresinizi görür; kimliğinizi veya cihaz belirtecinizi göndermeyiz.</p>
 <ul>
   <li><strong>CARTO ve OpenStreetMap</strong> — harita karoları (görüntülediğiniz harita bölgesi)</li>
-  <li><strong>Google Fonts</strong> — yazı tipleri</li>
+  <li><strong>MyMemory</strong> — yangın ayrıntısındaki haberleri çevirmek için haber başlığı ve özeti; sizinle ilgili bilgi gönderilmez</li>
+  <li><strong>Google Play</strong> — uygulama içi güncelleme ve değerlendirme Google Play tarafından yürütülür; verdiğiniz puan ve yorum uygulamaya iletilmez</li>
   <li><strong>Copernicus EFFIS/GWIS</strong> — yangın hava indeksi; Konumum'da ya da bir yerin analizinde indeksi göstermek için yaklaşık 10 km'ye yuvarlanmış koordinatlar gönderilir. Bu gösterge FireWatch risk puanından ayrıdır ve puana katılmaz</li>
   <li><strong>Open-Meteo</strong> — bir yangının bulunduğu noktadaki rüzgâr (sizin konumunuz değil, yangının konumu gönderilir)</li>
 </ul>
+<p>Uygulama açılışta sunucumuzdan desteklenen en düşük sürümü ister. Bu istekte sürümünüz veya sizinle ilgili bir bilgi gönderilmez.</p>
 <p>Yangın ve termal tespit verileri (NASA FIRMS) ile risk hesabındaki hava durumu (Open-Meteo, MET Norway) sunucumuz tarafından çekilir; bu isteklerde sizinle ilgili veri yoktur. "Paylaş" düğmesiyle gönderdiğiniz içerik seçtiğiniz uygulamaya gider ve sunucumuzdan geçmez.</p>
 <p><strong>Veri kaynakları ve atıflar:</strong> Adres araması <a href="https://nominatim.openstreetmap.org/">Nominatim</a> ile yapılır; veriler © OpenStreetMap katkıcıları, ODbL. İl sınırları (haritadaki "Geçmiş yıllar" katmanı ve tespitlerin hangi ile atandığı) <a href="https://www.geoboundaries.org/">geoBoundaries</a> (gbOpen, TUR ADM1) üzerinden OpenStreetMap verisinden türetilmiştir — <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap katkıcıları</a>, <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>. Uydu tespitleri NASA FIRMS; hava verisi Open-Meteo ve MET Norway. Bu veriler cihazınızdan bilgi içermez.</p>
 
@@ -129,17 +132,17 @@ const privacyEn = `
 <table>
 <tr><th>Data</th><th>When and why</th><th>How long</th></tr>
 <tr><td>Approximate location (latitude/longitude rounded to about 1 km)</td><td>Only when you grant location permission and start automatic monitoring for notifications. Used to send you fire and risk alerts for your area. Your exact location is never stored; it is rounded to about 1 km before it is written.</td><td>While notifications are on. Deleted immediately when you turn notifications off, tap "Delete my location data" in the app, or your device token becomes invalid (e.g. you uninstall the app).</td></tr>
-<tr><td>Device token (Firebase Cloud Messaging), notification scope (all of Turkey / region / province), registration and update time</td><td>To deliver notifications and respect the scope you chose. The app refreshes the token each time it opens.</td><td>90 days after you last opened the app, then deleted entirely. Opening the app again creates a new record.</td></tr>
-<tr><td>My Places: the name you give, location rounded to about 1 km, radius (5/10/25 km), alert setting; a record of alerts sent for them or held back for a later summary because of the notification limit (place, detection, time). Your device is identified by a random ID the app generates, not by an account; the server keeps only a hash of that ID's secret key.</td><td>Only when you add a place to "My places". Used to notify you of new satellite heat detections within the radius, and never twice for the same detection.</td><td>Until you delete them. If you don't open the app for 90 days, or your device token has been invalid for 7 days, all your places are deleted. Alert records are deleted after 30 days.</td></tr>
+<tr><td>Device token (Firebase Cloud Messaging), app version, notification scope (all of Turkey / region / province), registration and update time</td><td>To deliver notifications and respect the scope you chose. The app refreshes the token each time it opens.</td><td>90 days after you last opened the app, then deleted entirely. Opening the app again creates a new record.</td></tr>
+<tr><td>My Places: the name you give, location rounded to about 1 km, radius (5/10/25 km), alert setting, app language; a record of alerts sent for them or held back for a later summary because of the notification limit (place, detection, time). Your device is identified by a random ID the app generates, not by an account; the server keeps only a hash of that ID's secret key.</td><td>Only when you add a place to "My places". Used to notify you of new satellite heat detections within the radius, and never twice for the same detection.</td><td>Until you delete them. If you don't open the app for 90 days, or your device token has been invalid for 7 days, all your places are deleted. Alert records are deleted after 30 days.</td></tr>
 <tr><td>Place search: the text you type in My Places</td><td>Only when you press Search for a neighbourhood or address. It is passed through our server to OpenStreetMap Nominatim; your IP address and device identity are not sent to Nominatim. Province and district searches run on your phone and are not sent.</td><td>The search text is not stored or logged. Results are cached for up to 7 days under an irreversible hash of the text, so the same search is not repeated.</td></tr>
-<tr><td>Fire report: location rounded to about 1 km, title, description, optional name and up to 3 photos</td><td>Only when you send a report. Used to review it and compare it with satellite detections.</td><td>90 days, then deleted together with its photos.</td></tr>
-<tr><td>Feedback: rating, category, message, app version and an optional email address</td><td>Only when you send feedback. Used to improve the app and, if you wish, to reply to you.</td><td>Until you ask us to delete it.</td></tr>
+<tr><td>Fire report: location rounded to about 1 km, title, description, optional name and up to 3 photos. If your phone added location data to a photo, it may be stored with the photo and is not rounded.</td><td>Only when you send a report. Used to review it and compare it with satellite detections.</td><td>90 days, then deleted together with its photos.</td></tr>
+<tr><td>Feedback: rating, category, message, app version, the phone's operating system and version in bug reports, and an optional email address</td><td>Only when you send feedback. Used to improve the app and, if you wish, to reply to you.</td><td>Until you ask us to delete it.</td></tr>
 <tr><td>Server access logs: IP address, request path, time, browser/app information</td><td>To run the service and detect errors and abuse. Locations are never written to these logs.</td><td>For the short log retention period of our hosting provider (Render).</td></tr>
 </table>
 
 <h2>How location is used</h2>
 <ul>
-  <li><strong>Risk at a point:</strong> On My Location or a place's analysis, the risk score is calculated on our server. The point is rounded to about 10 km first; the weather is fetched for that rounded point from Open-Meteo or MET Norway. The result is cached with the rounded point for up to 15 minutes and is not written to the database.</li>
+  <li><strong>Risk at a point:</strong> On My Location or a place's analysis, the risk score is calculated on our server. The point is rounded to about 10 km first; the weather is fetched for that rounded point from Open-Meteo or MET Norway and cached for up to 1 hour. The result is cached with the rounded point for up to 15 minutes and is not written to the database.</li>
   <li><strong>On your device:</strong> distance to nearby detections is calculated on your phone.</li>
   <li><strong>Nearest-province lookup:</strong> your location is sent to our server to show which province you are in. The location in this lookup is not stored and not logged.</li>
   <li><strong>Notifications:</strong> when you start automatic monitoring, your approximate location (about 1 km) is stored as described in the table above.</li>
@@ -155,7 +158,7 @@ const privacyEn = `
 <p>You do not need an account to use the app. If you sign in with Google to carry your progress between phones:</p>
 <ul>
   <li><strong>Google account:</strong> Firebase Authentication (Google) processes your email address, name, profile photo link and user ID to manage your account. Firebase also processes IP address and device/app information for security.</li>
-  <li><strong>Progress data:</strong> streak, XP, apples, finished lessons, marked days and tree state are stored in Cloud Firestore in a document only you can access. It is kept until you delete your account.</li>
+  <li><strong>Progress data:</strong> marked days, finished lessons, replayed lesson count, share and observation counts, longest streak and update time are stored in Cloud Firestore in a document only you can access. It is kept until you delete your account.</li>
   <li><strong>Kept apart:</strong> your location, My Places, reports and notification preferences are never written to this account or document.</li>
 </ul>
 <p><strong>Nature notes channel:</strong> the app shows 2-3 short nature facts a week and, if you turned it on, the Fidan reminder, through a separate notification channel called "Nature notes". They are scheduled on the phone and nothing is sent to our server; they are separate from fire alerts. You can turn them off in Settings or in your phone's notification settings.</p>
@@ -168,7 +171,8 @@ const privacyEn = `
   <li><strong>Render</strong> — server hosting and access logs</li>
   <li><strong>Neon</strong> — database (Frankfurt, Germany)</li>
   <li><strong>Firebase Cloud Messaging (Google)</strong> — delivering notifications to your device (device token and notification content)</li>
-  <li><strong>Upstash</strong> — cache; holds no personal data</li>
+  <li><strong>Firebase Authentication and Cloud Firestore (Google)</strong> — your account and progress document, only if you sign in with Google</li>
+  <li><strong>Upstash</strong> — cache; short-lived results for rounded points and hashes of search text, nothing that identifies you</li>
 </ul>
 <p>These providers may operate servers outside Turkey (in the EU and the US); your data is transferred there to provide the service.</p>
 
@@ -176,10 +180,12 @@ const privacyEn = `
 <p>For the map and some layers, the app connects directly to the services below. Like any internet connection, they see your IP address; we do not send them your identity or device token.</p>
 <ul>
   <li><strong>CARTO and OpenStreetMap</strong> — map tiles (the map area you view)</li>
-  <li><strong>Google Fonts</strong> — fonts</li>
+  <li><strong>MyMemory</strong> — the headline and summary of news items, to translate them on a fire's details; nothing about you is sent</li>
+  <li><strong>Google Play</strong> — in-app updates and reviews are run by Google Play; your rating and review are not passed to the app</li>
   <li><strong>Copernicus EFFIS/GWIS</strong> — fire weather index; to show the index on My Location or a place's analysis, coordinates rounded to about 10 km are sent. This indicator is separate from the FireWatch risk score and does not feed into it</li>
   <li><strong>Open-Meteo</strong> — wind at a fire's location (the fire's location is sent, not yours)</li>
 </ul>
+<p>At start-up the app asks our server for the lowest supported version. Neither your version nor anything about you is sent in that request.</p>
 <p>Fire and thermal detections (NASA FIRMS) and the weather used for risk scoring (Open-Meteo, MET Norway) are fetched by our server; those requests contain no data about you. Content you send with a "Share" button goes to the app you choose and does not pass through our server.</p>
 <p><strong>Data sources and attribution:</strong> Address search uses <a href="https://nominatim.openstreetmap.org/">Nominatim</a>; data © OpenStreetMap contributors, ODbL. Province boundaries (the map's "Past years" layer and the province a detection is assigned to) are derived from OpenStreetMap data via <a href="https://www.geoboundaries.org/">geoBoundaries</a> (gbOpen, TUR ADM1) — <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>, <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>. Satellite detections: NASA FIRMS; weather: Open-Meteo and MET Norway. None of this contains information from your device.</p>
 
@@ -209,7 +215,7 @@ const deletionTr = `
 <h2>Uygulama olmadan silme</h2>
 <p>Uygulamanız yoksa veya hesabınıza giremiyorsanız, Google hesabınızın e-posta adresini belirterek <a href="mailto:${CONTACT_EMAIL}?subject=FireWatch%20TR%20hesap%20silme">${CONTACT_EMAIL}</a> adresine "Hesabımı sil" yazın. Hesabınız ve verileriniz en geç 30 gün içinde silinir, tamamlandığında size yazarız.</p>
 <h2>Silinenler</h2>
-<ul><li>Google ile giriş hesabınız (e-posta, ad, profil fotoğrafı bağlantısı, kullanıcı kimliği)</li><li>İlerleme belgeniz (seri, XP, elmalar, dersler, ağaç durumu)</li></ul>
+<ul><li>Google ile giriş hesabınız (e-posta, ad, profil fotoğrafı bağlantısı, kullanıcı kimliği)</li><li>İlerleme belgeniz (işaretlenen günler, dersler, tekrar, paylaşım ve gözlem sayıları, en uzun seri)</li></ul>
 <p>Bu silme işleminden sonra hesapla ilgili hiçbir kayıt saklamayız. Konum, Yerlerim, ihbar ve geri bildirim verileri hesaba bağlı değildir; bunların silinmesi <a href="/privacy/tr">gizlilik politikasında</a> anlatılır.</p>
 `;
 const deletionEn = `
@@ -222,7 +228,7 @@ const deletionEn = `
 <h2>Delete without the app</h2>
 <p>If you no longer have the app or cannot sign in, write "Delete my account" to <a href="mailto:${CONTACT_EMAIL}?subject=FireWatch%20TR%20account%20deletion">${CONTACT_EMAIL}</a> and include your Google account's email address. Your account and data are deleted within 30 days, and we will tell you when it is done.</p>
 <h2>What is deleted</h2>
-<ul><li>Your Google sign-in account (email, name, profile photo link, user ID)</li><li>Your progress document (streak, XP, apples, lessons, tree state)</li></ul>
+<ul><li>Your Google sign-in account (email, name, profile photo link, user ID)</li><li>Your progress document (marked days, lessons, replay, share and observation counts, longest streak)</li></ul>
 <p>After deletion we keep no record about the account. Location, My Places, report and feedback data are not linked to the account; how to delete them is explained in the <a href="/privacy/en">privacy policy</a>.</p>
 `;
 router.get('/account-deletion', (req, res) => {
