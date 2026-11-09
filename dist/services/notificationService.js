@@ -73,7 +73,7 @@ class NotificationService {
                     notification: { title: m.title, body: m.body },
                     data: m.data ?? {},
                     android: {
-                        priority: 'high',
+                        priority: m.priority ?? 'high',
                         ttl: m.ttlSeconds !== undefined ? m.ttlSeconds * 1000 : undefined,
                         notification: { channelId: m.androidChannelId, tag: m.tag },
                     },

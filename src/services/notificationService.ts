@@ -69,6 +69,8 @@ export interface PushMessage {
   /** Replaces an earlier notification with the same tag instead of stacking. */
   tag?: string;
   ttlSeconds?: number;
+  /** Fire alerts stay high; a routine note can wait for the device. */
+  priority?: 'normal' | 'high';
 }
 
 export interface PushResult {
@@ -92,7 +94,7 @@ class NotificationService {
             notification: { title: m.title, body: m.body },
             data: m.data ?? {},
             android: {
-              priority: 'high' as const,
+              priority: m.priority ?? ('high' as const),
               ttl: m.ttlSeconds !== undefined ? m.ttlSeconds * 1000 : undefined,
               notification: { channelId: m.androidChannelId, tag: m.tag },
             },

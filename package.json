@@ -12,6 +12,8 @@
     "start": "node dist/server.js",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "announce:update": "ts-node --project tsconfig.scripts.json scripts/announce-update.ts",
+    "test:app-update": "ts-node --project tsconfig.scripts.json scripts/test-app-update.ts",
     "test:official-status": "ts-node --project tsconfig.scripts.json scripts/test-official-status.ts",
     "test:news-verification": "ts-node --project tsconfig.scripts.json scripts/test-news-verification.ts",
     "test:news-sighting": "ts-node --project tsconfig.scripts.json scripts/test-news-sighting.ts",
