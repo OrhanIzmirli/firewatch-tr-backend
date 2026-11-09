@@ -45,6 +45,7 @@ const compression_1 = __importDefault(require("compression"));
 const fires_1 = __importDefault(require("./routes/fires"));
 const notifications_1 = __importDefault(require("./routes/notifications"));
 const news_1 = __importDefault(require("./routes/news"));
+const appConfig_1 = __importDefault(require("./routes/appConfig"));
 const feedback_1 = __importDefault(require("./routes/feedback"));
 const thermal_1 = __importDefault(require("./routes/thermal"));
 const incidents_1 = __importDefault(require("./routes/incidents"));
@@ -113,6 +114,7 @@ app.use(newsSourceLogos_1.STATIC_MOUNT_PATH, express_1.default.static(path_1.def
 }));
 app.use('/api/fires', fires_1.default);
 app.use('/api/news', news_1.default);
+app.use('/api/app-config', appConfig_1.default);
 app.use('/api/nature', nature_1.default);
 app.use('/api/notify', notifications_1.default);
 app.use('/api/feedback', feedback_1.default);

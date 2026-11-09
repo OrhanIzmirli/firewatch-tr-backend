@@ -8,6 +8,7 @@ import compression from 'compression';
 import fireRoutes from './routes/fires';
 import notificationRoutes from './routes/notifications';
 import newsRoutes from './routes/news';
+import appConfigRoutes from './routes/appConfig';
 import feedbackRoutes from './routes/feedback';
 import thermalRoutes from './routes/thermal';
 import incidentRoutes from './routes/incidents';
@@ -86,6 +87,7 @@ app.use(
 
 app.use('/api/fires', fireRoutes);
 app.use('/api/news', newsRoutes);
+app.use('/api/app-config', appConfigRoutes);
 app.use('/api/nature', natureRoutes);
 app.use('/api/notify', notificationRoutes);
 app.use('/api/feedback', feedbackRoutes);

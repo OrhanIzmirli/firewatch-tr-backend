@@ -146,6 +146,7 @@ class NotificationController {
          ON CONFLICT (token) DO UPDATE SET
            updated_at = NOW(),
            is_active = true,
+           device_name = EXCLUDED.device_name,
            latitude = COALESCE(EXCLUDED.latitude, fcm_tokens.latitude),
            longitude = COALESCE(EXCLUDED.longitude, fcm_tokens.longitude),
            alert_scope = COALESCE($6, fcm_tokens.alert_scope),
