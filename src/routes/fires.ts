@@ -1,3 +1,4 @@
+import { imageKind, stripImageMetadata } from '../utils/imageMetadata';
 import { Router, Request, Response } from 'express';
 import fireController from '../controllers/fireController';
 import pool from '../config/database';
@@ -174,19 +175,23 @@ function normalizePhotos(photos: unknown): string[] {
       throw new Error(`photos[${index}] must be a non-empty base64 string`);
     }
     const match = photo.match(DATA_URI_PATTERN);
-    const mime = match?.[1]?.toLowerCase() ?? 'jpeg';
     const base64 = match ? photo.slice(match[0].length) : photo;
     if (!BASE64_PATTERN.test(base64)) throw new Error(`photos[${index}] is not valid base64 image data`);
     const bytes = Buffer.from(base64, 'base64');
     if (bytes.length === 0 || bytes.length > MAX_PHOTO_BYTES) {
       throw new Error(`photos[${index}] must be at most 2 MB`);
     }
-    const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
-    const isPng = bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-    const isWebp = bytes.subarray(0, 4).toString('ascii') === 'RIFF' && bytes.subarray(8, 12).toString('ascii') === 'WEBP';
-    if (!isJpeg && !isPng && !isWebp) throw new Error(`photos[${index}] is not a supported image`);
-    const normalizedMime = isPng ? 'png' : isWebp ? 'webp' : mime === 'jpg' ? 'jpeg' : mime;
-    return `data:image/${normalizedMime};base64,${base64}`;
+    const kind = imageKind(bytes);
+    if (kind === null) throw new Error(`photos[${index}] is not a supported image`);
+    // The app has already done this; older versions have not. A photo that
+    // cannot be cleaned is refused rather than stored with its location.
+    let clean: Buffer;
+    try {
+      clean = stripImageMetadata(bytes);
+    } catch {
+      throw new Error(`photos[${index}] could not be read`);
+    }
+    return `data:image/${kind};base64,${clean.toString('base64')}`;
   });
 }
 

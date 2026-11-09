@@ -1,3 +1,4 @@
+import { deviceNotMutedSql } from '../utils/alertConsent';
 import crypto from 'crypto';
 import pool from '../config/database';
 import { recordJobRun } from '../services/jobRunRecorder';
@@ -92,6 +93,7 @@ export function dueRiskPlacesSql(): string {
             JOIN place_devices d ON d.install_id = p.install_id
             LEFT JOIN place_risk_state s ON s.place_id = p.id
            WHERE p.notify_risk
+             AND ${deviceNotMutedSql('d')}
              AND (s.last_checked_at IS NULL
                   OR s.last_checked_at <= $1::timestamptz - make_interval(hours => $2))
            ORDER BY s.last_checked_at NULLS FIRST

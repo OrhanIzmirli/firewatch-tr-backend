@@ -1,3 +1,4 @@
+import { allScopeAllowedSql } from '../utils/alertConsent';
 import cron from 'node-cron';
 import pool from '../config/database';
 import cacheService from '../services/cacheService';
@@ -107,9 +108,9 @@ class RiskCalculatorJob {
   // Region radius is generous (400km) since REGIONS' lat/lng are single
   // representative points for areas that actually span a few hundred km —
   // a tight radius would miss users at the edges of their own region.
-  // Tokens with no stored location match every region's alert rather than
-  // none — we'd rather over-notify a user we can't place than silently
-  // never notify them at all.
+  // A device with no stored location cannot be matched by distance, so it
+  // gets a region's alert only if it picked that region or province, or
+  // asked for the whole country (allScopeAllowedSql).
   private static readonly REGION_RADIUS_METERS = 400_000;
 
   // No LIMIT: notificationService.sendToTokens chunks into 500s internally, so
@@ -177,6 +178,7 @@ class RiskCalculatorJob {
     const result = await pool.query(
       `SELECT t.token FROM fcm_tokens t
        WHERE t.is_active = true
+         AND ${allScopeAllowedSql('t')}
          AND (
            t.latitude IS NULL OR t.longitude IS NULL
            OR ST_DWithin(

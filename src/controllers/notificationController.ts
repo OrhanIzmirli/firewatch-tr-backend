@@ -1,3 +1,4 @@
+import { allScopeAllowedSql } from '../utils/alertConsent';
 import { Request, Response } from 'express';
 import pool from '../config/database';
 import notificationService from '../services/notificationService';
@@ -121,6 +122,20 @@ class NotificationController {
         res.status(400).json({ status: 'error', message: 'Unknown city_id' });
         return;
       }
+      if (req.body.is_active !== undefined && typeof req.body.is_active !== 'boolean') {
+        res.status(400).json({ status: 'error', message: 'is_active must be a boolean' });
+        return;
+      }
+
+      // The start-up ping says nothing about the user's wishes, so it must
+      // not change them. Older apps have no is_active field, but they only
+      // send a location or a scope when the user turned alerts on.
+      const explicitActive: boolean | null =
+        typeof req.body.is_active === 'boolean'
+          ? req.body.is_active
+          : (lat !== null && lng !== null) || scope.alertScope !== null
+            ? true
+            : null;
 
       const resolved = lat !== null && lng !== null ? await resolveLocation(lat, lng) : null;
       let regionToStore: string | null = null;
@@ -141,28 +156,31 @@ class NotificationController {
       // 'all' and silently widening what the user asked for.
       await pool.query(
         `INSERT INTO fcm_tokens (token, device_name, device_type, latitude, longitude, is_active, created_at, updated_at,
-                                 alert_scope, region_key, city_id)
-         VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW(), COALESCE($6, 'all'), $7, $8)
+                                 alert_scope, region_key, city_id, all_regions_opt_in)
+         VALUES ($1, $2, $3, $4, $5, COALESCE($9::boolean, true), NOW(), NOW(), COALESCE($6::text, 'all'), $7, $8,
+                 COALESCE($6::text = 'all', false))
          ON CONFLICT (token) DO UPDATE SET
            updated_at = NOW(),
-           is_active = true,
+           is_active = COALESCE($9::boolean, fcm_tokens.is_active),
            device_name = EXCLUDED.device_name,
-           latitude = COALESCE(EXCLUDED.latitude, fcm_tokens.latitude),
-           longitude = COALESCE(EXCLUDED.longitude, fcm_tokens.longitude),
-           alert_scope = COALESCE($6, fcm_tokens.alert_scope),
-           region_key = CASE WHEN $6 IS NULL THEN fcm_tokens.region_key ELSE $7 END,
-           city_id    = CASE WHEN $6 IS NULL THEN fcm_tokens.city_id    ELSE $8 END`,
+           latitude = CASE WHEN $9::boolean IS FALSE THEN NULL ELSE COALESCE(EXCLUDED.latitude, fcm_tokens.latitude) END,
+           longitude = CASE WHEN $9::boolean IS FALSE THEN NULL ELSE COALESCE(EXCLUDED.longitude, fcm_tokens.longitude) END,
+           alert_scope = COALESCE($6::text, fcm_tokens.alert_scope),
+           all_regions_opt_in = CASE WHEN $6::text IS NULL THEN fcm_tokens.all_regions_opt_in ELSE $6::text = 'all' END,
+           region_key = CASE WHEN $6::text IS NULL THEN fcm_tokens.region_key ELSE $7 END,
+           city_id    = CASE WHEN $6::text IS NULL THEN fcm_tokens.city_id    ELSE $8 END`,
         [
           token,
           typeof device_info === 'string' ? device_info.slice(0, 100) : 'FireWatch TR',
           'android',
           // The exact fix resolved the province above; only the ~1 km
           // rounded value is kept (utils/locationPrivacy.ts).
-          roundStoredCoordinate(lat),
-          roundStoredCoordinate(lng),
+          explicitActive === false ? null : roundStoredCoordinate(lat),
+          explicitActive === false ? null : roundStoredCoordinate(lng),
           scope.alertScope,
           regionToStore,
           scope.cityId,
+          explicitActive,
         ]
       );
 
@@ -294,9 +312,10 @@ class NotificationController {
            latitude  = CASE WHEN $2 THEN COALESCE($3, latitude)  ELSE NULL END,
            longitude = CASE WHEN $2 THEN COALESCE($4, longitude) ELSE NULL END,
            updated_at = NOW(),
-           alert_scope = COALESCE($5, alert_scope),
-           region_key = CASE WHEN $5 IS NULL THEN region_key ELSE $6 END,
-           city_id    = CASE WHEN $5 IS NULL THEN city_id    ELSE $7 END
+           alert_scope = COALESCE($5::text, alert_scope),
+           all_regions_opt_in = CASE WHEN $5::text IS NULL THEN all_regions_opt_in ELSE $5::text = 'all' END,
+           region_key = CASE WHEN $5::text IS NULL THEN region_key ELSE $6 END,
+           city_id    = CASE WHEN $5::text IS NULL THEN city_id    ELSE $7 END
          WHERE token = $1 RETURNING token, alert_scope, region_key, city_id`,
         [
           token,
@@ -337,10 +356,9 @@ class NotificationController {
    * POST /api/notify/location/delete — the app's "Delete my location data".
    *
    * Erases the stored location and nothing else: notifications and the
-   * chosen scope stay as they are. With no location on file the risk job
-   * treats the device as unplaced and includes it in every region's alert
-   * (riskCalculatorJob.getActiveTokensNearRegion) unless it picked a region
-   * or province — the app says so before the user confirms.
+   * chosen scope stay as they are. With no location on file a device gets
+   * region alerts only for a region or province it picked, or for the whole
+   * country if it asked for that (utils/alertConsent.ts).
    */
   async deleteLocation(req: Request, res: Response): Promise<void> {
     try {
@@ -408,6 +426,7 @@ class NotificationController {
         const result = await pool.query(
           `SELECT token FROM fcm_tokens
            WHERE is_active = true
+             AND ${allScopeAllowedSql('fcm_tokens')}
              AND (
                alert_scope = 'all'
                OR (alert_scope = 'region' AND region_key IS NOT NULL AND region_key = $1)

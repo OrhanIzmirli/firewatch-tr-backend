@@ -149,7 +149,7 @@ b('over the cap is held for the summary, never dropped; no token is undeliverabl
 
 b('summary text: count, not confirmed, 112 — both languages; opens the list', () => {
   const tr = buildHeatSummaryText('tr', 4);
-  assert.match(tr.title, /Yerlerinin yakınında 4 yeni tespit/);
+  assert.match(tr.title, /Yerlerinizin yakınında 4 yeni tespit/);
   assert.match(tr.body, /doğrulanmış yangın değildir/);
   assert.match(tr.body, /112/);
   assert.match(buildHeatSummaryText('en', 1).title, /1 new detection near your places/);

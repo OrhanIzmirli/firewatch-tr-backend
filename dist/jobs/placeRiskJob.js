@@ -41,6 +41,7 @@ exports.turkeyClock = turkeyClock;
 exports.shouldAlert = shouldAlert;
 exports.dueRiskPlacesSql = dueRiskPlacesSql;
 exports.runPlaceRiskAlerts = runPlaceRiskAlerts;
+const alertConsent_1 = require("../utils/alertConsent");
 const crypto_1 = __importDefault(require("crypto"));
 const database_1 = __importDefault(require("../config/database"));
 const jobRunRecorder_1 = require("../services/jobRunRecorder");
@@ -95,6 +96,7 @@ function dueRiskPlacesSql() {
             JOIN place_devices d ON d.install_id = p.install_id
             LEFT JOIN place_risk_state s ON s.place_id = p.id
            WHERE p.notify_risk
+             AND ${(0, alertConsent_1.deviceNotMutedSql)('d')}
              AND (s.last_checked_at IS NULL
                   OR s.last_checked_at <= $1::timestamptz - make_interval(hours => $2))
            ORDER BY s.last_checked_at NULLS FIRST
