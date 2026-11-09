@@ -36,12 +36,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.dropHeldOfMutedSql = dropHeldOfMutedSql;
 exports.dueSummariesSql = dueSummariesSql;
 exports.newHeatPairsSql = newHeatPairsSql;
 exports.planDevicePushes = planDevicePushes;
 exports.buildPushMessage = buildPushMessage;
 exports.buildSummaryMessage = buildSummaryMessage;
 exports.runPlaceAlerts = runPlaceAlerts;
+const alertConsent_1 = require("../utils/alertConsent");
 const crypto_1 = __importDefault(require("crypto"));
 const database_1 = __importDefault(require("../config/database"));
 const jobRunRecorder_1 = require("../services/jobRunRecorder");
@@ -53,6 +55,14 @@ const RECENT_PUSHES_SQL = (installIdExpr) => `
   (SELECT count(DISTINCT x.push_id)::int FROM place_notifications x
     WHERE x.install_id = ${installIdExpr} AND x.push_id IS NOT NULL
       AND x.pushed_at > NOW() - make_interval(hours => ${trackedPlaces_1.HEAT_ALERT_CAP_WINDOW_HOURS}))`;
+/** Held detections must not arrive as a late summary after alerts come back on. */
+function dropHeldOfMutedSql() {
+    return `
+    UPDATE place_notifications n SET status = 'undeliverable'
+    FROM place_devices d
+    WHERE n.status = 'held' AND d.install_id = n.install_id AND NOT ${(0, alertConsent_1.deviceNotMutedSql)('d')}
+  `;
+}
 /** Devices whose held detections are due a summary (cap window over). */
 function dueSummariesSql() {
     return `
@@ -75,6 +85,7 @@ function newHeatPairsSql() {
       JOIN fire_incidents i
         ON ST_DWithin(p.geom, i.centroid::geography, p.radius_m)
       WHERE p.notify_heat
+        AND ${(0, alertConsent_1.deviceNotMutedSql)('d')}
         AND i.last_detected_at > NOW() - make_interval(hours => ${trackedPlaces_1.HEAT_ALERT_MAX_AGE_HOURS})
         AND i.peak_confidence_tier IN (${tiers})
         AND NOT COALESCE((${(0, heatSource_1.heatSourceSqlCondition)('i')}), false)
@@ -191,6 +202,7 @@ async function runPlaceAlerts(db, send, opts = {}) {
         skipped: false, newPairs: 0, pushesSent: 0, summariesSent: 0, held: 0, undeliverable: 0, failed: 0, deadTokens: 0,
     };
     const forget = opts.forgetFcmTokens ?? true;
+    await db.query(dropHeldOfMutedSql());
     // 1. Summaries for devices whose cap window has ended.
     const due = (await db.query(dueSummariesSql())).rows;
     const noToken = due.filter((d) => !d.fcm_token);

@@ -208,7 +208,7 @@ export function buildHeatSummaryText(locale: Locale, count: number): HeatAlertTe
     };
   }
   return {
-    title: `🛰️ Yerlerinin yakınında ${count} yeni tespit`,
+    title: `🛰️ Yerlerinizin yakınında ${count} yeni tespit`,
     body:
       `Uydular, Yerlerim'deki yerlerin yakınında ${count} ısı kaynağı daha tespit etti. ` +
       'Bunlar doğrulanmış yangın değildir. Yangın görürsen 112\'yi ara.',

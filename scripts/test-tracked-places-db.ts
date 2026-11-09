@@ -69,7 +69,9 @@ const send = async (messages: PushMessage[]): Promise<PushResult[]> => {
       peak_confidence_tier TEXT,
       distinct_days_seen INTEGER NOT NULL DEFAULT 1,
       frp_mean NUMERIC,
-      max_frp_mw NUMERIC
+      max_frp_mw NUMERIC,
+      land_cover TEXT,
+      news_verified_id BIGINT
     )`);
     const run = () => job.runPlaceAlerts(c, send, { forgetFcmTokens: false });
     const statuses = async (install: string) =>
@@ -206,7 +208,7 @@ const send = async (messages: PushMessage[]): Promise<PushResult[]> => {
       assert.strictEqual(sent.length, 4);
       const m = sent[3];
       assert.deepStrictEqual(m.data, { type: 'place_heat_summary', count: '3' });
-      assert.match(m.title, /Takip ettiğin yerlerin yakınında 3 yeni tespit/);
+      assert.match(m.title, /Yerlerinizin yakınında 3 yeni tespit/);
       assert.strictEqual(m.tag, 'places-summary');
       assert.strictEqual(await statuses(dev), 'sent:4 summarized:3');
       const again = await run();
@@ -254,6 +256,19 @@ const send = async (messages: PushMessage[]): Promise<PushResult[]> => {
       const after = await run();
       assert.strictEqual(after.undeliverable, 1, 'no token: recorded, never sent');
       assert.strictEqual(sent.length, before, 'nothing sent without a token');
+    });
+
+    await b('a device with notifications off records and sends nothing', async () => {
+      await c.query(`UPDATE place_devices SET fcm_token = $2, token_invalid_at = NULL WHERE install_id = $1`, [dev, tok1]);
+      await c.query(
+        `INSERT INTO fcm_tokens (token, device_name, device_type, is_active) VALUES ($1, 'test', 'android', false)`,
+        [tok1]
+      );
+      await incident(2, 'high', 0);
+      const stats = await run();
+      assert.strictEqual(stats.newPairs, 0);
+      assert.strictEqual(stats.pushesSent, 0);
+      await c.query('DELETE FROM fcm_tokens WHERE token = $1', [tok1]);
     });
 
     await b('a place with alerts off records nothing', async () => {
