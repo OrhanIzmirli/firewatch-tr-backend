@@ -35,8 +35,8 @@ ${body}
 // step: rounding, erasure and log redaction in utils/locationPrivacy.ts and
 // controllers/notificationController.ts, the 90-day deletion in
 // jobs/privacyRetentionJob.ts.
-const POLICY_DATE_TR = '9 Kasım 2026';
-const POLICY_DATE_EN = 'November 9, 2026';
+const POLICY_DATE_TR = '10 Kasım 2026';
+const POLICY_DATE_EN = 'November 10, 2026';
 const privacyTr = `
 <h1>FireWatch TR — Gizlilik Politikası</h1>
 <p class="updated">Son güncelleme: ${POLICY_DATE_TR}</p>
@@ -63,7 +63,7 @@ const privacyTr = `
   <li><strong>En yakın il sorgusu:</strong> Bulunduğunuz ili göstermek için konumunuz sunucumuza gönderilir. Bu sorgudaki konum saklanmaz ve kayıtlara yazılmaz.</li>
   <li><strong>Bildirimler:</strong> Otomatik taramayı başlattığınızda yaklaşık konumunuz (yaklaşık 1 km) yukarıdaki tabloda yazdığı gibi saklanır.</li>
   <li><strong>Yerlerim:</strong> Aradığınız, haritadan seçtiğiniz ya da "Konumumu ekle" ile o anki konumunuzdan eklediğiniz noktalar yaklaşık 1 km'ye yuvarlanarak saklanır. Yeni tespitlerle eşleştirme sunucuda bu noktalara göre yapılır; bunun için cihazınızın konumu izlenmez.</li>
-  <li><strong>Arka plan konumu:</strong> İsteğe bağlıdır ve uygulamada ayrıca onay ister. Uygulama kapalıyken yakındaki tespitleri telefonunuzda kontrol etmek için kullanılır; bu kontrol sırasında konumunuz sunucuya gönderilmez.</li>
+  <li><strong>Konum güncellemesi:</strong> Otomatik taramayı başlattıysanız, uygulamayı her açtığınızda konumunuz yaklaşık 1 km'ye yuvarlanarak sunucumuzda güncellenir ve bildirimler bu son konuma göre gider. Uygulama arka plan konum izni istemez; konumunuz yalnızca uygulama açık ve ekrandayken okunur. Ev veya yazlık gibi yerler için Yerlerim'i kullanabilirsiniz.</li>
   <li>Konum izni vermeden de uygulamayı kullanabilirsiniz. İzni istediğiniz zaman telefon ayarlarından kaldırabilirsiniz.</li>
 </ul>
 
@@ -147,7 +147,7 @@ const privacyEn = `
   <li><strong>Nearest-province lookup:</strong> your location is sent to our server to show which province you are in. The location in this lookup is not stored and not logged.</li>
   <li><strong>Notifications:</strong> when you start automatic monitoring, your approximate location (about 1 km) is stored as described in the table above.</li>
   <li><strong>My Places:</strong> points you search for, pick on the map, or add from your current location with "Use my location", are stored rounded to about 1 km. New detections are matched against these points on the server; your device's location is not tracked for this.</li>
-  <li><strong>Background location:</strong> optional, with a separate in-app consent. It lets your phone check for nearby detections while the app is closed; your location is not sent to the server during these checks.</li>
+  <li><strong>Location updates:</strong> if you started automatic monitoring, each time you open the app your location is updated on our server rounded to about 1 km, and alerts go by that last location. The app does not ask for background location; your location is read only while the app is open on your screen. For places such as your home or summer house, use My Places.</li>
   <li>You can use the app without location permission, and you can revoke the permission at any time in your phone's settings.</li>
 </ul>
 
